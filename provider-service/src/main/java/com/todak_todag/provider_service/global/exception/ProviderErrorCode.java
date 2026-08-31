@@ -19,7 +19,6 @@ public enum ProviderErrorCode implements ErrorCode {
     PROVIDE_SERVICE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 서비스 종류입니다."),
     SERVICE_OFFERING_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 제공 서비스입니다."),
     PROVIDE_WORK_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 제공 가능 일정입니다."),
-    REGION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 지역입니다."),
 
     // 409
     SERVICE_OFFERING_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 제공 서비스입니다."),
