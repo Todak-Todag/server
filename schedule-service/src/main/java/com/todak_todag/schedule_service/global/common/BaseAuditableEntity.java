@@ -21,7 +21,7 @@ public abstract class BaseAuditableEntity extends BaseEntity {
     private Instant updatedAt;
 
     @LastModifiedBy
-    @Column(name = "updated_by")
+    @Column(name = "updated_by", nullable = false)
     private UUID updatedBy;
 
     @Column(name = "deleted_at")
