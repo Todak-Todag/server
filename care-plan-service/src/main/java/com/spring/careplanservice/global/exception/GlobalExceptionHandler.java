@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -25,7 +24,7 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ErrorResponse> handleTodakTodagException(
+    public ResponseEntity<ErrorResponse> handleBusinessException(
             BusinessException e
     ) {
         ErrorCode errorCode = e.getErrorCode();
@@ -35,7 +34,7 @@ public class GlobalExceptionHandler {
                 : e.getDetails();
 
         log.warn(
-                "[TodakTodagException] code={}, message={}",
+                "[BusinessException] code={}, message={}",
                 errorCode.getCode(),
                 e.getMessage()
         );
@@ -214,12 +213,9 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler({
-            AccessDeniedException.class,
-            AuthorizationDeniedException.class
-    })
+    @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(
-            Exception e
+            AccessDeniedException e
     ) {
         log.warn(
                 "[AccessDeniedException] message={}",
