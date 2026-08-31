@@ -1,0 +1,27 @@
+server:
+  port: 19005
+
+spring:
+  config:
+    import:
+      - "optional:file:.env[.properties]"
+  #     - "optional:configserver:${CONFIG_SERVER_URL}"
+
+  application:
+    name: care-plan-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_SERVER_HOST:localhost}:19090/eureka/
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
