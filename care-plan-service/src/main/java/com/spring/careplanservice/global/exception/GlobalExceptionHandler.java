@@ -45,12 +45,16 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(IllegalStateException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalStateException(
-            IllegalStateException e
+    @ExceptionHandler({
+            IllegalArgumentException.class,
+            IllegalStateException.class
+    })
+    public ResponseEntity<ErrorResponse> handleInvalidRequest(
+            RuntimeException e
     ) {
         log.warn(
-                "[IllegalStateException] message={}",
+                "[InvalidRequest] type={}, message={}",
+                e.getClass().getSimpleName(),
                 e.getMessage()
         );
 
@@ -71,21 +75,6 @@ public class GlobalExceptionHandler {
 
         return createResponse(
                 ErrorCode.COMMON_NOT_FOUND,
-                Map.of("reason", e.getMessage())
-        );
-    }
-
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ErrorResponse> handleIllegalArgumentException(
-            IllegalArgumentException e
-    ) {
-        log.warn(
-                "[IllegalArgumentException] message={}",
-                e.getMessage()
-        );
-
-        return createResponse(
-                ErrorCode.COMMON_INVALID_REQUEST,
                 Map.of("reason", e.getMessage())
         );
     }
