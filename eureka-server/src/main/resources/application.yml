@@ -1,0 +1,12 @@
+spring:
+  application:
+    # Config Server가 식별할 서비스 이름을 eureka-server로 지정.
+    name: eureka-server
+
+  profiles:
+    # 로컬 실행 환경을 local 프로파일로 지정.
+    active: local
+
+  config:
+    # Config Server에서 Eureka Server의 외부 설정을 조회하도록 지정.
+    import: "configserver:http://localhost:8888"
