@@ -3,7 +3,7 @@ spring:
     name: schedule-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/todak_todag_db
+    url: jdbc:postgresql://localhost:5432/todaktodag_db
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
