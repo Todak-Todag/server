@@ -2,10 +2,10 @@ name: Care-Plan-Service CI
 
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [ develop, main ]
     paths:
       - 'care-plan-service/**'
-      - 'care-plan-service-ci.yml'
+      - '.github/workflows/care-plan-service-ci.yml'
 
 permissions:
   contents: read
