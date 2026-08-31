@@ -41,8 +41,11 @@ logging:
     com.todak_todag.user_service: info
 
 internal:
-  api-key: ${INTERNAL_API_KEY}
-    
+  key: ${INTERNAL_API_KEY:0123456789abcdefghijklmnopqrstuv}
+
+jwt:
+  secret: ${JWT_SECRET}
+
 ---
 spring:
   config:
@@ -58,14 +61,10 @@ spring:
         format_sql: true
         hbm2ddl:
           create_namespaces: true
-          
+
 logging:
   level:
     com.todak_todag.user_service: debug
-
-internal:
-  api-key: ${INTERNAL_API_KEY:0123456789abcdefghijklmnopqrstuv}
-        
 ---
 spring:
   config:
