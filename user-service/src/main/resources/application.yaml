@@ -39,6 +39,9 @@ management:
 logging:
   level:
     com.todak_todag.user_service: info
+
+internal:
+  api-key: ${INTERNAL_API_KEY}
     
 ---
 spring:
@@ -59,7 +62,10 @@ spring:
 logging:
   level:
     com.todak_todag.user_service: debug
-    
+
+internal:
+  api-key: ${INTERNAL_API_KEY:0123456789abcdefghijklmnopqrstuv}
+        
 ---
 spring:
   config:
