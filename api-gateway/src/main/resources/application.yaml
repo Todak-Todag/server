@@ -18,7 +18,7 @@ spring:
             - id: user-service
               uri: lb://user-service
               predicates:
-                - Path=/api/v1/users/**,/api/v1/auth/**,/api/v1/regions/**,/api/v1/admin/regions/**,/api/v1/consent-documents/**,/api/v1/admin/consent-documents/**,/api/v1/consents/**
+                - Path=/api/v1/users/**,/api/v1/admin/users/**,/api/v1/auth/**,/api/v1/regions/**,/api/v1/admin/regions/**,/api/v1/consent-documents/**,/api/v1/admin/consent-documents/**,/api/v1/consents/**
                     
             - id: discharge-service
               uri: lb://discharge-service
@@ -103,7 +103,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health
         
   endpoint:
     health:
