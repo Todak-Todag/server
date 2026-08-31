@@ -1,3 +1,6 @@
+server:
+  port: 19090
+
 spring:
   application:
     name: user-service
