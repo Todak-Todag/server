@@ -33,7 +33,7 @@ spring:
       on-profile: local
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/todaktodag_db?currentSchema=care_plan_service_schema
+    url: jdbc:postgresql://localhost:5432/todaktodag_db?currentSchema=care_plan_schema
     username: root
     password: password
 
