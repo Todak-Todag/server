@@ -35,5 +35,5 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@v6
         with:
-          name: eureka-server-test-report
-          path: eureka-server/build/reports/tests/
+          name: api-gateway-test-report
+          path: api-gateway/build/reports/tests/
