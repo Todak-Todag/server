@@ -9,3 +9,10 @@ eureka:
 
     # 다른 Eureka Server의 레지스트리를 조회하지 않도록 지정.
     fetch-registry: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # Eureka Server 상태 확인을 위한 Actuator 엔드포인트 노출.
+        include: health,info
