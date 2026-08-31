@@ -1,7 +1,9 @@
+# eclipse 쓰면 build path 자동으로 연결을 안해준다...
+
 spring:
   application:
     name: user-service
-  
+
   datasource:
     url: jdbc:postgresql://localhost:5432/todaktodag_db
     username: postgres
@@ -42,7 +44,8 @@ management:
       enabled: false
 
   tracing:
-    enabled: false
+    export:
+      enabled: false
 
 logging:
   level:
