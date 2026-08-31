@@ -30,7 +30,7 @@ dependencies {
 	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:3.0.3'
 	implementation 'org.springframework.boot:spring-boot-starter-zipkin'
   implementation 'io.micrometer:micrometer-tracing-bridge-brave'
-  implementation 'org.springframework.cloud:spring-cloud-starter-config'
+  // implementation 'org.springframework.cloud:spring-cloud-starter-config'
   
   implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
   runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.13.0'
