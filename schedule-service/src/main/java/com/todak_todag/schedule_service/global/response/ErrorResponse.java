@@ -2,12 +2,12 @@ package com.todak_todag.schedule_service.global.response;
 
 import com.todak_todag.schedule_service.global.exception.ErrorCode;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
 public record ErrorResponse(
         boolean success,
         ErrorDetail error,
-        OffsetDateTime timestamp
+        Instant timestamp
 ) {
 
     public record ErrorDetail(
@@ -17,6 +17,6 @@ public record ErrorResponse(
     }
 
     public static ErrorResponse of(ErrorCode errorCode) {
-        return new ErrorResponse(false, new ErrorDetail(errorCode.getMessage(), errorCode.getCode()), OffsetDateTime.now());
+        return new ErrorResponse(false, new ErrorDetail(errorCode.getMessage(), errorCode.getCode()), Instant.now());
     }
 }
