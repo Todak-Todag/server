@@ -49,41 +49,54 @@ public class SecurityConfig {
 								"/api/v1/auth/logout"
 						).permitAll()
 						
-						// TODO: User-Service
-
-							// TODO: User-Service 미인증 경로
+						// 공개 API
+						.pathMatchers(
+								"/api/v1/regions/**",
+								"/api/v1/consent-documents/**"
+						).permitAll()
 						
-							// TODO: User-Service 인증 경로
-						
-						// TODO: Discharge-Service
-						
-							// TODO: Discharge-Service 미인증 경로
-						
-							// TODO: Discharge-Service 인증 경로
-
-						// TODO: Social-Worker-Service
-						
-							// TODO: Social-Worker-Service 미인증 경로
-						
-							// TODO: Social-Worker-Service 인증 경로
-						
-						// TODO: Schedule-Service
-						
-							// TODO: Schedule-Service 미인증 경로
-						
-							// TODO: Schedule-Service 인증 경로
-						
-						// TODO: Provider-Service
-						
-							// TODO: Provider-Service 미인증 경로
-						
-							// TODO: Provider-Service 인증 경로
-						
-						// TODO: Care-Plan-Service
-						
-							// TODO: Care-Plan-Service 미인증 경로
-						
-							// TODO: Care-Plan-Service 인증 경로
+						// 관리자
+						.pathMatchers(
+								"/api/v1/admin/**"
+						).authenticated()
+								
+								// User-Service
+								.pathMatchers(
+										"/api/v1/users/**",
+										"/api/v1/consents/**"
+								).authenticated()
+								
+								// Discharge-Service
+								.pathMatchers(
+										"/api/v1/discharges/**"
+								).authenticated()
+								
+								// Social-Worker-Service
+								.pathMatchers(
+										"/api/v1/social-worker-matchings/**"
+								).authenticated()
+								
+								// Schedule-Service
+								.pathMatchers(
+										"/api/v1/service-schedules/**",
+										"/api/v1/service-results/**"
+								).authenticated()
+								
+								// Provider-Service
+								.pathMatchers(
+										"/api/v1/provide-services/**",
+										"/api/v1/service-offerings/**",
+										"/api/v1/provide-works/**"
+								).authenticated()
+								
+								// Care-Plan-Service
+								.pathMatchers(
+										"/api/v1/care-plans/**",
+										"/api/v1/care-plan-services/**",
+										"/api/v1/service-preferences/**"
+								).authenticated()
+								
+						.anyExchange().authenticated()
 				);
 		
 		return http.build();
