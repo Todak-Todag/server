@@ -1,6 +1,6 @@
-package com.spring.careplanservice.global.exception;
+package global.exception;
 
-import com.spring.careplanservice.global.response.ErrorResponse;
+import global.response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;

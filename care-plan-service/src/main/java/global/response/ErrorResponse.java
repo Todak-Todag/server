@@ -1,6 +1,6 @@
-package com.spring.careplanservice.global.response;
+package global.response;
 
-import com.spring.careplanservice.global.exception.ErrorCode;
+import global.exception.ErrorCode;
 
 import java.time.Instant;
 import java.util.Map;

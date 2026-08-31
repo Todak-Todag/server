@@ -1,4 +1,4 @@
-package com.spring.careplanservice.global.response;
+package global.response;
 
 import org.springframework.data.domain.Page;
 

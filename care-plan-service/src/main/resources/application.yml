@@ -25,3 +25,23 @@ management:
     export:
       zipkin:
         endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/todaktodag_db?currentSchema=care_plan_service_schema
+    username: root
+    password: password
+
+  jpa:
+    hibernate:
+      # TODO: DB 마이그레이션 방식 논의 후 validate로 변경
+      ddl-auto: update
+    properties:
+      hibernate:
+        hbm2ddl:
+          create_namespaces: true # 스키마가 없으면 생성 허용

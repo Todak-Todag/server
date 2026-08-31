@@ -51,4 +51,4 @@ management:
 
 logging:
   level:
-    com.todak_todag.care_plan_service: debug
+    com.spring.careplanservice: debug
