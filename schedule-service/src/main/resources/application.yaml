@@ -1,0 +1,92 @@
+server:
+  port: 19004
+
+spring:
+  application:
+    name: schedule-service
+
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: schedule_schema
+        default_batch_fetch_size: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: never
+
+  tracing:
+    sampling:
+      probability: 1.0
+      
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+
+logging:
+  level:
+    com.todak_todag.schedule_service: info
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        hbm2ddl:
+          create_namespaces: true
+
+logging:
+  level:
+    com.todak_todag.schedule_service: debug
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+
+    # TODO: Flyway/Liquibase 도입 후 제거
+    properties:
+      hibernate:
+        hbm2ddl:
+          create_namespaces: true
+
+logging:
+  level:
+    com.todak_todag.schedule_service: info
