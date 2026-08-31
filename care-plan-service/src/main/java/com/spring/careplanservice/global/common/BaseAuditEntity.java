@@ -1,4 +1,4 @@
-package global.common;
+package com.spring.careplanservice.global.common;
 
 
 import jakarta.persistence.Column;

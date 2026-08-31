@@ -1,7 +1,7 @@
-package com.spring.careplanservice.domain.entity;
+package com.spring.careplanservice.careplan.domain.entity;
 
 
-import global.common.BaseAuditEntity;
+import com.spring.careplanservice.global.common.BaseAuditEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

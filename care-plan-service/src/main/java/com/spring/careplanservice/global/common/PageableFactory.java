@@ -1,4 +1,4 @@
-package global.common;
+package com.spring.careplanservice.global.common;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;

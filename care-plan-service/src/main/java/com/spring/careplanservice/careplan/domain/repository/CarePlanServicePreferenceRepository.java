@@ -1,6 +1,6 @@
-package com.spring.careplanservice.domain.repository;
+package com.spring.careplanservice.careplan.domain.repository;
 
-import com.spring.careplanservice.domain.entity.CarePlanServicePreference;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.UUID;

@@ -1,4 +1,4 @@
-package global.response;
+package com.spring.careplanservice.global.response;
 
 public record ApiResponse<T>(
         boolean success,

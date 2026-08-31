@@ -1,4 +1,4 @@
-package global.exception;
+package com.spring.careplanservice.global.exception;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
