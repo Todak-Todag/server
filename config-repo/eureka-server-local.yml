@@ -1,0 +1,4 @@
+# Eureka Server의 로컬 환경 설정 확인용 값.
+test:
+  config:
+    message: "eureka-server local config loaded"
