@@ -5,7 +5,7 @@ on:
     branches: [develop, main]
     paths:
       - 'eureka-server/**'
-      - '.github/workflows/eureka-server-ci.yaml'
+      - '.github/workflows/eureka-server-ci.yml'
 
 permissions:
   contents: read
@@ -36,4 +36,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: eureka-server-test-report
-          path: eureka-server/build/reports/tes
+          path: eureka-server/build/reports/tests/
