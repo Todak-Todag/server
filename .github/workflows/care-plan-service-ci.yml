@@ -1,0 +1,40 @@
+name: Care-Plan-Service CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'care-plan-service/**'
+      - '.github/workflows/care-plan-service-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: build & test (Java 21)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: care-plan-service
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - uses: gradle/actions/wrapper-validation@v6
+
+      - name: build & test
+        run: chmod +x gradlew && ./gradlew build --no-daemon
+
+      - if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: care-plan-service-test-report
+          path: care-plan-service/build/reports/tests/

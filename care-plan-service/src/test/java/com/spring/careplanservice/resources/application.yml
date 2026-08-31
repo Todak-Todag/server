@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: care-plan-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/todak_todag_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      initialization-fail-timeout: -1
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+    open-in-view: false
+
+    show-sql: false
+
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        boot:
+          allow_jdbc_metadata_access: false
+        default_schema: public
+        default_batch_fetch_size: 100
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: never
+
+  health:
+    db:
+      enabled: false
+    redis:
+      enabled: false
+    discovery:
+      enabled: false
+
+  tracing:
+    enabled: false
+
+
+logging:
+  level:
+    com.todak_todag.care_plan_service: debug
