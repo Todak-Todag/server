@@ -10,13 +10,17 @@ spring:
       - optional:file:.env[.properties]
       
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}?currentSchema=user_schema
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
     username: ${POSTGRES_USERNAME:postgres}
     password: ${POSTGRES_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     
   jpa:
     open-in-view: false
+    properties:
+      hibernate:
+        default_schema: user_schema
+        default_batch_fetch_size: 100
 
 management:
   endpoints:
