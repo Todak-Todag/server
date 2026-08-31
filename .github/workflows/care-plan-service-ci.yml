@@ -5,7 +5,7 @@ on:
     branches: [develop, main]
     paths:
       - 'care-plan-service/**'
-      - '.github/workflows/care-plan-service-ci.yml'
+      - 'care-plan-service-ci.yml'
 
 permissions:
   contents: read
