@@ -1,6 +1,6 @@
 package com.spring.careplanservice.careplan.domain.entity;
 
-public enum  PreferredTimeSlot {
+public enum PreferredTimeSlot {
     MORNING,
     AFTERNOON
 }
