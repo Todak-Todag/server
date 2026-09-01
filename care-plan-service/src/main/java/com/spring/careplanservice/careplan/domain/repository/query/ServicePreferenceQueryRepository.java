@@ -5,6 +5,6 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreferen
 import java.util.Optional;
 import java.util.UUID;
 
-public interface CarePlanServicePreferenceQueryRepository {
+public interface ServicePreferenceQueryRepository {
     Optional<CarePlanServicePreference> findById(UUID id);
 }

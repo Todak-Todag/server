@@ -5,14 +5,14 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import java.time.LocalDate;
 import java.util.UUID;
 
-public record CarePlanFindByServicePreferenceResult(
+public record CarePlanFindByPreferenceResult(
         UUID carePlanId,
         LocalDate finishDate
 ) {
-    public static CarePlanFindByServicePreferenceResult from(
+    public static CarePlanFindByPreferenceResult from(
             CarePlan carePlan
     ) {
-        return new CarePlanFindByServicePreferenceResult(
+        return new CarePlanFindByPreferenceResult(
                 carePlan.getId(),
                 carePlan.getFinishDate()
         );

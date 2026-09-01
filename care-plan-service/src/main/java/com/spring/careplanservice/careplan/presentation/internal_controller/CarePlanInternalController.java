@@ -2,9 +2,12 @@ package com.spring.careplanservice.careplan.presentation.internal_controller;
 
 
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;
+import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
 import com.spring.careplanservice.careplan.application.query_service.CarePlanQueryService;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
 import com.spring.careplanservice.careplan.presentation.response.CarePlanFindByPatientResponse;
+import com.spring.careplanservice.careplan.presentation.response.CarePlanFindByPreferenceResponse;
 import com.spring.careplanservice.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -33,6 +36,21 @@ public class CarePlanInternalController {
                 HttpStatus.OK.value(),
                 "Care Plan 조회 성공",
                 CarePlanFindByPatientResponse.from(carePlanFindByPatientResult)
+        );
+    }
+
+    @GetMapping("/service-preferences/{servicePreferenceId}/care-plan")
+    public ApiResponse<CarePlanFindByPreferenceResponse> findByServicePreference(
+            @PathVariable("servicePreferenceId") UUID servicePreferenceId
+    ) {
+        CarePlanFindByPreferenceResult carePlanFindByPreferenceResult = carePlanQueryService.findByServicePreference(
+                new CarePlanFindByPreferenceQuery(servicePreferenceId)
+        );
+
+        return ApiResponse.success(
+                HttpStatus.OK.value(),
+                "Care Plan 조회 성공",
+                CarePlanFindByPreferenceResponse.from(carePlanFindByPreferenceResult)
         );
     }
 }

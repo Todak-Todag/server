@@ -12,12 +12,12 @@ public record CarePlanFindByPatientResponse(
 ) {
 
     public static CarePlanFindByPatientResponse from(
-            CarePlanFindByPatientResult result
+            CarePlanFindByPatientResult carePlanFindByPatientResult
     ) {
         return new CarePlanFindByPatientResponse(
-                result.carePlanId(),
-                result.patientId(),
-                result.status()
+                carePlanFindByPatientResult.carePlanId(),
+                carePlanFindByPatientResult.patientId(),
+                carePlanFindByPatientResult.status()
         );
     }
 }
