@@ -1,0 +1,23 @@
+package com.spring.careplanservice.careplan.presentation.response;
+
+import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
+
+import java.util.UUID;
+
+public record CarePlanFindByPatientResponse(
+        UUID carePlanId,
+        UUID patientId,
+        CarePlanStatus status
+) {
+
+    public static CarePlanFindByPatientResponse from(
+            CarePlanFindByPatientResult result
+    ) {
+        return new CarePlanFindByPatientResponse(
+                result.carePlanId(),
+                result.patientId(),
+                result.status()
+        );
+    }
+}
