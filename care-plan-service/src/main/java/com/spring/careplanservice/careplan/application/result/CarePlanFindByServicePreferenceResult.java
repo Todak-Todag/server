@@ -6,7 +6,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 public record CarePlanFindByServicePreferenceResult(
-        UUID id,
+        UUID carePlanId,
         LocalDate finishDate
 ) {
     public static CarePlanFindByServicePreferenceResult from(
