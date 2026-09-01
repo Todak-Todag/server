@@ -72,8 +72,7 @@ class ServiceOfferingCommandServiceTest {
             given(saved.getProviderId()).willReturn(providerId);
             given(saved.getCreatedAt()).willReturn(createdAt);
 
-            given(provideServiceQueryRepository.findById(provideServiceId))
-                    .willReturn(Optional.of(Mockito.mock(ProvideService.class)));
+            given(provideServiceQueryRepository.existsById(provideServiceId)).willReturn(true);
             given(serviceOfferingQueryRepository.existsByProviderIdAndProvideServiceId(providerId, provideServiceId))
                     .willReturn(false);
             given(userPort.findRegionIdByUserId(providerId)).willReturn(regionId);
@@ -94,8 +93,7 @@ class ServiceOfferingCommandServiceTest {
         @Test
         @DisplayName("존재하지 않는 서비스 종류면 PROVIDE_SERVICE_NOT_FOUND")
         void provideServiceNotFound() {
-            given(provideServiceQueryRepository.findById(provideServiceId))
-                    .willReturn(Optional.empty());
+            given(provideServiceQueryRepository.existsById(provideServiceId)).willReturn(false);
 
             assertThatThrownBy(() -> serviceOfferingCommandService.create(command()))
                     .isInstanceOf(BusinessException.class)
@@ -108,8 +106,7 @@ class ServiceOfferingCommandServiceTest {
         @Test
         @DisplayName("이미 등록한 서비스 종류면 SERVICE_OFFERING_DUPLICATE")
         void duplicate() {
-            given(provideServiceQueryRepository.findById(provideServiceId))
-                    .willReturn(Optional.of(Mockito.mock(ProvideService.class)));
+            given(provideServiceQueryRepository.existsById(provideServiceId)).willReturn(true);
             given(serviceOfferingQueryRepository.existsByProviderIdAndProvideServiceId(providerId, provideServiceId))
                     .willReturn(true);
 

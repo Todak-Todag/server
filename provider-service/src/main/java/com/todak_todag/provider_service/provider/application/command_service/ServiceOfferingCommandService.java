@@ -31,8 +31,9 @@ public class ServiceOfferingCommandService {
         UUID providerId = command.providerId();
         UUID provideServiceId = command.provideServiceId();
 
-        provideServiceQueryRepository.findById(provideServiceId)
-                .orElseThrow(() -> new BusinessException(ProviderErrorCode.PROVIDE_SERVICE_NOT_FOUND));
+        if (!provideServiceQueryRepository.existsById(provideServiceId)) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_SERVICE_NOT_FOUND);
+        }
 
         if (serviceOfferingQueryRepository.existsByProviderIdAndProvideServiceId(providerId, provideServiceId)) {
             throw new BusinessException(ProviderErrorCode.SERVICE_OFFERING_DUPLICATE);
