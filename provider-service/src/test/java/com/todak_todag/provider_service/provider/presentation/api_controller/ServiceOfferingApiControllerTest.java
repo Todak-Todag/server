@@ -2,7 +2,7 @@ package com.todak_todag.provider_service.provider.presentation.api_controller;
 
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.provider.application.command_service.ServiceOfferingCommandService;
-import com.todak_todag.provider_service.provider.application.result.ServiceOfferingResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +45,7 @@ class ServiceOfferingApiControllerTest {
         UUID providerId = UUID.randomUUID();
 
         given(serviceOfferingCommandService.create(any()))
-                .willReturn(new ServiceOfferingResult.Create(serviceOfferingId, providerId, Instant.now()));
+                .willReturn(new ServiceOfferingCreateResult(serviceOfferingId, providerId, Instant.now()));
 
         mockMvc.perform(post("/api/v1/service-offerings")
                         .header("X-User-Id", providerId.toString())

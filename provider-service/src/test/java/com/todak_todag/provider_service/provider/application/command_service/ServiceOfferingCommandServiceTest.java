@@ -2,9 +2,9 @@ package com.todak_todag.provider_service.provider.application.command_service;
 
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
-import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCommand;
+import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.port.UserPort;
-import com.todak_todag.provider_service.provider.application.result.ServiceOfferingResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.domain.entity.ProvideService;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
@@ -54,8 +54,8 @@ class ServiceOfferingCommandServiceTest {
     @InjectMocks
     private ServiceOfferingCommandService serviceOfferingCommandService;
 
-    private ServiceOfferingCommand.Create command() {
-        return new ServiceOfferingCommand.Create(providerId, provideServiceId);
+    private ServiceOfferingCreateCommand command() {
+        return new ServiceOfferingCreateCommand(providerId, provideServiceId);
     }
 
     @Nested
@@ -79,7 +79,7 @@ class ServiceOfferingCommandServiceTest {
             given(userPort.findRegionIdByUserId(providerId)).willReturn(regionId);
             given(serviceOfferingCommandRepository.save(any(ServiceOffering.class))).willReturn(saved);
 
-            ServiceOfferingResult.Create result = serviceOfferingCommandService.create(command());
+            ServiceOfferingCreateResult result = serviceOfferingCommandService.create(command());
 
             assertThat(result.serviceOfferingId()).isEqualTo(serviceOfferingId);
             assertThat(result.providerId()).isEqualTo(providerId);

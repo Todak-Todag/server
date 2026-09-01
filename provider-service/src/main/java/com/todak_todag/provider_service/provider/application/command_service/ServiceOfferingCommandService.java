@@ -2,9 +2,9 @@ package com.todak_todag.provider_service.provider.application.command_service;
 
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
-import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCommand;
+import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.port.UserPort;
-import com.todak_todag.provider_service.provider.application.result.ServiceOfferingResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideServiceQueryRepository;
@@ -27,7 +27,7 @@ public class ServiceOfferingCommandService {
     private final UserPort userPort;
 
     @Transactional
-    public ServiceOfferingResult.Create create(ServiceOfferingCommand.Create command) {
+    public ServiceOfferingCreateResult create(ServiceOfferingCreateCommand command) {
         UUID providerId = command.providerId();
         UUID provideServiceId = command.provideServiceId();
 
@@ -46,6 +46,6 @@ public class ServiceOfferingCommandService {
 
         log.info("[Provider] 제공 서비스 등록 serviceOfferingId={}", saved.getId());
 
-        return ServiceOfferingResult.Create.from(saved);
+        return ServiceOfferingCreateResult.from(saved);
     }
 }

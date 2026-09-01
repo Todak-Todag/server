@@ -2,11 +2,11 @@ package com.todak_todag.provider_service.provider.presentation.api_controller;
 
 import com.todak_todag.provider_service.global.response.ApiResponse;
 import com.todak_todag.provider_service.global.security.UserContext;
-import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCommand;
+import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command_service.ServiceOfferingCommandService;
-import com.todak_todag.provider_service.provider.application.result.ServiceOfferingResult;
-import com.todak_todag.provider_service.provider.presentation.request.ServiceOfferingRequest;
-import com.todak_todag.provider_service.provider.presentation.response.ServiceOfferingResponse;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
+import com.todak_todag.provider_service.provider.presentation.request.ServiceOfferingCreateRequest;
+import com.todak_todag.provider_service.provider.presentation.response.ServiceOfferingCreateResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,14 +28,14 @@ public class ServiceOfferingApiController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('SERVICE_PROVIDER')")
-    public ApiResponse<ServiceOfferingResponse.Create> create(
+    public ApiResponse<ServiceOfferingCreateResponse> create(
             @AuthenticationPrincipal UserContext user,
-            @Valid @RequestBody ServiceOfferingRequest.Create request
+            @Valid @RequestBody ServiceOfferingCreateRequest request
     ) {
-        ServiceOfferingResult.Create result = serviceOfferingCommandService.create(
-                new ServiceOfferingCommand.Create(user.getUserId(), request.provideServiceId())
+        ServiceOfferingCreateResult result = serviceOfferingCommandService.create(
+                new ServiceOfferingCreateCommand(user.getUserId(), request.provideServiceId())
         );
 
-        return ApiResponse.created("제공 서비스 등록 성공", ServiceOfferingResponse.Create.from(result));
+        return ApiResponse.created("제공 서비스 등록 성공", ServiceOfferingCreateResponse.from(result));
     }
 }
