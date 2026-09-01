@@ -40,7 +40,8 @@ public class SecurityConfig {
                                 "/api/v1/service-schedules/**",
                                 "/internal/v1/**",
                                 "/actuator/**",
-                                "/swagger-ui/**"
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );
