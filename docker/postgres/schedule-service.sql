@@ -6,12 +6,12 @@ CREATE TYPE schedule_schema.service_schedule_status AS ENUM (
 );
 
 CREATE TABLE schedule_schema.p_service_schedules (
-    id UUID PRIMARY KEY,
+    service_schedule_id UUID PRIMARY KEY,
 
-    -- 논리 FK -> care_plan_schema.p_care_plan_service_preferences(id)
+    -- 논리 FK -> care_plan_schema.p_care_plan_service_preferences(service_preference_id)
     service_preference_id UUID NOT NULL,
 
-    -- 논리 FK -> provider_schema.p_provide_service_offerings(id)
+    -- 논리 FK -> provider_schema.p_provide_service_offerings(service_offering_id)
     service_offering_id UUID NOT NULL,
 
     status schedule_schema.service_schedule_status NOT NULL DEFAULT 'SCHEDULED',
@@ -29,7 +29,7 @@ CREATE TABLE schedule_schema.p_service_schedules (
 );
 
 CREATE TABLE schedule_schema.p_care_plan_service_results (
-    id UUID PRIMARY KEY,
+    service_result_id UUID PRIMARY KEY,
     service_schedule_id UUID NOT NULL,
     started_at TIMESTAMP NOT NULL,
     finished_at TIMESTAMP NOT NULL,
@@ -43,5 +43,5 @@ CREATE TABLE schedule_schema.p_care_plan_service_results (
 
     CONSTRAINT fk_service_results_schedule
         FOREIGN KEY (service_schedule_id)
-        REFERENCES schedule_schema.p_service_schedules(id)
+        REFERENCES schedule_schema.p_service_schedules(service_schedule_id)
 );

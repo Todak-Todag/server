@@ -5,7 +5,7 @@ CREATE TYPE social_worker_schema.matching_status AS ENUM (
 );
 
 CREATE TABLE social_worker_schema.p_social_worker_matching_results (
-    id UUID PRIMARY KEY,
+    matching_result_id UUID PRIMARY KEY,
     patient_id UUID NOT NULL,
     social_worker_id UUID NOT NULL,
     status social_worker_schema.matching_status NOT NULL DEFAULT 'REQUESTED',

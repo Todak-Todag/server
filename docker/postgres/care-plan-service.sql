@@ -9,12 +9,12 @@ CREATE TYPE care_plan_schema.preferred_time_slot AS ENUM (
 );
 
 CREATE TABLE care_plan_schema.p_care_plans (
-    id UUID PRIMARY KEY,
+    care_plan_id UUID PRIMARY KEY,
 
-    -- 논리 FK -> user_schema.p_users(id)
+    -- 논리 FK -> user_schema.p_users(user_id)
     patient_id UUID NOT NULL,
 
-    -- 논리 FK -> discharge_schema.p_discharge(id)
+    -- 논리 FK -> discharge_schema.p_discharge(discharge_id)
     discharge_id UUID NOT NULL,
 
     status care_plan_schema.care_plan_status NOT NULL DEFAULT 'UNDER_REVIEW',
@@ -30,10 +30,10 @@ CREATE TABLE care_plan_schema.p_care_plans (
 );
 
 CREATE TABLE care_plan_schema.p_care_plan_services (
-    id UUID PRIMARY KEY,
+    plan_service_id UUID PRIMARY KEY,
     care_plan_id UUID NOT NULL,
 
-    -- 논리 FK -> provider_schema.p_provide_services(id)
+    -- 논리 FK -> provider_schema.p_provide_services(provide_service_id)
     provide_service_id UUID NOT NULL,
 
     created_at TIMESTAMPTZ NOT NULL,
@@ -43,11 +43,11 @@ CREATE TABLE care_plan_schema.p_care_plan_services (
 
     CONSTRAINT fk_care_plan_services_plan
         FOREIGN KEY (care_plan_id)
-        REFERENCES care_plan_schema.p_care_plans(id)
+        REFERENCES care_plan_schema.p_care_plans(care_plan_id)
 );
 
 CREATE TABLE care_plan_schema.p_care_plan_service_preferences (
-    id UUID PRIMARY KEY,
+    service_preference_id UUID PRIMARY KEY,
     plan_service_id UUID NOT NULL,
     preferred_time_slot care_plan_schema.preferred_time_slot NOT NULL,
     preferred_date DATE NOT NULL,
@@ -60,5 +60,5 @@ CREATE TABLE care_plan_schema.p_care_plan_service_preferences (
 
     CONSTRAINT fk_service_preferences_plan_service
         FOREIGN KEY (plan_service_id)
-        REFERENCES care_plan_schema.p_care_plan_services(id)
+        REFERENCES care_plan_schema.p_care_plan_services(plan_service_id)
 );

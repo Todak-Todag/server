@@ -15,7 +15,7 @@ CREATE TYPE user_schema.consent_status AS ENUM (
 );
 
 CREATE TABLE user_schema.p_regions (
-    id UUID PRIMARY KEY,
+    region_id UUID PRIMARY KEY,
     province VARCHAR(20) NOT NULL,
     district VARCHAR(20) NOT NULL,
     region_code VARCHAR(20) NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE user_schema.p_regions (
 );
 
 CREATE TABLE user_schema.p_users (
-    id UUID PRIMARY KEY,
+    user_id UUID PRIMARY KEY,
     region_id UUID,
     username VARCHAR(50) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
@@ -46,26 +46,28 @@ CREATE TABLE user_schema.p_users (
     deleted_at TIMESTAMPTZ,
     deleted_by UUID,
 
+    -- ERD 참조: p_regions
     CONSTRAINT fk_users_region
         FOREIGN KEY (region_id)
-        REFERENCES user_schema.p_regions(id)
+        REFERENCES user_schema.p_regions(region_id)
 );
 
 CREATE TABLE user_schema.p_auths (
-    id UUID PRIMARY KEY,
+    auth_id UUID PRIMARY KEY,
     user_id UUID NOT NULL,
     refresh_token_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     login_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     logout_at TIMESTAMP,
 
+    -- ERD 명시 FK: p_users
     CONSTRAINT fk_auths_user
         FOREIGN KEY (user_id)
-        REFERENCES user_schema.p_users(id)
+        REFERENCES user_schema.p_users(user_id)
 );
 
 CREATE TABLE user_schema.p_consent_documents (
-    id UUID PRIMARY KEY,
+    consent_document_id UUID PRIMARY KEY,
     consent_type VARCHAR(30) NOT NULL,
     title VARCHAR(255) NOT NULL,
     is_required BOOLEAN NOT NULL,
@@ -78,7 +80,7 @@ CREATE TABLE user_schema.p_consent_documents (
 );
 
 CREATE TABLE user_schema.p_consent_document_versions (
-    id UUID PRIMARY KEY,
+    consent_document_version_id UUID PRIMARY KEY,
     consent_document_id UUID NOT NULL,
     version VARCHAR(30) NOT NULL,
     content TEXT NOT NULL,
@@ -86,13 +88,14 @@ CREATE TABLE user_schema.p_consent_document_versions (
     created_at TIMESTAMPTZ NOT NULL,
     created_by UUID NOT NULL,
 
+    -- ERD 참조: p_consent_documents
     CONSTRAINT fk_consent_document_versions_document
         FOREIGN KEY (consent_document_id)
-        REFERENCES user_schema.p_consent_documents(id)
+        REFERENCES user_schema.p_consent_documents(consent_document_id)
 );
 
 CREATE TABLE user_schema.p_consents (
-    id UUID PRIMARY KEY,
+    consent_id UUID PRIMARY KEY,
     user_id UUID NOT NULL,
     consent_document_version_id UUID NOT NULL,
     status user_schema.consent_status NOT NULL,
@@ -103,15 +106,18 @@ CREATE TABLE user_schema.p_consents (
     updated_at TIMESTAMPTZ NOT NULL,
     updated_by UUID NOT NULL,
 
+    -- ERD 참조: p_users
     CONSTRAINT fk_consents_user
         FOREIGN KEY (user_id)
-        REFERENCES user_schema.p_users(id),
+        REFERENCES user_schema.p_users(user_id),
 
+    -- ERD 참조: p_consent_document_versions
     CONSTRAINT fk_consents_document_version
         FOREIGN KEY (consent_document_version_id)
-        REFERENCES user_schema.p_consent_document_versions(id)
+        REFERENCES user_schema.p_consent_document_versions(consent_document_version_id)
 );
 
+-- 팀에서 확정한 username Soft Delete 대응 부분 UNIQUE
 CREATE UNIQUE INDEX ux_p_users_username_active
     ON user_schema.p_users (username)
     WHERE deleted_at IS NULL;

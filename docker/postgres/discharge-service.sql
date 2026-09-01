@@ -5,8 +5,10 @@ CREATE TYPE discharge_schema.discharge_status AS ENUM (
 );
 
 CREATE TABLE discharge_schema.p_discharge (
-    id UUID PRIMARY KEY,
+    discharge_id UUID PRIMARY KEY,
+    -- 논리 FK -> user_schema.p_users(user_id)
     patient_id UUID NOT NULL,
+    -- 논리 FK -> user_schema.p_users(user_id)
     hospital_staff_id UUID NOT NULL,
     hospital_name VARCHAR(50) NOT NULL,
     schedule_date DATE NOT NULL,
