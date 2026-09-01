@@ -29,11 +29,7 @@ CREATE TABLE provider_schema.p_provide_service_offerings (
     updated_at TIMESTAMPTZ NOT NULL,
     updated_by UUID NOT NULL,
     deleted_at TIMESTAMPTZ,
-    deleted_by UUID,
-
-    CONSTRAINT fk_service_offerings_provide_service
-        FOREIGN KEY (provide_service_id)
-        REFERENCES provider_schema.p_provide_services(provide_service_id)
+    deleted_by UUID
 );
 
 CREATE TABLE provider_schema.p_provide_works (
@@ -47,9 +43,6 @@ CREATE TABLE provider_schema.p_provide_works (
     updated_at TIMESTAMPTZ NOT NULL,
     updated_by UUID NOT NULL,
     deleted_at TIMESTAMPTZ,
-    deleted_by UUID,
+    deleted_by UUID
 
-    CONSTRAINT fk_provide_works_service_offering
-        FOREIGN KEY (service_offering_id)
-        REFERENCES provider_schema.p_provide_service_offerings(service_offering_id)
 );

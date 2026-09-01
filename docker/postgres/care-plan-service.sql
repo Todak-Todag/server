@@ -39,11 +39,7 @@ CREATE TABLE care_plan_schema.p_care_plan_services (
     created_at TIMESTAMPTZ NOT NULL,
     created_by UUID NOT NULL,
     deleted_at TIMESTAMPTZ,
-    deleted_by UUID,
-
-    CONSTRAINT fk_care_plan_services_plan
-        FOREIGN KEY (care_plan_id)
-        REFERENCES care_plan_schema.p_care_plans(care_plan_id)
+    deleted_by UUID
 );
 
 CREATE TABLE care_plan_schema.p_care_plan_service_preferences (
@@ -56,9 +52,5 @@ CREATE TABLE care_plan_schema.p_care_plan_service_preferences (
     updated_at TIMESTAMPTZ NOT NULL,
     updated_by UUID NOT NULL,
     deleted_at TIMESTAMPTZ,
-    deleted_by UUID,
-
-    CONSTRAINT fk_service_preferences_plan_service
-        FOREIGN KEY (plan_service_id)
-        REFERENCES care_plan_schema.p_care_plan_services(plan_service_id)
+    deleted_by UUID
 );

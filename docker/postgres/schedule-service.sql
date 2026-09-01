@@ -39,9 +39,6 @@ CREATE TABLE schedule_schema.p_care_plan_service_results (
     updated_at TIMESTAMPTZ NOT NULL,
     updated_by UUID NOT NULL,
     deleted_at TIMESTAMPTZ,
-    deleted_by UUID,
+    deleted_by UUID
 
-    CONSTRAINT fk_service_results_schedule
-        FOREIGN KEY (service_schedule_id)
-        REFERENCES schedule_schema.p_service_schedules(service_schedule_id)
 );

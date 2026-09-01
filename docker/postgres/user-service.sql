@@ -1,6 +1,5 @@
 CREATE SCHEMA IF NOT EXISTS user_schema;
 
--- PostgreSQL ENUM types
 CREATE TYPE user_schema.user_status AS ENUM (
     'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'WITHDRAWN'
 );
@@ -44,12 +43,8 @@ CREATE TABLE user_schema.p_users (
     updated_at TIMESTAMPTZ NOT NULL,
     updated_by UUID NOT NULL,
     deleted_at TIMESTAMPTZ,
-    deleted_by UUID,
+    deleted_by UUID
 
-    -- ERD 참조: p_regions
-    CONSTRAINT fk_users_region
-        FOREIGN KEY (region_id)
-        REFERENCES user_schema.p_regions(region_id)
 );
 
 CREATE TABLE user_schema.p_auths (
@@ -58,12 +53,7 @@ CREATE TABLE user_schema.p_auths (
     refresh_token_hash VARCHAR(255) NOT NULL,
     expires_at TIMESTAMP NOT NULL,
     login_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    logout_at TIMESTAMP,
-
-    -- ERD 명시 FK: p_users
-    CONSTRAINT fk_auths_user
-        FOREIGN KEY (user_id)
-        REFERENCES user_schema.p_users(user_id)
+    logout_at TIMESTAMP
 );
 
 CREATE TABLE user_schema.p_consent_documents (
@@ -86,12 +76,8 @@ CREATE TABLE user_schema.p_consent_document_versions (
     content TEXT NOT NULL,
     effective_at TIMESTAMP NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
-    created_by UUID NOT NULL,
+    created_by UUID NOT NULL
 
-    -- ERD 참조: p_consent_documents
-    CONSTRAINT fk_consent_document_versions_document
-        FOREIGN KEY (consent_document_id)
-        REFERENCES user_schema.p_consent_documents(consent_document_id)
 );
 
 CREATE TABLE user_schema.p_consents (
@@ -104,20 +90,11 @@ CREATE TABLE user_schema.p_consents (
     created_at TIMESTAMPTZ NOT NULL,
     created_by UUID NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
-    updated_by UUID NOT NULL,
+    updated_by UUID NOT NULL
 
-    -- ERD 참조: p_users
-    CONSTRAINT fk_consents_user
-        FOREIGN KEY (user_id)
-        REFERENCES user_schema.p_users(user_id),
 
-    -- ERD 참조: p_consent_document_versions
-    CONSTRAINT fk_consents_document_version
-        FOREIGN KEY (consent_document_version_id)
-        REFERENCES user_schema.p_consent_document_versions(consent_document_version_id)
 );
 
--- 팀에서 확정한 username Soft Delete 대응 부분 UNIQUE
 CREATE UNIQUE INDEX ux_p_users_username_active
     ON user_schema.p_users (username)
     WHERE deleted_at IS NULL;
