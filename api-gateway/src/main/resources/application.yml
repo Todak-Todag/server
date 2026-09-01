@@ -115,6 +115,13 @@ internal:
 jwt:
   secret: ${JWT_SECRET}
 
+authentication:
+  access-token:
+    cookie-name: AccessToken
+    redis-key-prefix: ${ACCESS_KEY_PREFIX}
+    user-id-claim: sub
+    role-claim: role  
+  
 ---
 spring:
   config:
