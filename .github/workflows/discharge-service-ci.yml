@@ -15,9 +15,32 @@ jobs:
     name: build & test (Java 21)
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: todaktodag_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d todaktodag_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     defaults:
       run:
         working-directory: discharge-service
+
+    env:
+      SPRING_PROFILES_ACTIVE: local
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: todaktodag_db
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
 
     steps:
       - uses: actions/checkout@v6
