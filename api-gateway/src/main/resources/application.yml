@@ -110,10 +110,10 @@ management:
       show-details: never
 
 internal:
-  key: ${INTERNAL_API_KEY}
+  key: ${INTERNAL_API_KEY:01234567890123456789012345678901}
   
 jwt:
-  secret: ${JWT_SECRET}
+  secret: ${JWT_SECRET:bG9jYWwtand0LXNlY3JldC1rZXktZm9yLWRldmVsb3BtZW50LXRlc3Qtb25seS0zMmJ5dGVz}
 
 authentication:
   access-token:
@@ -136,7 +136,7 @@ spring:
     redis:
       host: localhost
       port: 6379
-      
+            
 eureka:
   client:
     service-url:
@@ -175,6 +175,12 @@ eureka:
       defaultZone: http://${EUREKA_SERVER_HOST}:8761/eureka/
   instance:
     prefer-ip-address: true
+
+internal:
+  key: ${INTERNAL_API_KEY}
+    
+jwt:
+  secret: ${JWT_SECRET}
     
 management:
   tracing:
