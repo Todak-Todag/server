@@ -1,5 +1,8 @@
 package com.todak_todag.api_gateway.exception;
 
+import lombok.Getter;
+
+@Getter
 public class TokenException extends RuntimeException {
 	
 	private final TokenErrorCode errorCode;

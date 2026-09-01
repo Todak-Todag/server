@@ -46,6 +46,12 @@ public final class ClientAuthenticationToken extends AbstractAuthenticationToken
 	) {
 		return new ClientAuthenticationToken(client, authorities);
 	}
+	
+	public static ClientAuthenticationToken unauthenticated(
+			String accessToken
+	) {
+		return new ClientAuthenticationToken(accessToken);
+	}
 
 	@Override
 	public Object getCredentials() {

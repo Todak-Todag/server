@@ -21,8 +21,7 @@ public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-		// TODO Auto-generated method stub
-		return null;
+		return chain.filter(exchange);
 	}
 
 }
