@@ -10,7 +10,7 @@ import java.util.UUID;
 public interface ServiceScheduleQueryRepository {
 
     // [내부 API] 서비스 제공자 일정 조회
-    List<ServiceSchedule> findAllByServiceOfferingIdInAndDateBetweenAndStatusInAndDeletedAtIsNull(
+    List<ServiceSchedule> findSchedules(
             List<UUID> serviceOfferingIds,
             LocalDate startDate,
             LocalDate endDate,
