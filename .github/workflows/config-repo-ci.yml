@@ -1,0 +1,39 @@
+#  config-repo-ci.yml 생성 이유
+#    -> config-server-ci의 paths에 있던 'config-repo/**' 제외
+
+#  근거1: yml파일만 수정했을 경우 검증으로 불필요한 자바 빌드가 이루어지지 않아도 될 것 같다.
+
+#  근거2: CI의 책임 분리 :
+#       - config-server-ci ->Config Server 애플리케이션 검증
+#       - config-repo-ci -> 중앙 설정 파일 검증
+#
+#    config-repo-ci.yml의 역할
+#      - 들여쓰기 오류
+#      - 문법 오류
+#      - 잘못된 YAML 구조
+
+
+name: config-repo CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'config-repo/**'
+      - '.github/workflows/config-repo-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: validate yaml
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: validate yaml files
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: config-repo/
