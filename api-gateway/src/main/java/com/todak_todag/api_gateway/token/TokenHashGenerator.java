@@ -1,4 +1,4 @@
-package com.todak_todag.api_gateway.store;
+package com.todak_todag.api_gateway.token;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

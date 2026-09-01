@@ -1,12 +1,10 @@
-package com.todak_todag.api_gateway.token;
+package com.todak_todag.api_gateway.authentication;
 
 import java.util.Collection;
 import java.util.List;
 
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
-
-import com.todak_todag.api_gateway.filter.ClientContext;
 
 public final class ClientAuthenticationToken extends AbstractAuthenticationToken {
 

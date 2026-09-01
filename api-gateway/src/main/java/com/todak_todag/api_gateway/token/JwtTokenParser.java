@@ -12,13 +12,16 @@ import com.todak_todag.api_gateway.exception.TokenErrorCode;
 import com.todak_todag.api_gateway.exception.TokenException;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 public class JwtTokenParser {
 
@@ -38,7 +41,7 @@ public class JwtTokenParser {
 	
 	public AccessTokenClaims parse(String token) {
 		if (token == null || token.isBlank()) {
-			throw new TokenException(TokenErrorCode.UNAUTHORIZED);
+			throw new TokenException(TokenErrorCode.INVALID_ACCESS_TOKEN);
 		}
 		
 		try {
@@ -60,10 +63,31 @@ public class JwtTokenParser {
 					String.class
 			);
 			
+			validateRequiredClaims(userId, role);
+			
 			return new AccessTokenClaims(userId, role);
+			
+		} catch (ExpiredJwtException expiredEx) {
+			
+			throw new TokenException(TokenErrorCode.EXPIRED_ACCESS_TOKEN, expiredEx);	
 		} catch (JwtException | IllegalArgumentException e) {
-			throw new TokenException(TokenErrorCode.UNAUTHORIZED);
+			
+			throw new TokenException(TokenErrorCode.INVALID_ACCESS_TOKEN, e);
 		}
+	}
+	
+	private void validateRequiredClaims(String userId, String role) {
+		if (userId == null || userId.isBlank()) {
+		  throw new TokenException(
+		    TokenErrorCode.INVALID_ACCESS_TOKEN
+		  );
+		}
+	
+	  if (role == null || role.isBlank()) {
+	    throw new TokenException(
+        TokenErrorCode.INVALID_ACCESS_TOKEN
+	    );
+	  }
 	}
 	
 	private JwtParser createJwtParser(String jwtSecret) {
