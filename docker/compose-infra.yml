@@ -19,7 +19,7 @@ services:
     # PostgreSQL 데이터 영속화.
     volumes:
       - postgres-data:/var/lib/postgresql/data
-#      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./postgres:/docker-entrypoint-initdb.d:ro
 
     # PostgreSQL 상태 확인.
     healthcheck:
