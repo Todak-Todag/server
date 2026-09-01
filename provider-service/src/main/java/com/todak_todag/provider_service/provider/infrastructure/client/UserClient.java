@@ -1,5 +1,6 @@
 package com.todak_todag.provider_service.provider.infrastructure.client;
 
+import com.todak_todag.provider_service.global.response.ApiResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,10 +11,11 @@ import java.util.UUID;
 public interface UserClient {
 
     @GetMapping("/internal/v1/users/{userId}")
-    UserInternalResponse findById(@PathVariable UUID userId);
+    ApiResponse<UserInternalResponse> findById(@PathVariable UUID userId);
 
     record UserInternalResponse(
             UUID userId,
+            String role,
             UUID regionId
     ) {
     }

@@ -15,6 +15,6 @@ public class UserAdapter implements UserPort {
 
     @Override
     public UUID findRegionIdByUserId(UUID userId) {
-        return userClient.findById(userId).regionId();
+        return userClient.findById(userId).data().regionId();
     }
 }
