@@ -10,8 +10,8 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanQueryRepository;
-import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -40,13 +40,7 @@ public class CarePlanQueryService {
         CarePlan carePlan = carePlanQueryRepository.findByPatientIdAndStatuses(
                 carePlanFindByPatientQuery.patientId(),
                 SOCIAL_WORKER_VISIBLE_STATUSES
-        ).orElseThrow(() -> new BusinessException(
-                ErrorCode.CARE_PLAN_NOT_FOUND,
-                Map.of(
-                        "reason",
-                        "존재하지 않는 patientId입니다."
-                )
-        ));
+        ).orElseThrow(this::patientNotFound);
 
         return CarePlanFindByPatientResult.from(carePlan);
     }
@@ -54,13 +48,16 @@ public class CarePlanQueryService {
     public CarePlanFindByPreferenceResult findByServicePreference(
             CarePlanFindByPreferenceQuery carePlanFindByServicePreferenceQuery
     ) {
-        CarePlanServicePreference carePlanServicePreference = servicePreferenceQueryRepository.findById(carePlanFindByServicePreferenceQuery.servicePreferenceId())
+        CarePlanServicePreference carePlanServicePreference = servicePreferenceQueryRepository
+                .findById(carePlanFindByServicePreferenceQuery.servicePreferenceId())
                 .orElseThrow(this::carePlanNotFound);
 
-        CarePlanService carePlanService = carePlanServiceQueryRepository.findById(carePlanServicePreference.getPlanServiceId())
+        CarePlanService carePlanService = carePlanServiceQueryRepository
+                .findById(carePlanServicePreference.getPlanServiceId())
                 .orElseThrow(this::carePlanNotFound);
 
-        CarePlan carePlan = carePlanQueryRepository.findById(carePlanService.getCarePlanId())
+        CarePlan carePlan = carePlanQueryRepository
+                .findById(carePlanService.getCarePlanId())
                 .orElseThrow(this::carePlanNotFound);
 
         return CarePlanFindByPreferenceResult.from(carePlan);
@@ -72,6 +69,16 @@ public class CarePlanQueryService {
                 Map.of(
                         "reason",
                         "해당 서비스 희망 일정에 연결된 Care Plan이 존재하지 않습니다."
+                )
+        );
+    }
+
+    private BusinessException patientNotFound() {
+        return new BusinessException(
+                ErrorCode.CARE_PLAN_NOT_FOUND,
+                Map.of(
+                        "reason",
+                        "존재하지 않는 patientId입니다."
                 )
         );
     }

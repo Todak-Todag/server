@@ -19,7 +19,7 @@ public class CarePlanQueryRepositoryImpl implements CarePlanQueryRepository {
 
     @Override
     public Optional<CarePlan> findById(UUID id) {
-        return jpaCarePlanRepository.findById(id);
+        return jpaCarePlanRepository.findByIdAndDeletedAtIsNull(id);
     }
 
     @Override
@@ -27,9 +27,11 @@ public class CarePlanQueryRepositoryImpl implements CarePlanQueryRepository {
             UUID patientId,
             Set<CarePlanStatus> statuses
     ) {
-        return jpaCarePlanRepository.findFirstByPatientIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtDesc(
-                patientId,
-                statuses
-        );
+        return jpaCarePlanRepository
+                .findByPatientIdAndStatusInAndDeletedAtIsNull(
+                        patientId,
+                        statuses
+                );
     }
+
 }
