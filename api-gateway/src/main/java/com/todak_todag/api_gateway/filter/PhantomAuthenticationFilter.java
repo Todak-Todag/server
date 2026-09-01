@@ -37,10 +37,9 @@ public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
 				.map(Authentication::getPrincipal)
 				.filter(ClientContext.class::isInstance)
 				.cast(ClientContext.class)
-				.flatMap(clientContext -> chain
-						.filter(addClientHeaders(sanitizedExchange, clientContext))
-				)
-				.switchIfEmpty(Mono.defer(() -> chain.filter(sanitizedExchange)));
+				.map(clientContext -> addClientHeaders(sanitizedExchange, clientContext))
+				.defaultIfEmpty(sanitizedExchange)
+				.flatMap(chain::filter);
 	}
 	
 	private ServerWebExchange addClientHeaders(ServerWebExchange sanitizedExchange, ClientContext clientContext) {

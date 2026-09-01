@@ -15,10 +15,10 @@ import org.springframework.security.web.server.util.matcher.OrServerWebExchangeM
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
 import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 
+import com.todak_todag.api_gateway.authentication.ClientAccessDeniedHandler;
+import com.todak_todag.api_gateway.authentication.ClientAuthenticationEntryPoint;
 import com.todak_todag.api_gateway.authentication.ClientAuthenticationManager;
 import com.todak_todag.api_gateway.authentication.ClientCookieConverter;
-import com.todak_todag.api_gateway.exception.ClientAccessDeniedHandler;
-import com.todak_todag.api_gateway.exception.ClientAuthenticationEntryPoint;
 
 @EnableConfigurationProperties(AuthenticationProperties.class)
 @Configuration

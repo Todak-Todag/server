@@ -1,6 +1,4 @@
-package com.todak_todag.api_gateway.response;
-
-import com.todak_todag.api_gateway.exception.TokenErrorCode;
+package com.todak_todag.api_gateway.exception;
 
 public record TokenErrorResponse(
 		String code,
