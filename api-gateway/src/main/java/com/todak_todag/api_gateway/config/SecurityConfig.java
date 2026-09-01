@@ -17,6 +17,7 @@ import org.springframework.security.web.server.util.matcher.ServerWebExchangeMat
 
 import com.todak_todag.api_gateway.authentication.ClientAuthenticationManager;
 import com.todak_todag.api_gateway.authentication.ClientCookieConverter;
+import com.todak_todag.api_gateway.exception.ClientAccessDeniedHandler;
 import com.todak_todag.api_gateway.exception.ClientAuthenticationEntryPoint;
 
 @EnableConfigurationProperties(AuthenticationProperties.class)
@@ -29,7 +30,8 @@ public class SecurityConfig {
 			ServerHttpSecurity http,
 			ClientAuthenticationManager authenticationManager,
 			ClientCookieConverter cookieConverter,
-			ClientAuthenticationEntryPoint authenticationEntryPoint
+			ClientAuthenticationEntryPoint authenticationEntryPoint,
+			ClientAccessDeniedHandler accessDeniedHandler
 	) {
 		AuthenticationWebFilter authenticationFilter = new AuthenticationWebFilter(authenticationManager);
 		
@@ -47,7 +49,10 @@ public class SecurityConfig {
 				.logout(ServerHttpSecurity.LogoutSpec::disable)
 				.securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
 				
-				.exceptionHandling(handling -> handling.authenticationEntryPoint(authenticationEntryPoint))
+				.exceptionHandling(handling -> handling
+						.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler)
+				)
 				
 				.addFilterAt(authenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
 				

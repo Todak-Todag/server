@@ -13,14 +13,18 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
 	
+	private static final String USER_ID_HEADER = "X-User-Id";
+	
+	private static final String USER_ROLE_HEADER = "X-User-Role";
+	
 	@Override
 	public int getOrder() {
-		// TODO Auto-generated method stub
 		return 0;
 	}
 
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+		
 		return chain.filter(exchange);
 	}
 
