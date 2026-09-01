@@ -11,7 +11,7 @@ import java.util.UUID;
 public interface UserClient {
 
     @GetMapping("/internal/v1/users/{userId}")
-    ApiResponse<UserInternalResponse> findById(@PathVariable UUID userId);
+    ApiResponse<UserInternalResponse> findById(@PathVariable("userId") UUID userId);
 
     record UserInternalResponse(
             UUID userId,
