@@ -1,11 +1,13 @@
 package com.todak_todag.provider_service.provider.presentation.api_controller;
 
+import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.provider.application.command_service.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingResult;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,6 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@Import(SecurityConfig.class)
 @WebMvcTest(ServiceOfferingApiController.class)
 @DisplayName("제공 서비스 등록 API")
 class ServiceOfferingApiControllerTest {
