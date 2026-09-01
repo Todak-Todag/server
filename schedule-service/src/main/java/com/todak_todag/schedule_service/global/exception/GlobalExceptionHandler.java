@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import java.util.Map;
+
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -16,27 +18,56 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
         ErrorCode errorCode = e.getErrorCode();
+
+        Map<String, Object> details = e.getDetails() == null || e.getDetails().isEmpty()
+                ? Map.of("reason", e.getMessage())
+                : e.getDetails();
+
         log.warn("[Schedule] 비즈니스 예외 발생 errorCode={}", errorCode.getCode());
-        return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
+
+        return ResponseEntity
+                .status(errorCode.getStatus())
+                .body(ErrorResponse.of(errorCode, details));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException e) {
         log.warn("[Schedule] 요청 값 검증 실패 message={}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(CommonErrorCode.INVALID_PARAMETER));
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(
+                        ErrorResponse.of(
+                                CommonErrorCode.INVALID_PARAMETER,
+                                Map.of("reason", e.getMessage())
+                        )
+                );
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         log.warn("[Schedule] 요청 파라미터 타입 오류 name={}", e.getName());
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(CommonErrorCode.INVALID_PARAMETER));
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(
+                        ErrorResponse.of(
+                                CommonErrorCode.INVALID_PARAMETER,
+                                Map.of("reason", e.getMessage())
+                        )
+                );
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception e) {
         log.error("[Schedule] 처리되지 않은 예외 발생", e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ErrorResponse.of(CommonErrorCode.INTERNAL_SERVER_ERROR));
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(
+                        ErrorResponse.of(
+                                CommonErrorCode.INTERNAL_SERVER_ERROR,
+                                Map.of("reason", e.getMessage())
+                        )
+                );
     }
 }
-
