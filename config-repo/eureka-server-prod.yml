@@ -1,3 +1,4 @@
+---
 # Eureka Server의 운영 실행 포트를 8761로 지정.
 server:
   port: 8761
