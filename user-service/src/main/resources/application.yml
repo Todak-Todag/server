@@ -1,0 +1,89 @@
+server:
+  port: 19090
+
+spring:
+  application:
+    name: user-service
+
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+      
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        default_schema: user_schema
+        default_batch_fetch_size: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+        
+  endpoint:
+    health:
+      show-details: never
+      
+  tracing:
+    sampling:
+      probability: 1.0
+      
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
+        
+logging:
+  level:
+    com.todak_todag.user_service: info
+
+internal:
+  key: ${INTERNAL_API_KEY}
+  
+jwt:
+  secret: ${JWT_SECRET}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+      
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        hbm2ddl:
+          create_namespaces: true
+          
+logging:
+  level:
+    com.todak_todag.user_service: debug
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+      
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+
+jwt:
+  secret: ${JWT_SECRET}
+      
+logging:
+  level:
+    com.todak_todag.user_service: info
