@@ -1,0 +1,40 @@
+name: config-server CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'config-server/**'
+      - 'config-repo/**'
+      - '.github/workflows/config-server-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: build & test (Java 21)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: config-server
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - uses: gradle/actions/wrapper-validation@v6
+
+      - name: build & test
+        run: chmod +x gradlew && ./gradlew build --no-daemon
+
+      - if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: config-server-test-report
+          path: config-server/build/reports/tests/

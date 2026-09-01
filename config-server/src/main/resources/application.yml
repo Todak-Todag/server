@@ -1,0 +1,19 @@
+# Config Server 실행 포트를 8888로 지정.
+server:
+  port: 8888
+
+spring:
+  application:
+    name: config-server
+
+  profiles:
+    # 초기 로컬 개발을 위한 native 프로파일 활성화.
+    active: local,native
+
+# Config Server 상태 확인을 위한 Actuator 설정.
+management:
+  endpoints:
+    web:
+      exposure:
+        # health, info 엔드포인트 외부 노출.
+        include: health,info
