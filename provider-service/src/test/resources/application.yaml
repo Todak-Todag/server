@@ -1,0 +1,54 @@
+# CI에는 PostgreSQL이 없으므로 실제 연결 없이 컨텍스트만 기동한다.
+# - allow_jdbc_metadata_access: false → JDBC 메타데이터 조회 없이 dialect를 확정
+# - initialization-fail-timeout: -1   → 커넥션 풀 초기화 실패를 무시
+# Repository 통합 테스트를 추가할 때는 Testcontainers 등 실제 DB 기반으로 별도 구성이 필요하다.
+
+spring:
+  application:
+    name: provider-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/todaktodag_db
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      initialization-fail-timeout: -1
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        boot:
+          allow_jdbc_metadata_access: false
+        default_schema: provider_schema
+        default_batch_fetch_size: 100
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: never
+
+  health:
+    db:
+      enabled: false
+    redis:
+      enabled: false
+    discovery:
+      enabled: false
+
+  tracing:
+    enabled: false
+
+logging:
+  level:
+    com.todak_todag.provider_service: debug
