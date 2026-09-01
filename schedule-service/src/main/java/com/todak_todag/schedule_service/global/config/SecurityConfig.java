@@ -35,8 +35,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 공개 API
                         .requestMatchers(
+                                // TODO: Test를 목적으로 열어둠
                                 "/api/v1/service-results/**",
                                 "/api/v1/service-schedules/**",
+                                "/internal/v1/**",
                                 "/actuator/**",
                                 "/swagger-ui/**"
                         ).permitAll()
