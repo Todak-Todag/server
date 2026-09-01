@@ -10,3 +10,17 @@ eureka:
 
     # 다른 Eureka Server의 레지스트리를 조회하지 않도록 지정.
     fetch-registry: false
+
+# Actuator 설정.
+management:
+  endpoints:
+    web:
+      exposure:
+        # Eureka Server 상태 확인을 위한 Actuator 엔드포인트 노출.
+        include: health,info
+
+  endpoint:
+    health:
+      # 운영 환경에서는 상세 상태 정보를 외부에 노출하지 않음.
+      # 응답 예시. {"status" : "UP"}
+      show-details: never
