@@ -1,0 +1,301 @@
+services:
+
+  # 관계형 데이터베이스.
+  postgres:
+    image: postgres:17
+    container_name: todak-postgres
+    restart: unless-stopped
+
+    # PostgreSQL 초기 설정.
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    # PostgreSQL 포트 연결.
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+    # PostgreSQL 데이터 영속화.
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+#      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+    # PostgreSQL 상태 확인.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USERNAME} -d ${POSTGRES_DB}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    # 공통 Docker 네트워크 연결.
+    networks:
+      - todak-network
+
+
+  # 캐시 및 임시 데이터 저장소.
+  redis:
+    image: redis:7.4
+    container_name: todak-redis
+    restart: unless-stopped
+
+    # Redis 포트 연결.
+    ports:
+      - "6379:6379"
+
+    # Redis 데이터 영속화 설정.
+    command: redis-server --appendonly yes
+
+    # Redis 데이터 영속화.
+    volumes:
+      - redis-data:/data
+
+    # Redis 상태 확인.
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
+    networks:
+      - todak-network
+
+
+  # 비동기 메시지 브로커.
+  rabbitmq:
+    image: rabbitmq:4.3.5-management
+    container_name: todak-rabbitmq
+    restart: unless-stopped
+
+    # RabbitMQ 초기 계정 설정.
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+
+    ports:
+      # AMQP 통신 포트.
+      - "${RABBITMQ_PORT}:5672"
+
+      # Management UI 포트.
+      - "15672:15672"
+
+    # RabbitMQ 데이터 영속화.
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+    # RabbitMQ 상태 확인.
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    networks:
+      - todak-network
+
+
+  # 분산 추적 서버.
+  zipkin:
+    image: openzipkin/zipkin:3
+    container_name: todak-zipkin
+    restart: unless-stopped
+
+    # Zipkin 포트 연결.
+    ports:
+      - "9411:9411"
+
+    # Zipkin 상태 확인.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--spider",
+          "-q",
+          "http://localhost:9411/health"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    networks:
+      - todak-network
+
+
+  # 중앙 설정 서버.
+  config-server:
+    build:
+      # 프로젝트 루트를 빌드 기준 경로로 지정.
+      context: ..
+
+      # Config Server Dockerfile 사용.
+      dockerfile: config-server/Dockerfile
+
+      # 빌드된 JAR 파일 전달.
+      args:
+        JAR_FILE: config-server/build/libs/*.jar
+
+    container_name: todak-config-server
+    restart: unless-stopped
+
+    environment:
+      # 로컬 프로파일 사용.
+      SPRING_PROFILES_ACTIVE: local,native
+
+      # 컨테이너 내부 Config Repository 경로 지정.
+      SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS: file:/config-repo
+
+    # Config Server 포트 연결.
+    ports:
+      - "8888:8888"
+
+    # Config Repository 연결.
+    volumes:
+      - ../config-repo:/config-repo
+
+    # Config Server 상태 확인.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "curl",
+          "-f",
+          "http://localhost:8888/actuator/health"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+    networks:
+      - todak-network
+
+
+  # 서비스 디스커버리 서버.
+#  eureka-server:
+#    build:
+#      # 프로젝트 루트를 빌드 기준 경로로 지정.
+#      context: ..
+#
+#      # Eureka Server Dockerfile 사용.
+#      dockerfile: eureka-server/Dockerfile
+#
+#      # 빌드된 JAR 파일 전달.
+#      args:
+#        JAR_FILE: eureka-server/build/libs/*.jar
+#
+#    container_name: todak-eureka-server
+#    restart: unless-stopped
+#
+#    environment:
+#      # 로컬 프로파일 사용.
+#      SPRING_PROFILES_ACTIVE: local
+#
+#      # Docker 내부 Config Server 주소 지정.
+#      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+#
+#    # Eureka Server 포트 연결.
+#    ports:
+#      - "8761:8761"
+#
+#    # Config Server 준비 후 실행.
+#    depends_on:
+#      config-server:
+#        condition: service_healthy
+#
+#    # Eureka Server 상태 확인.
+#    healthcheck:
+#      test:
+#        [
+#          "CMD",
+#          "curl",
+#          "-f",
+#          "http://localhost:8761/actuator/health"
+#        ]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 10
+#      start_period: 20s
+#
+#    networks:
+#      - todak-network
+
+
+#  # API 요청 공통 진입점.
+#  api-gateway:
+#    build:
+#      # 프로젝트 루트를 빌드 기준 경로로 지정.
+#      context: .
+#
+#      # API Gateway Dockerfile 사용.
+#      dockerfile: api-gateway/Dockerfile
+#
+#      # 빌드된 JAR 파일 전달.
+#      args:
+#        JAR_FILE: api-gateway/build/libs/*.jar
+#
+#    container_name: todak-api-gateway
+#    restart: unless-stopped
+#
+#    environment:
+#      # 로컬 프로파일 사용.
+#      SPRING_PROFILES_ACTIVE: local
+#
+#      # Docker 내부 Config Server 주소 지정.
+#      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+#
+#      # Docker 내부 Eureka Server 주소 지정.
+#      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+#
+#    # Gateway 포트 연결.
+#    ports:
+#      - "8080:8080"
+#
+#    # Config/Eureka 준비 후 실행.
+#    depends_on:
+#      config-server:
+#        condition: service_healthy
+#      eureka-server:
+#        condition: service_healthy
+#
+#    # Gateway 상태 확인.
+#    healthcheck:
+#      test:
+#        [
+#          "CMD",
+#          "curl",
+#          "-f",
+#          "http://localhost:8080/actuator/health"
+#        ]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 10
+#      start_period: 30s
+#
+#    # 공통 Docker 네트워크 연결.
+#    networks:
+#      - todak-network
+
+
+
+# 컨테이너 데이터 영속화.
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+
+
+# 컨테이너 간 통신용 네트워크.
+networks:
+  todak-network:
+    name: todak-network
+    driver: bridge
+
