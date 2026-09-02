@@ -40,7 +40,7 @@ public enum ErrorCode {
 
     CARE_PLAN_NOT_FOUND(
             HttpStatus.NOT_FOUND,
-            "Care Plan 조회 실패"
+            "Care Plan 서비스를 찾을 수 없습니다."
     ),
     CARE_PLAN_ALREADY_EXISTS(
             HttpStatus.CONFLICT,
