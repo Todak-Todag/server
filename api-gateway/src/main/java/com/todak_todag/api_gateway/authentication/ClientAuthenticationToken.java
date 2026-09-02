@@ -16,7 +16,7 @@ public final class ClientAuthenticationToken extends AbstractAuthenticationToken
 		super(List.of());
 		
 		if(accessToken == null || accessToken.isBlank()) {
-			throw new IllegalArgumentException("");
+			throw new IllegalArgumentException("인증 시도 객체를 만들려면 액세스 토큰이 필요합니다.");
 		}
 		
 		this.client = null;
@@ -29,7 +29,7 @@ public final class ClientAuthenticationToken extends AbstractAuthenticationToken
 		super(authorities);
 		
 		if(client == null) {
-			throw new IllegalArgumentException("");
+			throw new IllegalArgumentException("인증 완료 객체를 만들려면 검증된 클라이언트 정보가 필요합니다.");
 		}
 		
 		this.client = client;
@@ -70,7 +70,7 @@ public final class ClientAuthenticationToken extends AbstractAuthenticationToken
 	@Override
 	public void setAuthenticated(boolean authenticated) {
 		if(authenticated) {
-			throw new IllegalArgumentException("");
+			throw new IllegalArgumentException("인증 완료 상태는 직접 지정할 수 없습니다.");
 		}
 		
 		super.setAuthenticated(false);

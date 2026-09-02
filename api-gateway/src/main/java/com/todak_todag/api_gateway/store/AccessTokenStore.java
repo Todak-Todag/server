@@ -6,6 +6,8 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import com.todak_todag.api_gateway.config.AuthenticationProperties;
+import com.todak_todag.api_gateway.exception.TokenErrorCode;
+import com.todak_todag.api_gateway.exception.TokenException;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
@@ -22,7 +24,7 @@ public class AccessTokenStore {
 	
 	public Mono<String> findByHash(String tokenHash) {
 		if(!isValidTokenHash(tokenHash)) {
-			return Mono.error(new IllegalArgumentException(""));
+			return Mono.error(new TokenException(TokenErrorCode.INVALID_ACCESS_TOKEN));
 		}
 		
 		String redisKey = authenticationProperties.redisKeyPrefix() + tokenHash;
