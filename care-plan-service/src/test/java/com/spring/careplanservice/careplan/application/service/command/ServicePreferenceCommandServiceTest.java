@@ -126,7 +126,25 @@ class ServicePreferenceCommandServiceTest {
         @Test
         @DisplayName("Care Plan이 존재하지 않으면 예외")
         void createServicePreference_carePlanNotFound() {
+            ServicePreferenceCreateCommand command = new ServicePreferenceCreateCommand(
+                    patientId,
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
 
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.createServicePreference(command))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
         }
 
         @Test
