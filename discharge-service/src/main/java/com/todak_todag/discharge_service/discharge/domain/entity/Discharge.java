@@ -18,7 +18,7 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "p_discharge")
+@Table(name = "p_discharges")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Discharge extends BaseAuditableEntity {
 
