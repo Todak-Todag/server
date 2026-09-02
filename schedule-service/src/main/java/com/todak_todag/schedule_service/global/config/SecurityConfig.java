@@ -35,7 +35,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 공개 API
                         .requestMatchers(
-                                // TODO: Test를 목적으로 열어둠
+                                // TODO: 개발 TEST를 위해 임시 작성하였으며, 9/9일 이후 변경 예정
                                 "/api/v1/service-results/**",
                                 "/api/v1/service-schedules/**",
                                 "/internal/v1/**",
