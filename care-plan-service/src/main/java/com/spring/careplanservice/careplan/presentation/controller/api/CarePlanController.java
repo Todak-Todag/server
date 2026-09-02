@@ -37,7 +37,7 @@ public class CarePlanController {
         );
 
         return ResponseEntity
-                .status(HttpStatus.CONFLICT)
+                .status(HttpStatus.CREATED)
                 .body(
                         ApiResponse.success(
                                 HttpStatus.CREATED.value(),
