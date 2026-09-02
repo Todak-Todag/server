@@ -6,6 +6,7 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
+import com.spring.careplanservice.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -19,9 +20,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 
@@ -80,6 +83,18 @@ class CarePlanServiceCommandServiceTest {
         @Test
         @DisplayName("Care Plan이 존재하지 않으면 예외")
         void selectCarePlanService_carePlanNotFound() {
+            CarePlanServiceSelectCommand command = new CarePlanServiceSelectCommand(
+                    patientId,
+                    carePlanId,
+                    provideServiceId
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> carePlanServiceCommandService.selectCarePlanService(command))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(carePlanServiceCommandRepository, never()).save(any(CarePlanService.class));
         }
 
         @Test
