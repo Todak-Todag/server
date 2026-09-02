@@ -6,6 +6,8 @@ import java.util.UUID;
 // ProviderReMatched 이벤트 발행 추상화
 public interface ProviderReMatchEventPort {
 
+    String EVENT_TYPE = "ProviderReMatched";
+
     void publish(ProviderReMatchEvent event);
 
     record ProviderReMatchEvent(

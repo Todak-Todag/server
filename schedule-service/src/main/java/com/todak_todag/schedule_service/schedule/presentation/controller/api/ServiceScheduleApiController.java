@@ -2,8 +2,8 @@ package com.todak_todag.schedule_service.schedule.presentation.controller.api;
 
 import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.global.security.UserContext;
+import com.todak_todag.schedule_service.schedule.application.facade.ServiceScheduleFacade;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
-import com.todak_todag.schedule_service.schedule.application.service.command.ServiceScheduleCommandService;
 import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleRescheduleRequest;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleRescheduleResponse;
 import jakarta.validation.Valid;
@@ -27,18 +27,18 @@ import java.util.UUID;
 @Validated
 public class ServiceScheduleApiController implements ScheduleApiSpec {
 
-    private final ServiceScheduleCommandService serviceScheduleCommandService;
+    private final ServiceScheduleFacade serviceScheduleFacade;
 
     // [외부 API] 서비스 일정 변경
     @Override
     @PatchMapping("/{serviceScheduleId}/status")
     public ResponseEntity<ApiResponse<ServiceScheduleRescheduleResponse>> reschedule(
             @PathVariable UUID serviceScheduleId,
-            @Valid @RequestBody ServiceScheduleRescheduleRequest request,
+            @Valid @RequestBody ServiceScheduleRescheduleRequest rescheduleRequest,
             @AuthenticationPrincipal UserContext user
     ) {
-        ServiceScheduleRescheduleResult result = serviceScheduleCommandService.reschedule(
-                request.toCommand(serviceScheduleId, user.getUserId())
+        ServiceScheduleRescheduleResult rescheduleResult = serviceScheduleFacade.reschedule(
+                rescheduleRequest.toCommand(serviceScheduleId, user.getUserId())
         );
 
         return ResponseEntity
@@ -46,7 +46,7 @@ public class ServiceScheduleApiController implements ScheduleApiSpec {
                 .body(
                         ApiResponse.ok(
                                 "서비스 일정 변경 성공",
-                                ServiceScheduleRescheduleResponse.from(result)
+                                ServiceScheduleRescheduleResponse.from(rescheduleResult)
                         )
                 );
     }

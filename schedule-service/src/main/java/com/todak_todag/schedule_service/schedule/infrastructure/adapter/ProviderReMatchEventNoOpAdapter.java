@@ -4,12 +4,7 @@ import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatc
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-/*
- * TODO: 실제 RabbitMQ 발행 Adapter로 변경
- *  Exchange/Queue/RoutingKey/payload 스펙이 확정된 뒤 해당 클래스 대체
- *  현재는 로그만 남기고 실제 발행은 하지 않음
- *
- */
+// TODO: Exchange/Queue/RoutingKey/payload 스펙이 확정된 뒤 실제 RabbitMQ 발행 Adapter로 변경
 @Slf4j
 @Component
 public class ProviderReMatchEventNoOpAdapter implements ProviderReMatchEventPort {

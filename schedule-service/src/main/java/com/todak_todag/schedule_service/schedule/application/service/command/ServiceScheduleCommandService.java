@@ -6,6 +6,7 @@ import com.todak_todag.schedule_service.schedule.application.command.ServiceSche
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
+import com.todak_todag.schedule_service.schedule.application.support.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+// 순수한 트랜잭션 경계를 담당
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -26,21 +28,19 @@ public class ServiceScheduleCommandService {
     private static final long RESCHEDULE_DEADLINE_HOURS = 24;
 
     private final ServiceScheduleCommandRepository serviceScheduleCommandRepository;
-    private final CarePlanPort carePlanPort;
-    private final ProviderReMatchEventPort providerReMatchEventPort;
+    private final ScheduleOutboxCommandService scheduleOutboxCommandService;
+    private final ProviderReMatchEventPayloadSerializer providerReMatchEventPayloadSerializer;
 
     // 서비스 일정 변경
-    // 동기 처리 범위: 검증 + status를 RESCHEDULING으로 변경 + ProviderReMatched 이벤트 발행
-    // TODO: 재매칭 결과를 받아 CHANGED/SCHEDULED로 전환하는 후속처리 진행 필요
+    // 동기 처리 범위: 검증 + status를 RESCHEDULING으로 변경 + ProviderReMatched 이벤트를 아웃박스에 적재
     @Transactional
-    public ServiceScheduleRescheduleResult reschedule(ServiceScheduleRescheduleCommand reScheduleCommand) {
+    public ServiceScheduleRescheduleResult reschedule(ServiceScheduleRescheduleCommand reScheduleCommand, CarePlanPort.CarePlanRange carePlanRange) {
+
+        // facade가 이미 존재를 확인했지만, facade의 조회와 이 트랜잭션 사이 시점 차이를 방어하기 위해 다시 조회
         ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findById(reScheduleCommand.serviceScheduleId())
                 .orElseThrow(() -> new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_NOT_FOUND));
 
-        // Care Plan 일정 범위(finishDate)와 소유자(patientId)를 함께 조회
-        // servicePreferenceId 기준 단건 조회이므로 사전 검증 시점에 1회만 호출
-        CarePlanPort.CarePlanRange carePlanRange = carePlanPort.findCarePlanRange(serviceSchedule.getServicePreferenceId());
-
+        // 일정 변경을 위한 검증 진행
         validateOwnership(reScheduleCommand.requesterId(), carePlanRange.patientId());
         validateDeadline(serviceSchedule.getStartedAt());
         validateRescheduleDate(serviceSchedule.getDate(), reScheduleCommand.date(), carePlanRange.finishDate());
@@ -49,14 +49,16 @@ public class ServiceScheduleCommandService {
         serviceSchedule.rescheduling();
         ServiceSchedule saved = serviceScheduleCommandRepository.save(serviceSchedule);
 
-        // ProviderReMatchEvent 발행
-        providerReMatchEventPort.publish(
+        // ProviderReMatchEvent를 같은 트랜잭션 안에서 아웃박스에 적재 (실제 발행은 릴레이가 트랜잭션 밖에서 수행)
+        String payload = providerReMatchEventPayloadSerializer.serialize(
                 new ProviderReMatchEventPort.ProviderReMatchEvent(
                         saved.getId(),
                         saved.getServiceOfferingId(),
                         reScheduleCommand.date()
                 )
         );
+
+        scheduleOutboxCommandService.enqueue(ProviderReMatchEventPort.EVENT_TYPE, saved.getId(), payload);
 
         log.info("[Schedule] 서비스 일정 변경 접수 serviceScheduleId={} requestedDate={}", saved.getId(), reScheduleCommand.date());
 
