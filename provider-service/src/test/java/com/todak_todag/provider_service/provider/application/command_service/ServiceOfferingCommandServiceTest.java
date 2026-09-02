@@ -1,14 +1,19 @@
 package com.todak_todag.provider_service.provider.application.command_service;
 
+import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
+import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
+import com.todak_todag.provider_service.provider.application.port.SchedulePort;
 import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.domain.entity.ProvideService;
+import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideServiceQueryRepository;
+import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -20,6 +25,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -46,10 +52,16 @@ class ServiceOfferingCommandServiceTest {
     private ServiceOfferingQueryRepository serviceOfferingQueryRepository;
 
     @Mock
+    private ProvideWorkQueryRepository provideWorkQueryRepository;
+
+    @Mock
     private ProvideServiceQueryRepository provideServiceQueryRepository;
 
     @Mock
     private UserPort userPort;
+
+    @Mock
+    private SchedulePort schedulePort;
 
     @InjectMocks
     private ServiceOfferingCommandService serviceOfferingCommandService;
@@ -117,6 +129,126 @@ class ServiceOfferingCommandServiceTest {
 
             verify(userPort, never()).findRegionIdByUserId(any());
             verify(serviceOfferingCommandRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("삭제")
+    class Delete {
+
+        private final UUID serviceOfferingId = UUID.randomUUID();
+
+        private ServiceOfferingDeleteCommand command(UserRole role) {
+            return new ServiceOfferingDeleteCommand(serviceOfferingId, providerId, role);
+        }
+
+        private ServiceOffering ownedOffering() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.getId()).willReturn(serviceOfferingId);
+            given(offering.isOwnedBy(providerId)).willReturn(true);
+            return offering;
+        }
+
+        @Test
+        @DisplayName("확정 일정이 없으면 제공 서비스와 하위 제공 가능 일정을 함께 논리 삭제한다")
+        void delete_success() {
+            ServiceOffering offering = ownedOffering();
+            ProvideWork provideWork = Mockito.mock(ProvideWork.class);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+                    .willReturn(Optional.of(offering));
+            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
+            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
+                    .willReturn(List.of(provideWork));
+
+            serviceOfferingCommandService.delete(command(UserRole.SERVICE_PROVIDER));
+
+            verify(provideWork).markDeleted(providerId);
+            verify(offering).markDeleted(providerId);
+        }
+
+        @Test
+        @DisplayName("하위 제공 가능 일정이 없어도 정상 삭제된다")
+        void delete_withoutProvideWorks() {
+            ServiceOffering offering = ownedOffering();
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+                    .willReturn(Optional.of(offering));
+            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
+            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
+                    .willReturn(List.of());
+
+            serviceOfferingCommandService.delete(command(UserRole.SERVICE_PROVIDER));
+
+            verify(offering).markDeleted(providerId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않으면 SERVICE_OFFERING_NOT_FOUND")
+        void notFound() {
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> serviceOfferingCommandService.delete(command(UserRole.SERVICE_PROVIDER)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
+
+            verify(schedulePort, never()).existsConfirmedSchedule(any());
+        }
+
+        @Test
+        @DisplayName("본인 소유가 아니면 AUTH_FORBIDDEN")
+        void notOwner() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.isOwnedBy(providerId)).willReturn(false);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+                    .willReturn(Optional.of(offering));
+
+            assertThatThrownBy(() -> serviceOfferingCommandService.delete(command(UserRole.SERVICE_PROVIDER)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
+
+            verify(schedulePort, never()).existsConfirmedSchedule(any());
+            verify(offering, never()).markDeleted(any());
+        }
+
+        @Test
+        @DisplayName("ADMIN은 본인 소유가 아니어도 삭제할 수 있다")
+        void adminCanDelete() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.getId()).willReturn(serviceOfferingId);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+                    .willReturn(Optional.of(offering));
+            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
+            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
+                    .willReturn(List.of());
+
+            serviceOfferingCommandService.delete(command(UserRole.ADMIN));
+
+            verify(offering).markDeleted(providerId);
+            verify(offering, never()).isOwnedBy(any());
+        }
+
+        @Test
+        @DisplayName("확정된 일정이 있으면 SERVICE_OFFERING_SCHEDULE_EXISTS")
+        void scheduleExists() {
+            ServiceOffering offering = ownedOffering();
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+                    .willReturn(Optional.of(offering));
+            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(true);
+
+            assertThatThrownBy(() -> serviceOfferingCommandService.delete(command(UserRole.SERVICE_PROVIDER)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS);
+
+            verify(provideWorkQueryRepository, never()).findAllByServiceOfferingId(any());
+            verify(offering, never()).markDeleted(any());
         }
     }
 }
