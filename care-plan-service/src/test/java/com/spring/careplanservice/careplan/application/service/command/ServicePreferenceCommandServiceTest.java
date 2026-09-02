@@ -3,10 +3,7 @@ package com.spring.careplanservice.careplan.application.service.command;
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceCreateCommand;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
-import com.spring.careplanservice.careplan.domain.entity.CarePlan;
-import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
-import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
-import com.spring.careplanservice.careplan.domain.entity.PreferredTimeSlot;
+import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
@@ -20,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.util.Optional;
@@ -234,6 +232,44 @@ class ServicePreferenceCommandServiceTest {
                     LocalDate.of(2026, 9, 2),
                     LocalDate.of(2026, 10, 1),
                     null
+            );
+
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.createServicePreference(servicePreferenceCreateCommand))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
+        }
+
+        @Test
+        @DisplayName("Care Plan이 검토 중 상태가 아니면 예외")
+        void createServicePreference_invalidCarePlanStatus() {
+            ServicePreferenceCreateCommand servicePreferenceCreateCommand = new ServicePreferenceCreateCommand(
+                    patientId,
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            ReflectionTestUtils.setField(
+                    carePlan,
+                    "status",
+                    CarePlanStatus.CONFIRMED
             );
 
             given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
