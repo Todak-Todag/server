@@ -1,0 +1,65 @@
+#services:
+#
+#  # 사용자 서비스.
+#  user-service:         # 서비스 추가시 복사 후 해당 부분 변경
+#    build:
+#      context: ..
+#      dockerfile: user-service/Dockerfile
+#      args:
+#        JAR_FILE: user-service/build/libs/*.jar
+#
+#    container_name: todak-user-service
+#    restart: unless-stopped
+#
+#    environment:
+#      # 로컬 프로파일 사용.
+#      SPRING_PROFILES_ACTIVE: local
+#
+#      # Docker 내부 Config Server 주소.
+#      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+#
+#      # Docker 내부 Eureka Server 주소.
+#      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+#
+#      # Docker 내부 PostgreSQL 주소.
+#      POSTGRES_HOST: postgres
+#      POSTGRES_PORT: 5432
+#      POSTGRES_DB: ${POSTGRES_DB}
+#      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
+#      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#
+#      # Docker 내부 RabbitMQ 주소.
+#      RABBITMQ_HOST: rabbitmq
+#      RABBITMQ_PORT: 5672
+#      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+#      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+#
+#      # Docker 내부 Zipkin 주소.
+#      ZIPKIN_HOST: zipkin
+#
+#    ports:
+#      - "19000:19000"     # 서비스 추가시 복사 후 해당 부분 변경
+#
+#    # 서비스 상태 확인.
+#    healthcheck:
+#      test: ["CMD", "curl", "-f", "http://localhost:19000/actuator/health"]
+#      interval: 10s
+#      timeout: 5s
+#      retries: 10
+#      start_period: 30s
+#
+#    networks:
+#      - todak-network
+#
+#
+#
+#
+## 해당 위치에 위에 양식을 복사 붙여 넣어, 서비스 이름과 포트 번호 수정 후 사용하시면 될 것 같습니다.
+#
+#
+#
+#
+## compose-infra에서 생성한 공통 네트워크 사용.
+#networks:
+#  todak-network:
+#    external: true
