@@ -5,6 +5,7 @@ on:
     branches: [develop, main]
     paths:
       - 'provider-service/**'
+      - 'config-repo/provider-service-*.yml'
       - '.github/workflows/provider-service-ci.yml'
 
 permissions:

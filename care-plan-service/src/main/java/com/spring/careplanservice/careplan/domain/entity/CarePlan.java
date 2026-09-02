@@ -13,7 +13,7 @@ import java.util.UUID;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Table(name = "p_care_plan")
+@Table(name = "p_care_plans")
 public class CarePlan extends BaseAuditEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

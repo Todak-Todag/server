@@ -5,6 +5,7 @@ on:
     branches: [develop, main]
     paths:
       - 'eureka-server/**'
+      - 'config-repo/eureka-server-*.yml'
       - '.github/workflows/eureka-server-ci.yml'
 
 permissions:

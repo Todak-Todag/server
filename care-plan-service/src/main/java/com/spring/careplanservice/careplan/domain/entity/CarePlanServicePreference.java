@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "p_care_plan_service_preference")
+@Table(name = "p_care_plan_service_preferences")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CarePlanServicePreference extends BaseAuditEntity {
     @Id
