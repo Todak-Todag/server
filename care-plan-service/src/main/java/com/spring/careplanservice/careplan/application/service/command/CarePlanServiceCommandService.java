@@ -40,7 +40,8 @@ public class CarePlanServiceCommandService {
 
         validateDuplicateCarePlanService(
                 carePlanServiceSelectCommand.carePlanId(),
-                carePlanServiceSelectCommand.provideServiceId()
+                carePlanServiceSelectCommand.provideServiceId(),
+                carePlanServiceSelectCommand.userId()
         );
 
         CarePlanService carePlanService = CarePlanService.create(
@@ -69,12 +70,14 @@ public class CarePlanServiceCommandService {
     // 동일한 서비스가 이미 선택되어 있는지 검사
     private void validateDuplicateCarePlanService(
             UUID carePlanId,
-            UUID provideServiceId
+            UUID provideServiceId,
+            UUID userId
     ) {
         if (carePlanServiceCommandRepository
                 .existsByCarePlanIdAndProvideServiceId(
                         carePlanId,
-                        provideServiceId
+                        provideServiceId,
+                        userId
                 )) {
 
             throw new BusinessException(

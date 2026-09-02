@@ -12,6 +12,7 @@ public interface CarePlanServiceCommandRepository {
 
     boolean existsByCarePlanIdAndProvideServiceId(
             UUID carePlanId,
-            UUID provideServiceId
+            UUID provideServiceId,
+            UUID createdBy
     );
 }

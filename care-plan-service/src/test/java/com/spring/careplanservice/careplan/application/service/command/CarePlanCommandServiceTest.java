@@ -291,7 +291,7 @@ class CarePlanCommandServiceTest {
         }
 
         @Test
-        @DisplayName("이미 선택한 서비스이면 예외")
+        @DisplayName("환자가 이미 선택한 서비스이면 예외")
         void selectCarePlanService_alreadyExists() {
         }
     }

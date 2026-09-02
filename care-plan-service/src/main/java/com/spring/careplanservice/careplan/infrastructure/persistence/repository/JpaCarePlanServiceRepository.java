@@ -11,6 +11,7 @@ public interface JpaCarePlanServiceRepository extends JpaRepository<CarePlanServ
 
     boolean existsByCarePlanIdAndProvideServiceIdAndDeletedAtIsNull(
             UUID carePlanId,
-            UUID provideServiceId
+            UUID provideServiceId,
+            UUID createdBy
     );
 }
