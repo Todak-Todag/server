@@ -6,17 +6,28 @@ import java.time.Instant;
 
 public record ErrorResponse(
         boolean success,
-        ErrorDetail error,
+        String code,
+        String message,
+        ErrorDetail details,
         Instant timestamp
 ) {
 
     public record ErrorDetail(
-            String message,
-            String errorCode
+            String reason
     ) {
     }
 
     public static ErrorResponse of(ErrorCode errorCode) {
-        return new ErrorResponse(false, new ErrorDetail(errorCode.getMessage(), errorCode.getCode()), Instant.now());
+        return of(errorCode, errorCode.getMessage());
+    }
+
+    public static ErrorResponse of(ErrorCode errorCode, String message) {
+        return new ErrorResponse(
+                false,
+                errorCode.getCode(),
+                message,
+                new ErrorDetail(errorCode.getMessage()),
+                Instant.now()
+        );
     }
 }
