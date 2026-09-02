@@ -180,5 +180,37 @@ class ServicePreferenceCommandServiceTest {
 
             verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
         }
+
+        @Test
+        @DisplayName("희망 날짜가 Care Plan 시작일 이전이면 예외")
+        void createServicePreference_preferredDateBeforeStartDate() {
+            ServicePreferenceCreateCommand servicePreferenceCreateCommand = new ServicePreferenceCreateCommand(
+                    patientId,
+                    planServiceId,
+                    LocalDate.of(2026, 9, 1),
+                    PreferredTimeSlot.MORNING
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.createServicePreference(servicePreferenceCreateCommand))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
+        }
     }
 }
