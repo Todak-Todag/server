@@ -145,7 +145,7 @@ class RegionControllerTest {
 
             Region region = constructor.newInstance();
 
-            setField(region, "regionId", regionId);
+            setField(region, "id", regionId);
             setField(region, "province", province);
             setField(region, "district", district);
             setField(region, "regionCode", regionCode);
