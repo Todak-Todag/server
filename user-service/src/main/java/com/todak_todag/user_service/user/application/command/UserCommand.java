@@ -5,7 +5,7 @@ import java.util.UUID;
 
 public final class UserCommand {
 
-	public record UserSignupCreateCommand(
+	public record UserSignupCommand(
 			String type,
 			String username,
 			String password,

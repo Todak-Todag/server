@@ -6,7 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
-import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCreateCommand;
+import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserResult;
 import com.todak_todag.user_service.user.application.result.UserResult.UserSignupCreatedResult;
@@ -36,7 +36,7 @@ public class UserCreateService {
 	
 	// private final consentQueryRepo
 	
-	public UserSignupCreatedResult createUserSignup(UserSignupCreateCommand signup) {
+	public UserSignupCreatedResult createUserSignup(UserSignupCommand signup) {
 		
 		// 요청에 지역ID 존재하면 regionId 검증
 		if(signup.regionId() != null) {

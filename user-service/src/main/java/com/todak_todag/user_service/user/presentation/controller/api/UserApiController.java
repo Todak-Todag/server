@@ -1,14 +1,18 @@
-package com.todak_todag.user_service.user.presentation.api_controller;
+package com.todak_todag.user_service.user.presentation.controller.api;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.user.application.result.UserResult.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
+import com.todak_todag.user_service.user.presentation.request.UserRequest.UserSignupRequest;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -21,9 +25,10 @@ public class UserApiController implements UserApiSpec {
 	
 	@Override
 	@PostMapping("/signup")
-	public ResponseEntity<ApiResponse<Object>> createUserSignup() {
-		
-		
+	public ResponseEntity<ApiResponse<Object>> createUserSignup(
+			@Valid @RequestBody UserSignupRequest userSignupRequest
+	) {
+		UserSignupCreatedResult result = userCreateService.createUserSignup(userSignupRequest);
 		
 		return null;
 	}

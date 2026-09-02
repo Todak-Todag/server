@@ -1,12 +1,15 @@
-package com.todak_todag.user_service.user.presentation.api_controller;
+package com.todak_todag.user_service.user.presentation.controller.api;
 
 import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.user.presentation.request.UserRequest.UserSignupRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 
 @Tag(name = "Service User", description = "사용자 API")
 public interface UserApiSpec {
@@ -25,6 +28,10 @@ public interface UserApiSpec {
 			"""
 	)
 	@ApiResponses
-	ResponseEntity<ApiResponse<Object>> createUserSignup();
+	ResponseEntity<ApiResponse<Object>> createUserSignup(
+			@Parameter(description = "회원가입 정보", required = true)
+			@Valid
+			UserSignupRequest userSignupRequest
+	);
 	
 }
