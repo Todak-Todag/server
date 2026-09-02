@@ -32,16 +32,13 @@ public class CarePlanCommandService {
             DischargeFindResult dischargeFindResult
     ) {
         validateDuplicateCarePlan(carePlanCreateCommand.dischargeId());
-
         validatePatient(
                 carePlanCreateCommand.patientId(),
                 dischargeFindResult.patientId()
         );
-
         validateActualDate(dischargeFindResult.actualDate());
 
         LocalDate startDate = dischargeFindResult.actualDate().plusDays(1);
-
         LocalDate finishDate = startDate.plusDays(CARE_PLAN_PERIOD_DAYS - 1);
 
         CarePlan carePlan = CarePlan.create(
@@ -54,7 +51,8 @@ public class CarePlanCommandService {
 
         CarePlan savedCarePlan = carePlanCommandRepository.save(carePlan);
 
-        List<CarePlanService> carePlanServices = carePlanCreateCommand.provideServiceIds()
+        List<CarePlanService> carePlanServices = carePlanCreateCommand.provideServiceIds() == null ? List.of()
+                : carePlanCreateCommand.provideServiceIds()
                 .stream()
                 .distinct()
                 .map(provideServiceId ->
