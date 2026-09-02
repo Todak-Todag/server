@@ -1,6 +1,8 @@
 package com.todak_todag.provider_service.provider.application.service.query;
 
 import com.todak_todag.provider_service.global.common.UserRole;
+import com.todak_todag.provider_service.global.exception.BusinessException;
+import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
@@ -31,7 +33,10 @@ public class ServiceOfferingQueryService {
             return query.providerId() != null ? query.providerId() : query.userId();
         }
 
-        // SERVICE_PROVIDER는 providerId를 넘겨도 본인으로 고정
+        if (query.providerId() != null && !query.providerId().equals(query.userId())) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
+        }
+
         return query.userId();
     }
 }

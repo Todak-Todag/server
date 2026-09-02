@@ -1,6 +1,8 @@
 package com.todak_todag.provider_service.provider.application.service.query;
 
 import com.todak_todag.provider_service.global.common.UserRole;
+import com.todak_todag.provider_service.global.exception.BusinessException;
+import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
@@ -23,8 +25,10 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,7 +71,7 @@ class ServiceOfferingQueryServiceTest {
     class ServiceProvider {
 
         @Test
-        @DisplayName("본인의 제공 서비스 목록을 조회한다")
+        @DisplayName("providerId가 없으면 본인 목록을 조회한다")
         void search_ownList() {
             given(serviceOfferingQueryRepository.searchByProviderId(providerId, pageable))
                     .willReturn(page());
@@ -80,15 +84,27 @@ class ServiceOfferingQueryServiceTest {
         }
 
         @Test
-        @DisplayName("타인의 providerId를 넘겨도 본인 기준으로 조회한다")
-        void search_ignoresRequestedProviderId() {
+        @DisplayName("본인의 providerId를 넘기면 정상 조회된다")
+        void search_ownProviderId() {
             given(serviceOfferingQueryRepository.searchByProviderId(providerId, pageable))
                     .willReturn(page());
 
             serviceOfferingQueryService.search(
-                    query(otherProviderId, providerId, UserRole.SERVICE_PROVIDER));
+                    query(providerId, providerId, UserRole.SERVICE_PROVIDER));
 
             assertThat(capturedProviderId()).isEqualTo(providerId);
+        }
+
+        @Test
+        @DisplayName("타인의 providerId를 넘기면 AUTH_FORBIDDEN")
+        void search_otherProviderId() {
+            assertThatThrownBy(() -> serviceOfferingQueryService.search(
+                    query(otherProviderId, providerId, UserRole.SERVICE_PROVIDER)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
+
+            verify(serviceOfferingQueryRepository, never()).searchByProviderId(any(), any());
         }
     }
 
