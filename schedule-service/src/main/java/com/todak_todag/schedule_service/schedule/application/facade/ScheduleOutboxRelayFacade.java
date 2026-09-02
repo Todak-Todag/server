@@ -11,19 +11,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-// 아웃박스에 적재된 PENDING 이벤트를 실제로 발행하는 유스케이스 조합.
-//
-// Facade는 domain/repository를 직접 호출하지 않고 application/service의 Query/Command Service만 사용한다
-// (ServiceScheduleFacade와 동일한 원칙).
-// 트리거(@Scheduled)는 infrastructure/messaging/ScheduleOutboxRelayScheduler에 있고, 이 facade는
-// "한 번의 폴링에서 무엇을 할지"만 책임진다 — Controller가 아닌 Scheduler가 진입점이라는 점만 다르다.
-//
-// 이벤트 1건 처리(발행 시도 + 상태 갱신)는 건별로 독립된 실패 단위로 다룬다:
-// 한 이벤트의 발행이 실패해도 나머지 이벤트 처리는 계속 진행한다.
-// 실패했다고 이 facade가 재시도 여부를 직접 판단하지는 않는다 — recordFailure 호출만 하고,
-// PENDING 유지(다음 폴링에 재시도) 또는 FAILED 전환(재시도 상한 초과, DLQ)은
-// ScheduleOutboxEvent 엔티티가 스스로 결정한다.
-
 // 아웃박스에 적재된 PENDING 이벤트를 실제로 발행하는 유스케이스 조합
 // 트리거(@Scheduled)는 infrastructure/messaging/ScheduleOutboxRelayScheduler에 존재
 @Slf4j
