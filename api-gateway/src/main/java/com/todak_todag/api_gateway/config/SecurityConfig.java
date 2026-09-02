@@ -1,25 +1,60 @@
 package com.todak_todag.api_gateway.config;
 
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
+import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.authentication.AuthenticationWebFilter;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
+import org.springframework.security.web.server.util.matcher.NegatedServerWebExchangeMatcher;
+import org.springframework.security.web.server.util.matcher.OrServerWebExchangeMatcher;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatcher;
+import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 
+import com.todak_todag.api_gateway.authentication.ClientAccessDeniedHandler;
+import com.todak_todag.api_gateway.authentication.ClientAuthenticationEntryPoint;
+import com.todak_todag.api_gateway.authentication.ClientAuthenticationManager;
+import com.todak_todag.api_gateway.authentication.ClientCookieConverter;
+
+@EnableConfigurationProperties(AuthenticationProperties.class)
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
 	@Bean
-	public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+	public SecurityWebFilterChain securityWebFilterChain(
+			ServerHttpSecurity http,
+			ClientAuthenticationManager authenticationManager,
+			ClientCookieConverter cookieConverter,
+			ClientAuthenticationEntryPoint authenticationEntryPoint,
+			ClientAccessDeniedHandler accessDeniedHandler
+	) {
+		AuthenticationWebFilter authenticationFilter = new AuthenticationWebFilter(authenticationManager);
+		
+		authenticationFilter.setServerAuthenticationConverter(cookieConverter);
+		
+		authenticationFilter.setSecurityContextRepository(NoOpServerSecurityContextRepository.getInstance());
+		
+		authenticationFilter.setRequiresAuthenticationMatcher(protectedRequestMatcher())
+		;
+		
 		http
 				.csrf(ServerHttpSecurity.CsrfSpec::disable)
 				.httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
 				.formLogin(ServerHttpSecurity.FormLoginSpec::disable)
 				.logout(ServerHttpSecurity.LogoutSpec::disable)
 				.securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
+				
+				.exceptionHandling(handling -> handling
+						.authenticationEntryPoint(authenticationEntryPoint)
+						.accessDeniedHandler(accessDeniedHandler)
+				)
+				
+				.addFilterAt(authenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
 				
 				.authorizeExchange(exchange -> exchange
 						// Internal
@@ -100,6 +135,39 @@ public class SecurityConfig {
 				);
 		
 		return http.build();
+	}
+	
+	private ServerWebExchangeMatcher protectedRequestMatcher() {
+		ServerWebExchangeMatcher publicRequestMatcher = new OrServerWebExchangeMatcher(
+			ServerWebExchangeMatchers.pathMatchers(
+					"/internal/**"
+			),
+			
+			ServerWebExchangeMatchers.pathMatchers(
+					"/swagger-ui.html",
+					"/swagger-ui/**",
+					"/webjars/**",
+					"/v3/api-docs/**"
+			),
+			
+			ServerWebExchangeMatchers.pathMatchers(
+					"/actuator/health"
+			),
+			
+			ServerWebExchangeMatchers.pathMatchers(HttpMethod.POST,
+					"/api/v1/auth/signup",
+					"/api/v1/auth/login",
+					"/api/v1/auth/reissue",
+					"/api/v1/auth/logout"
+			),
+			
+			ServerWebExchangeMatchers.pathMatchers(
+					"/api/v1/regions/**",
+					"/api/v1/consent-documents/**"
+			)
+		);
+		
+		return new NegatedServerWebExchangeMatcher(publicRequestMatcher);
 	}
 	
 }
