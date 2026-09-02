@@ -1,6 +1,14 @@
 package com.todak_todag.discharge_service.discharge.domain.entity;
 
-import jakarta.persistence.*;
+import com.todak_todag.discharge_service.global.common.BaseAuditableEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,7 +20,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "p_discharges")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Discharge {
+public class Discharge extends BaseAuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
