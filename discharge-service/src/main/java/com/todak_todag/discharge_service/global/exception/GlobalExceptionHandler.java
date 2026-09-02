@@ -12,6 +12,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -203,6 +204,24 @@ public class GlobalExceptionHandler {
                 Map.of(
                         "reason",
                         "지원하지 않는 Content-Type입니다."
+                )
+        );
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDeniedException(
+            AccessDeniedException e
+    ) {
+        log.warn(
+                "[Discharge][AccessDeniedException] message={}",
+                e.getMessage()
+        );
+
+        return createResponse(
+                ErrorCode.AUTH_FORBIDDEN,
+                Map.of(
+                        "reason",
+                        ErrorCode.AUTH_FORBIDDEN.getMessage()
                 )
         );
     }
