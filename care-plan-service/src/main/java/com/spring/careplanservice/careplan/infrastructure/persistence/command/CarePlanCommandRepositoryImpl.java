@@ -6,6 +6,7 @@ import com.spring.careplanservice.careplan.infrastructure.persistence.repository
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -22,5 +23,10 @@ public class CarePlanCommandRepositoryImpl implements CarePlanCommandRepository 
     @Override
     public boolean existsByDischargeId(UUID dischargeId) {
         return jpaCarePlanRepository.existsByDischargeIdAndDeletedAtIsNull(dischargeId);
+    }
+
+    @Override
+    public Optional<CarePlan> findById(UUID carePlanId) {
+        return jpaCarePlanRepository.findByIdAndDeletedAtIsNull(carePlanId);
     }
 }

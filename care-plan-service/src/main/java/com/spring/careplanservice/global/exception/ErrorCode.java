@@ -56,6 +56,11 @@ public enum ErrorCode {
             HttpStatus.CONFLICT,
             "실제 퇴원이 완료되지 않았습니다."
     ),
+
+    CARE_PLAN_SERVICE_ALREADY_EXISTS(
+            HttpStatus.CONFLICT,
+            "이미 선택한 Care Plan 서비스입니다."
+    ),
     ;
 
 

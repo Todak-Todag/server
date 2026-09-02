@@ -23,7 +23,7 @@ public class HeaderAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         String userIdHeader = request.getHeader("X-User-Id");
-        String userRoleHeader = request.getHeader("X-user-Role");
+        String userRoleHeader = request.getHeader("X-User-Role");
 
         /*
          * Gateway 사용자 인증 헤더가 없는 요청은
