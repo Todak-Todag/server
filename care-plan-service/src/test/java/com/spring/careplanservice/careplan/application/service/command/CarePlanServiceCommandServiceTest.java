@@ -100,6 +100,28 @@ class CarePlanServiceCommandServiceTest {
         @Test
         @DisplayName("요청자가 Care Plan의 환자가 아니면 예외")
         void selectCarePlanService_forbidden() {
+            UUID otherPatientId = UUID.randomUUID();
+
+            CarePlanServiceSelectCommand carePlanServiceSelectCommand = new CarePlanServiceSelectCommand(
+                    patientId,
+                    carePlanId,
+                    provideServiceId
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    otherPatientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> carePlanServiceCommandService.selectCarePlanService(carePlanServiceSelectCommand))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(carePlanServiceCommandRepository, never()).save(any(CarePlanService.class));
         }
 
         @Test
