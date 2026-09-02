@@ -26,13 +26,8 @@ public class CarePlanCommandService {
     private final CarePlanCommandRepository carePlanCommandRepository;
     private final CarePlanServiceCommandRepository carePlanServiceCommandRepository;
 
-    /*
-     * TODO :
-     * Discharge Service 내부 API 구현 완료 후
-     * DischargeQueryPort를 통해 dischargeId로 퇴원 건을 조회하도록 변경
-     */
     @Transactional
-    public CarePlanCreateResult create(
+    public CarePlanCreateResult createCarePlan(
             CarePlanCreateCommand carePlanCreateCommand,
             DischargeFindResult dischargeFindResult
     ) {

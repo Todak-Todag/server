@@ -1,7 +1,6 @@
 package com.spring.careplanservice.careplan.presentation.request;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
