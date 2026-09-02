@@ -10,6 +10,7 @@ import com.spring.careplanservice.careplan.domain.entity.PreferredTimeSlot;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
+import com.spring.careplanservice.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -25,10 +26,10 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ServicePreferenceCommandServiceTest {
@@ -106,7 +107,20 @@ class ServicePreferenceCommandServiceTest {
         @Test
         @DisplayName("Care Plan 서비스가 존재하지 않으면 예외")
         void createServicePreference_planService_notFound() {
+            ServicePreferenceCreateCommand command = new ServicePreferenceCreateCommand(
+                    patientId,
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
 
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.createServicePreference(command))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(carePlanCommandRepository, never()).findById(any(UUID.class));
+            verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
         }
 
         @Test
