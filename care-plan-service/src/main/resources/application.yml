@@ -34,7 +34,7 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/todaktodag_db?currentSchema=care_plan_schema
-    username: root
+    username: postgres
     password: password
 
   jpa:
