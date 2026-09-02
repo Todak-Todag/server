@@ -29,7 +29,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.BDDMockito.given;
 
 
@@ -148,4 +148,24 @@ class CarePlanQueryServiceTest {
             assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CARE_PLAN_NOT_FOUND);
         }
     }
+
+    @Nested
+    @DisplayName("Care Plan 단건 조회")
+    class FindCarePlan {
+        @Test
+        @DisplayName("성공")
+        void findCarePlan_success() {
+        }
+
+        @Test
+        @DisplayName("Care Plan이 존재하지 않으면 예외")
+        void findCarePlan_notFound() {
+        }
+
+        @Test
+        @DisplayName("요청자가 Care Plan 소유자가 아니면 예외")
+        void findCarePlan_forbidden() {
+        }
+    }
+
 }

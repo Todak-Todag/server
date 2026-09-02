@@ -53,7 +53,7 @@ public class CarePlanController {
                         ));
     }
 
-    @PreAuthorize("hasRole('PATIENT')")
+    @PreAuthorize("hasAnyRole('PATIENT', 'ADMIN', 'SOCIAL_WORKER', 'MASTER')")
     @GetMapping("/{carePlanId}")
     public ResponseEntity<ApiResponse<CarePlanFindResponse>> findCarePlan(
             @AuthenticationPrincipal UserContext user,

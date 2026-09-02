@@ -7,7 +7,6 @@ import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -18,7 +17,6 @@ import com.spring.careplanservice.careplan.domain.repository.query.ServicePrefer
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
