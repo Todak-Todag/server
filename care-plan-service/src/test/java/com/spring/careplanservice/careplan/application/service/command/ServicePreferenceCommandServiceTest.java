@@ -212,5 +212,37 @@ class ServicePreferenceCommandServiceTest {
 
             verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
         }
+
+        @Test
+        @DisplayName("희망 날짜가 Care Plan 종료일 이후이면 예외")
+        void createServicePreference_preferredDateAfterFinishDate() {
+            ServicePreferenceCreateCommand servicePreferenceCreateCommand = new ServicePreferenceCreateCommand(
+                    patientId,
+                    planServiceId,
+                    LocalDate.of(2026, 10, 2),
+                    PreferredTimeSlot.AFTERNOON
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.createServicePreference(servicePreferenceCreateCommand))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
+        }
     }
 }
