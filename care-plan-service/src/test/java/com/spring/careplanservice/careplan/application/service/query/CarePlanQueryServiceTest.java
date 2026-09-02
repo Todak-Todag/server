@@ -2,8 +2,10 @@ package com.spring.careplanservice.careplan.application.service.query;
 
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
+import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -22,6 +24,8 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.mockito.Mockito.verify;
+
 import java.time.LocalDate;
 import java.util.Optional;
 import java.util.Set;
@@ -39,6 +43,7 @@ class CarePlanQueryServiceTest {
     UUID patientId = UUID.randomUUID();
     UUID servicePreferenceId = UUID.randomUUID();
     UUID planServiceId = UUID.randomUUID();
+    UUID dischargeId = UUID.randomUUID();
 
     @Mock
     private CarePlanQueryRepository carePlanQueryRepository;
@@ -155,17 +160,49 @@ class CarePlanQueryServiceTest {
         @Test
         @DisplayName("성공")
         void findCarePlan_success() {
+            LocalDate startDate = LocalDate.of(2026, 9, 1);
+            LocalDate finishDate = LocalDate.of(2026, 9, 30);
+
+            CarePlan carePlan = Mockito.mock(CarePlan.class);
+
+            given(carePlan.getId()).willReturn(carePlanId);
+            given(carePlan.getPatientId()).willReturn(patientId);
+            given(carePlan.getDischargeId()).willReturn(dischargeId);
+            given(carePlan.getStatus()).willReturn(CarePlanStatus.UNDER_REVIEW);
+            given(carePlan.getStartDate()).willReturn(startDate);
+            given(carePlan.getFinishDate()).willReturn(finishDate);
+            given(carePlan.getNote()).willReturn("퇴원 후 방문 간호가 필요합니다.");
+
+            given(carePlanQueryRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            CarePlanFindQuery carePlanFindQuery = new CarePlanFindQuery(
+                    carePlanId,
+                    patientId
+            );
+
+            CarePlanFindResult carePlanFindResult = carePlanQueryService.findCarePlan(carePlanFindQuery);
+
+            assertThat(carePlanFindResult.carePlanId()).isEqualTo(carePlanId);
+            assertThat(carePlanFindResult.patientId()).isEqualTo(patientId);
+            assertThat(carePlanFindResult.dischargeId()).isEqualTo(dischargeId);
+            assertThat(carePlanFindResult.status()).isEqualTo(CarePlanStatus.UNDER_REVIEW);
+            assertThat(carePlanFindResult.startDate()).isEqualTo(startDate);
+            assertThat(carePlanFindResult.finishDate()).isEqualTo(finishDate);
+            assertThat(carePlanFindResult.note()).isEqualTo("퇴원 후 방문 간호가 필요합니다.");
+
+            verify(carePlanQueryRepository).findById(carePlanId);
         }
 
         @Test
         @DisplayName("Care Plan이 존재하지 않으면 예외")
         void findCarePlan_notFound() {
+
         }
 
         @Test
         @DisplayName("요청자가 Care Plan 소유자가 아니면 예외")
         void findCarePlan_forbidden() {
+
         }
     }
-
 }
