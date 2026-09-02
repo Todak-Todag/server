@@ -13,7 +13,6 @@ import java.util.UUID;
         configuration = FeignConfig.class
 )
 public interface DischargeFeignClient {
-    // TODO : 임시 url 추후 변경할 것
     @GetMapping("/internal/v1/discharges/{dischargeId}")
     DischargeInternalResponse findById(
             @PathVariable("dischargeId") UUID dischargeId
