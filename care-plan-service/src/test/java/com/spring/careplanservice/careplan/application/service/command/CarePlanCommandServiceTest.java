@@ -271,28 +271,4 @@ class CarePlanCommandServiceTest {
             verify(carePlanCommandRepository, never()).save(any(CarePlan.class));
         }
     }
-
-    @Nested
-    @DisplayName("Care Plan 서비스 선택")
-    class selectCarePlanService {
-        @Test
-        @DisplayName("성공")
-        void selectCarePlanService_success() {
-        }
-
-        @Test
-        @DisplayName("Care Plan이 존재하지 않으면 예외")
-        void selectCarePlanService_carePlanNotFound() {
-        }
-
-        @Test
-        @DisplayName("요청자가 Care Plan의 환자가 아니면 예외")
-        void selectCarePlanService_forbidden() {
-        }
-
-        @Test
-        @DisplayName("환자가 이미 선택한 서비스이면 예외")
-        void selectCarePlanService_alreadyExists() {
-        }
-    }
 }
