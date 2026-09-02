@@ -27,5 +27,11 @@ public class UserPersistenceAdapter implements UserCommandRepository , UserQuery
 	public Optional<User> findById(UUID userId) {
 		return Optional.empty();
 	}
+
+	@Override
+	public boolean duplicateUsername(String username) {
+		// TODO Auto-generated method stub
+		return false;
+	}
 	
 }

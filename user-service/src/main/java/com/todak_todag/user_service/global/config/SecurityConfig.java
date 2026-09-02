@@ -46,7 +46,7 @@ public class SecurityConfig {
 						// 공개 API
 						.requestMatchers(
 								"/api/v1/auth/login",
-								"/api/v1/auth/signup",
+								"/api/v1/users/signup",
 								"/api/v1/auth/reissue",
 								"/api/v1/auth/logout",
 								"/api/v1/regions/**"
