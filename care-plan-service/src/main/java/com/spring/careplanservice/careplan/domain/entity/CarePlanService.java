@@ -24,4 +24,16 @@ public class CarePlanService extends BaseCreateDeleteEntity {
 
     @Column(name = "provide_service_id", nullable = false)
     private UUID provideServiceId;
+
+    public static CarePlanService create(
+            UUID carePlanId,
+            UUID provideServiceId
+    ) {
+        CarePlanService carePlanService = new CarePlanService();
+
+        carePlanService.carePlanId = carePlanId;
+        carePlanService.provideServiceId = provideServiceId;
+
+        return carePlanService;
+    }
 }

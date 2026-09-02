@@ -4,6 +4,7 @@ import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatie
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
+import com.spring.careplanservice.careplan.application.service.query.CarePlanQueryService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -119,6 +120,7 @@ class CarePlanQueryServiceTest {
             given(carePlanService.getCarePlanId()).willReturn(carePlanId);
             given(carePlan.getId()).willReturn(carePlanId);
             given(carePlan.getFinishDate()).willReturn(finishDate);
+            given(carePlan.getPatientId()).willReturn(patientId);
             given(servicePreferenceQueryRepository.findById(servicePreferenceId)).willReturn(Optional.of(preference));
             given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
             given(carePlanQueryRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
@@ -128,6 +130,7 @@ class CarePlanQueryServiceTest {
             CarePlanFindByPreferenceResult carePlanFindByPreferenceResult = carePlanQueryService.findByServicePreference(carePlanFindByPreferenceQuery);
 
             assertThat(carePlanFindByPreferenceResult.carePlanId()).isEqualTo(carePlanId);
+            assertThat(carePlanFindByPreferenceResult.patientId()).isEqualTo(patientId);
             assertThat(carePlanFindByPreferenceResult.finishDate()).isEqualTo(finishDate);
         }
 

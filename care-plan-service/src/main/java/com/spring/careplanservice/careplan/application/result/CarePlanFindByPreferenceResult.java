@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record CarePlanFindByPreferenceResult(
         UUID carePlanId,
+        UUID patientId,
         LocalDate finishDate
 ) {
     public static CarePlanFindByPreferenceResult from(
@@ -14,6 +15,7 @@ public record CarePlanFindByPreferenceResult(
     ) {
         return new CarePlanFindByPreferenceResult(
                 carePlan.getId(),
+                carePlan.getPatientId(),
                 carePlan.getFinishDate()
         );
     }

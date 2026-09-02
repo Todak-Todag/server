@@ -1,9 +1,9 @@
-package com.spring.careplanservice.careplan.presentation.internal_controller;
+package com.spring.careplanservice.careplan.presentation.controller.internal;
 
 
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
-import com.spring.careplanservice.careplan.application.query_service.CarePlanQueryService;
+import com.spring.careplanservice.careplan.application.service.query.CarePlanQueryService;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
 import com.spring.careplanservice.careplan.presentation.response.CarePlanFindByPatientResponse;

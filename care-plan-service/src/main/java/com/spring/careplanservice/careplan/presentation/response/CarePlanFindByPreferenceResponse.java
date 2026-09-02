@@ -7,6 +7,7 @@ import java.util.UUID;
 
 public record CarePlanFindByPreferenceResponse(
         UUID carePlanId,
+        UUID patientId,
         LocalDate finishDate
 ) {
 
@@ -15,6 +16,7 @@ public record CarePlanFindByPreferenceResponse(
     ) {
         return new CarePlanFindByPreferenceResponse(
                 carePlanFindByPreferenceResult.carePlanId(),
+                carePlanFindByPreferenceResult.patientId(),
                 carePlanFindByPreferenceResult.finishDate()
         );
     }
