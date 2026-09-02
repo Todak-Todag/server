@@ -196,7 +196,18 @@ class CarePlanQueryServiceTest {
         @Test
         @DisplayName("Care Plan이 존재하지 않으면 예외")
         void findCarePlan_notFound() {
+            given(carePlanQueryRepository.findById(carePlanId)).willReturn(Optional.empty());
 
+            CarePlanFindQuery carePlanFindQuery = new CarePlanFindQuery(
+                    carePlanId,
+                    patientId
+            );
+
+            BusinessException exception = assertThrows(BusinessException.class, () -> carePlanQueryService.findCarePlan(carePlanFindQuery));
+
+            assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.CARE_PLAN_NOT_FOUND);
+
+            verify(carePlanQueryRepository).findById(carePlanId);
         }
 
         @Test
