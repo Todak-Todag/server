@@ -7,6 +7,7 @@ import com.spring.careplanservice.careplan.application.support.CarePlanOwnerVali
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
@@ -54,6 +55,8 @@ public class ServicePreferenceCommandService {
                 carePlan.getPatientId()
         );
 
+        validateCarePlanStatus(carePlan);
+
         validatePreferredDate(
                 servicePreferenceCreateCommand.preferredDate(),
                 carePlan.getStartDate(),
@@ -88,4 +91,13 @@ public class ServicePreferenceCommandService {
             );
         }
     }
+
+    private void validateCarePlanStatus(
+            CarePlan carePlan
+    ) {
+        if (carePlan.getStatus() != CarePlanStatus.UNDER_REVIEW) {
+            throw new BusinessException(ErrorCode.SERVICE_PREFERENCE_NOT_ALLOWED);
+        }
+    }
+
 }

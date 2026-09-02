@@ -67,6 +67,11 @@ public enum ErrorCode {
             "희망 날짜는 Care Plan 제공 기간 내에서만 선택할 수 있습니다."
     ),
 
+    SERVICE_PREFERENCE_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "현재 Care Plan 상태에서는 희망 일정을 등록할 수 없습니다."
+    ),
+
     CARE_PLAN_SERVICE_ALREADY_EXISTS(
             HttpStatus.CONFLICT,
             "이미 선택한 Care Plan 서비스입니다."
