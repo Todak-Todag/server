@@ -15,4 +15,6 @@ public interface JpaCarePlanRepository extends JpaRepository<CarePlan, UUID> {
             UUID patientId,
             Set<CarePlanStatus> statuses
     );
+
+    boolean existsByDischargeIdAndDeletedAtIsNull(UUID dischargeId);
 }
