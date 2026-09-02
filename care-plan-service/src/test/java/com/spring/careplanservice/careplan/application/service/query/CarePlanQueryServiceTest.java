@@ -1,10 +1,9 @@
-package com.spring.careplanservice.careplan.application.query_service;
+package com.spring.careplanservice.careplan.application.service.query;
 
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
-import com.spring.careplanservice.careplan.application.service.query.CarePlanQueryService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -30,7 +29,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.BDDMockito.given;
 
 

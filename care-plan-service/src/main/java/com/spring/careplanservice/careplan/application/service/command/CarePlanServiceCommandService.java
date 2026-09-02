@@ -74,7 +74,7 @@ public class CarePlanServiceCommandService {
             UUID userId
     ) {
         if (carePlanServiceCommandRepository
-                .existsByCarePlanIdAndProvideServiceId(
+                .existsByCarePlanIdAndProvideServiceIdAndCreatedBy(
                         carePlanId,
                         provideServiceId,
                         userId

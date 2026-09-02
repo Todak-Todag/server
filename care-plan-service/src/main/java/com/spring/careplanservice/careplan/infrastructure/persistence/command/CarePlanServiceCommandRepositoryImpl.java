@@ -15,13 +15,13 @@ public class CarePlanServiceCommandRepositoryImpl implements CarePlanServiceComm
     private final JpaCarePlanServiceRepository jpaCarePlanServiceRepository;
 
     @Override
-    public boolean existsByCarePlanIdAndProvideServiceId(
+    public boolean existsByCarePlanIdAndProvideServiceIdAndCreatedBy(
             UUID carePlanId,
             UUID provideServiceId,
             UUID createdBy
     ) {
         return jpaCarePlanServiceRepository
-                .existsByCarePlanIdAndProvideServiceIdAndDeletedAtIsNull(
+                .existsByCarePlanIdAndProvideServiceIdAndCreatedByAndDeletedAtIsNull(
                         carePlanId,
                         provideServiceId,
                         createdBy

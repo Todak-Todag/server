@@ -65,7 +65,7 @@ class CarePlanServiceCommandServiceTest {
             );
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
-            given(carePlanServiceCommandRepository.existsByCarePlanIdAndProvideServiceId(
+            given(carePlanServiceCommandRepository.existsByCarePlanIdAndProvideServiceIdAndCreatedBy(
                     carePlanId,
                     provideServiceId,
                     patientId
@@ -141,7 +141,7 @@ class CarePlanServiceCommandServiceTest {
             );
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
-            given(carePlanServiceCommandRepository.existsByCarePlanIdAndProvideServiceId(
+            given(carePlanServiceCommandRepository.existsByCarePlanIdAndProvideServiceIdAndCreatedBy(
                     carePlanId,
                     provideServiceId,
                     patientId

@@ -9,7 +9,7 @@ import java.util.UUID;
 public interface JpaCarePlanServiceRepository extends JpaRepository<CarePlanService, UUID> {
     Optional<CarePlanService> findByIdAndDeletedAtIsNull(UUID id);
 
-    boolean existsByCarePlanIdAndProvideServiceIdAndDeletedAtIsNull(
+    boolean existsByCarePlanIdAndProvideServiceIdAndCreatedByAndDeletedAtIsNull(
             UUID carePlanId,
             UUID provideServiceId,
             UUID createdBy
