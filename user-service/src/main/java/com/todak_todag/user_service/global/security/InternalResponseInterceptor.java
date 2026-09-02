@@ -30,7 +30,7 @@ public class InternalResponseInterceptor implements HandlerInterceptor {
 	
 	@Override
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-		String requestApiKey = request.getHeader(InternalHeader.INTERNAL_API_KEY);
+		String requestApiKey = request.getHeader(InternalHeader.INTERNAL_KEY);
 		
 		if(requestApiKey == null || requestApiKey.isBlank() || !matches(requestApiKey)) {
 			log.warn(

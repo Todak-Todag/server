@@ -54,7 +54,7 @@ public class InternalApiSecurityIntegrationTest {
 	void internalApiTest_1() throws Exception {
 		mockMvc.perform(
 				get(INTERNAL_TEST_URL)
-				.header(InternalHeader.INTERNAL_API_KEY, INTERNAL_API_KEY)
+				.header(InternalHeader.INTERNAL_KEY, INTERNAL_API_KEY)
 		)
 		.andExpect(status().isOk());
 	}
@@ -75,7 +75,7 @@ public class InternalApiSecurityIntegrationTest {
 	void internalApiTest_fail_2() throws Exception {
 		mockMvc.perform(
 				get(INTERNAL_TEST_URL)
-				.header(InternalHeader.INTERNAL_API_KEY, "fail_internal_test_key")
+				.header(InternalHeader.INTERNAL_KEY, "fail_internal_test_key")
 		)
 		.andExpect(status().isUnauthorized())
 		.andExpect(jsonPath("$.success").value(false))

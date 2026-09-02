@@ -14,7 +14,7 @@ public class FeignConfig {
 
 	@Bean
 	public RequestInterceptor internalApiInterceptor(@Value("${internal.key}") String internalKey) {
-		return requestTemplate -> requestTemplate.header(InternalHeader.INTERNAL_API_KEY, internalKey);
+		return requestTemplate -> requestTemplate.header(InternalHeader.INTERNAL_KEY, internalKey);
 	}
 	
 	@Bean
