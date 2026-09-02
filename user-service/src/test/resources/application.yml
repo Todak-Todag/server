@@ -56,7 +56,3 @@ management:
 logging:
   level:
     com.todak_todag.provider_service: debug
-
-eureka:
-  client:
-    enabled: false
