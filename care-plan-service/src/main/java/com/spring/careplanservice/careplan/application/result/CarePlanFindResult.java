@@ -18,9 +18,7 @@ public record CarePlanFindResult(
         Instant createdAt
 ) {
 
-    public static CarePlanFindResult from(
-            CarePlan carePlan
-    ) {
+    public static CarePlanFindResult from(CarePlan carePlan) {
         return new CarePlanFindResult(
                 carePlan.getId(),
                 carePlan.getPatientId(),

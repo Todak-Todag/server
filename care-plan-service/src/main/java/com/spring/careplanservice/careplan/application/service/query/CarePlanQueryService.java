@@ -19,7 +19,6 @@ import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,21 +69,6 @@ public class CarePlanQueryService {
     }
 
     public CarePlanFindResult findCarePlan(
-            CarePlanFindQuery carePlanFindQuery
-    ) {
-        CarePlan carePlan = carePlanQueryRepository
-                .findById(carePlanFindQuery.carePlanId())
-                .orElseThrow(this::carePlanIdNotFound);
-
-        validateOwner(
-                carePlan,
-                carePlanFindQuery.userId()
-        );
-
-        return CarePlanFindResult.from(carePlan);
-    }
-
-    public Page<CarePlanSearchResult> searchCarePlans(
             CarePlanFindQuery carePlanFindQuery
     ) {
         CarePlan carePlan = carePlanQueryRepository
