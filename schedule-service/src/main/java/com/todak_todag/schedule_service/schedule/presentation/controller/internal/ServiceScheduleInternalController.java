@@ -1,8 +1,8 @@
-package com.todak_todag.schedule_service.schedule.presentation.internal_controller;
+package com.todak_todag.schedule_service.schedule.presentation.controller.internal;
 
 import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.schedule.application.query.InternalServiceScheduleSearchQuery;
-import com.todak_todag.schedule_service.schedule.application.query_service.InternalServiceScheduleQueryService;
+import com.todak_todag.schedule_service.schedule.application.service.query.InternalServiceScheduleQueryService;
 import com.todak_todag.schedule_service.schedule.application.result.InternalServiceScheduleSearchResult;
 import com.todak_todag.schedule_service.schedule.presentation.response.InternalServiceScheduleListResponse;
 import jakarta.validation.constraints.NotEmpty;

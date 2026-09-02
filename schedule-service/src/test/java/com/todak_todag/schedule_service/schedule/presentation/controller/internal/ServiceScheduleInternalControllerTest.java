@@ -1,4 +1,4 @@
-package com.todak_todag.schedule_service.schedule.presentation.internal_controller;
+package com.todak_todag.schedule_service.schedule.presentation.controller.internal;
 
 import com.todak_todag.schedule_service.global.common.SystemId;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;

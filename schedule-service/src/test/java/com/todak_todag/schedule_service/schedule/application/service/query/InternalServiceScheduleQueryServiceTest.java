@@ -1,4 +1,4 @@
-package com.todak_todag.schedule_service.schedule.application.query_service;
+package com.todak_todag.schedule_service.schedule.application.service.query;
 
 import com.todak_todag.schedule_service.schedule.application.query.InternalServiceScheduleSearchQuery;
 import com.todak_todag.schedule_service.schedule.application.result.InternalServiceScheduleSearchResult;
