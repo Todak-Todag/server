@@ -16,11 +16,11 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
-public class InternalApiInterceptor implements HandlerInterceptor {
+public class InternalResponseInterceptor implements HandlerInterceptor {
 
 	private final String internalApiKey;
 	
-	public InternalApiInterceptor(@Value("${internal.key}") String internalApiKey) {
+	public InternalResponseInterceptor(@Value("${internal.key}") String internalApiKey) {
 		if(internalApiKey == null || internalApiKey.isBlank()) {
 			throw new IllegalArgumentException("internal.key 는 서버 구동에 필요한 설정입니다.");
 		}
