@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/care-plans")
 public class CarePlanController {
     private final CarePlanFacade carePlanFacade;
 
