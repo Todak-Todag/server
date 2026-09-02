@@ -1,11 +1,10 @@
-package com.todak_todag.provider_service.provider.presentation.api_controller;
+package com.todak_todag.provider_service.provider.presentation.controller.api;
 
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
-import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
-import com.todak_todag.provider_service.provider.presentation.controller.api.ServiceOfferingApiController;
+import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

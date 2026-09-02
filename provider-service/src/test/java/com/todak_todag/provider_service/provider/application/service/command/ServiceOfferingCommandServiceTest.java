@@ -1,4 +1,4 @@
-package com.todak_todag.provider_service.provider.application.command_service;
+package com.todak_todag.provider_service.provider.application.service.command;
 
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
@@ -8,7 +8,6 @@ import com.todak_todag.provider_service.provider.application.command.ServiceOffe
 import com.todak_todag.provider_service.provider.application.port.SchedulePort;
 import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
-import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
