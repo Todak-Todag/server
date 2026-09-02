@@ -5,6 +5,7 @@ import com.spring.careplanservice.careplan.application.port.DischargeQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
+import com.spring.careplanservice.global.common.UserRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +45,8 @@ class CarePlanFacadeTest {
                 dischargeId,
                 null,
                 null,
-                userId
+                userId,
+                UserRole.PATIENT
         );
 
         DischargeFindResult discharge = new DischargeFindResult(

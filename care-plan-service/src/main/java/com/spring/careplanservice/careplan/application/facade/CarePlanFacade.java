@@ -13,14 +13,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class CarePlanFacade {
     private final CarePlanCommandService carePlanCommandService;
-     private final DischargeQueryPort dischargeQueryPort;
+    private final DischargeQueryPort dischargeQueryPort;
 
     public CarePlanCreateResult createCarePlan(
             CarePlanCreateCommand carePlanCreateCommand
     ) {
-         DischargeFindResult dischargeFindResult = dischargeQueryPort.findById(
-                         carePlanCreateCommand.dischargeId()
-                 );
+        DischargeFindResult dischargeFindResult = dischargeQueryPort.findById(
+                carePlanCreateCommand.dischargeId()
+        );
 
         return carePlanCommandService.createCarePlan(
                 carePlanCreateCommand,

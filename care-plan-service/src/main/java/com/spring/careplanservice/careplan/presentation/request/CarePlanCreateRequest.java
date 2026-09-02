@@ -1,6 +1,7 @@
 package com.spring.careplanservice.careplan.presentation.request;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
+import com.spring.careplanservice.global.common.UserRole;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.List;
@@ -18,13 +19,17 @@ public record CarePlanCreateRequest(
         List<UUID> provideServiceIds
 ) {
 
-    public CarePlanCreateCommand toCommand(UUID userId) {
+    public CarePlanCreateCommand toCommand(
+            UUID userId,
+            UserRole userRole
+    ) {
         return new CarePlanCreateCommand(
                 patientId,
                 dischargeId,
                 note,
                 provideServiceIds,
-                userId
+                userId,
+                userRole
         );
     }
 }

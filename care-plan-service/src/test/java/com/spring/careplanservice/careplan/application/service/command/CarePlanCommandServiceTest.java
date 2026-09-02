@@ -1,10 +1,12 @@
 package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
+import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
+import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -58,7 +60,8 @@ class CarePlanCommandServiceTest {
                     dischargeId,
                     "Care Plan 생성",
                     List.of(provideServiceId),
-                    userId
+                    userId,
+                    UserRole.HOSPITAL_STAFF
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(
@@ -99,7 +102,8 @@ class CarePlanCommandServiceTest {
                     dischargeId,
                     null,
                     null,
-                    userId
+                    userId,
+                    UserRole.HOSPITAL_STAFF
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(
@@ -128,7 +132,8 @@ class CarePlanCommandServiceTest {
                     dischargeId,
                     null,
                     null,
-                    userId
+                    userId,
+                    UserRole.HOSPITAL_STAFF
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(
@@ -156,7 +161,8 @@ class CarePlanCommandServiceTest {
                     dischargeId,
                     null,
                     null,
-                    userId
+                    userId,
+                    UserRole.HOSPITAL_STAFF
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(
@@ -179,12 +185,13 @@ class CarePlanCommandServiceTest {
         @Test
         @DisplayName("실제 퇴원일이 없으면 Care Plan 예외")
         void createCarePlan_actualDateNull() {
-            CarePlanCreateCommand command = new CarePlanCreateCommand(
+            CarePlanCreateCommand carePlanCreateCommand = new CarePlanCreateCommand(
                     patientId,
                     dischargeId,
                     null,
                     null,
-                    userId
+                    userId,
+                    UserRole.HOSPITAL_STAFF
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(
@@ -196,12 +203,72 @@ class CarePlanCommandServiceTest {
             given(carePlanCommandRepository.existsByDischargeId(dischargeId)).willReturn(false);
 
             assertThatThrownBy(() -> carePlanCommandService.createCarePlan(
-                    command,
+                    carePlanCreateCommand,
                     dischargeFindResult
             )).isInstanceOf(BusinessException.class);
 
             verify(carePlanCommandRepository, never()).save(any(CarePlan.class));
             verify(carePlanServiceCommandRepository, never()).saveAll(anyList());
+        }
+
+        @Test
+        @DisplayName("환자는 본인의 Care Plan 생성")
+        void createCarePlan_patientOwnCarePlan_success() {
+            LocalDate actualDate = LocalDate.of(2026, 9, 1);
+
+            CarePlanCreateCommand carePlanCreateCommand = new CarePlanCreateCommand(
+                    patientId,
+                    dischargeId,
+                    "Care Plan 생성",
+                    List.of(),
+                    patientId,
+                    UserRole.PATIENT
+            );
+
+            DischargeFindResult dischargeFindResult = new DischargeFindResult(
+                    dischargeId,
+                    patientId,
+                    actualDate
+            );
+
+            given(carePlanCommandRepository.existsByDischargeId(dischargeId)).willReturn(false);
+            given(carePlanCommandRepository.save(any(CarePlan.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            CarePlanCreateResult result = carePlanCommandService.createCarePlan(
+                    carePlanCreateCommand,
+                    dischargeFindResult
+            );
+
+            assertThat(result).isNotNull();
+
+            verify(carePlanCommandRepository).save(any(CarePlan.class));
+        }
+
+        @Test
+        @DisplayName("환자가 다른 환자의 Care Plan을 생성하면 예외")
+        void createCarePlan_otherPatient_throwsException() {
+            UUID otherPatientId = UUID.randomUUID();
+            CarePlanCreateCommand carePlanCreateCommand = new CarePlanCreateCommand(
+                    otherPatientId,
+                    dischargeId,
+                    "Care Plan 생성",
+                    List.of(),
+                    userId,
+                    UserRole.PATIENT
+            );
+
+            DischargeFindResult dischargeFindResult = new DischargeFindResult(
+                    dischargeId,
+                    otherPatientId,
+                    LocalDate.of(2026, 9, 1)
+            );
+
+            assertThatThrownBy(() -> carePlanCommandService.createCarePlan(
+                    carePlanCreateCommand,
+                    dischargeFindResult
+            )).isInstanceOf(BusinessException.class);
+
+            verify(carePlanCommandRepository, never()).save(any(CarePlan.class));
         }
     }
 }

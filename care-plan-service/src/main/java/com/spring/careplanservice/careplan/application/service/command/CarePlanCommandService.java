@@ -8,6 +8,7 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
+import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class CarePlanCommandService {
             CarePlanCreateCommand carePlanCreateCommand,
             DischargeFindResult dischargeFindResult
     ) {
+        validateRequester(carePlanCreateCommand);
         validateDuplicateCarePlan(carePlanCreateCommand.dischargeId());
         validatePatient(
                 carePlanCreateCommand.patientId(),
@@ -72,6 +74,7 @@ public class CarePlanCommandService {
         );
     }
 
+    // 동일한 퇴원 건에 이미 Care Plan이 존재하는지 검사
     private void validateDuplicateCarePlan(
             UUID dischargeId
     ) {
@@ -82,6 +85,7 @@ public class CarePlanCommandService {
         }
     }
 
+    // 요청한 환자와 퇴원 건의 환자가 동일한지 검사
     private void validatePatient(
             UUID requestPatientId,
             UUID dischargePatientId
@@ -93,12 +97,26 @@ public class CarePlanCommandService {
         }
     }
 
+    // 실제 퇴원이 완료된 건인지 검사
     private void validateActualDate(
             LocalDate actualDate
     ) {
         if (actualDate == null) {
             throw new BusinessException(
                     ErrorCode.DISCHARGE_NOT_COMPLETED
+            );
+        }
+    }
+
+    // 환자가 남의 Care Plan을 만들려고 하는지 검사
+    private void validateRequester(
+            CarePlanCreateCommand carePlanCreateCommand
+    ) {
+        if (carePlanCreateCommand.userRole() == UserRole.PATIENT
+                && !carePlanCreateCommand.userId().equals(carePlanCreateCommand.patientId())) {
+
+            throw new BusinessException(
+                    ErrorCode.AUTH_FORBIDDEN
             );
         }
     }

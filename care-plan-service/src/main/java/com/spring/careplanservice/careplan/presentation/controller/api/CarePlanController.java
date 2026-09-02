@@ -30,7 +30,10 @@ public class CarePlanController {
             @AuthenticationPrincipal UserContext user,
             @Valid @RequestBody CarePlanCreateRequest carePlanCreateRequest
     ) {
-        CarePlanCreateCommand carePlanCreateCommand = carePlanCreateRequest.toCommand(user.userId());
+        CarePlanCreateCommand carePlanCreateCommand = carePlanCreateRequest.toCommand(
+                user.userId(),
+                user.role()
+        );
 
         CarePlanCreateResult carePlanCreateResult = carePlanFacade.createCarePlan(
                 carePlanCreateCommand
