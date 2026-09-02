@@ -107,7 +107,9 @@ public class ServiceSchedule extends BaseAuditableEntity {
     // SCHEDULED, RESCHEDULING 상태에서만 취소 가능
     // 이떄 취소 사유에 대한 내용은 필수 작성
     public void cancel(String reason) {
-        ensureStatusIn(ScheduleStatus.SCHEDULED, ScheduleStatus.RESCHEDULING);
+        if (status != ScheduleStatus.SCHEDULED && status != ScheduleStatus.RESCHEDULING) {
+            throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_CANCEL);
+        }
 
         if (reason == null || reason.isBlank()) {
             throw new BusinessException(CommonErrorCode.INVALID_PARAMETER);

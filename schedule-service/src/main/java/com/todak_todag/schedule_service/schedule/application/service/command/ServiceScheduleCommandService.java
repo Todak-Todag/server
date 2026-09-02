@@ -1,10 +1,13 @@
 package com.todak_todag.schedule_service.schedule.application.service.command;
 
 import com.todak_todag.schedule_service.global.exception.BusinessException;
+import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
+import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.application.support.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
@@ -27,18 +30,21 @@ public class ServiceScheduleCommandService {
     // 일정 시작 24시간 전까지만 변경 가능
     private static final long RESCHEDULE_DEADLINE_HOURS = 24;
 
+    // 일정 시작 24시간 전까지만 취소 가능
+    private static final long CANCEL_DEADLINE_HOURS = 24;
+
     private final ServiceScheduleCommandRepository serviceScheduleCommandRepository;
     private final ScheduleOutboxCommandService scheduleOutboxCommandService;
     private final ProviderReMatchEventPayloadSerializer providerReMatchEventPayloadSerializer;
 
     // 서비스 일정 변경
-    // 동기 처리 범위: 검증 + status를 RESCHEDULING으로 변경 + ProviderReMatched 이벤트를 아웃박스에 적재
+    // 트랜잭션 처리 범위: 검증 + status를 RESCHEDULING으로 변경 + ProviderReMatched 이벤트를 아웃박스에 적재
     @Transactional
     public ServiceScheduleRescheduleResult reschedule(ServiceScheduleRescheduleCommand reScheduleCommand, CarePlanPort.CarePlanRange carePlanRange) {
 
         // facade가 이미 존재를 확인했지만, facade의 조회와 이 트랜잭션 사이 시점 차이를 방어하기 위해 다시 조회
         ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findById(reScheduleCommand.serviceScheduleId())
-                .orElseThrow(() -> new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
 
         // 일정 변경을 위한 검증 진행
         validateOwnership(reScheduleCommand.requesterId(), carePlanRange.patientId());
@@ -65,11 +71,38 @@ public class ServiceScheduleCommandService {
         return ServiceScheduleRescheduleResult.from(saved);
     }
 
-    // 본인에게 배정된 일정만 변경 가능
+    // 서비스 일정 취소
+    // 트랜잭션 처리 범위: 검증 + status를 CANCELED로 변경
+    @Transactional
+    public ServiceScheduleCancelResult cancel(ServiceScheduleCancelCommand cancelCommand, CarePlanPort.CarePlanRange carePlanRange) {
+        ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findById(cancelCommand.serviceScheduleId())
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+        // 일정 취소를 위한 검증 진행
+        validateOwnership(cancelCommand.requesterId(), carePlanRange.patientId());
+        validateCancelDeadline(serviceSchedule.getStartedAt());
+
+        // 완료/취소된 일정에 대한 409 처리는 엔티티가 스스로 보장
+        serviceSchedule.cancel(cancelCommand.cancelReason());
+        ServiceSchedule saved = serviceScheduleCommandRepository.save(serviceSchedule);
+
+        log.info("[Schedule] 서비스 일정 취소 완료 serviceScheduleId={}", saved.getId());
+
+        return ServiceScheduleCancelResult.from(saved);
+    }
+
+    // 일정 시작 24시간 전까지만 취소 가능
+    private void validateCancelDeadline(LocalDateTime startedAt) {
+        if (LocalDateTime.now().plusHours(CANCEL_DEADLINE_HOURS).isAfter(startedAt)) {
+            throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_CANCEL_DEADLINE_EXCEEDED);
+        }
+    }
+
+    // 본인에게 배정된 일정만 변경/취소 가능
     // Care Plan Internal API 응답의 patientId와 요청자(UserContext) userId를 비교하는 방식으로만 판별
     private void validateOwnership(UUID requesterId, UUID patientId) {
         if (!requesterId.equals(patientId)) {
-            throw new BusinessException(ScheduleErrorCode.AUTH_FORBIDDEN);
+            throw new BusinessException(CommonErrorCode.AUTH_FORBIDDEN);
         }
     }
 

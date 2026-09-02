@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
 public enum ScheduleErrorCode implements ErrorCode {
 
     // 400
-    SERVICE_SCHEDULE_CANCEL_DEADLINE_EXCEEDED(HttpStatus.BAD_REQUEST, "일정 시작 24시간 전까지만 취소할 수 있습니다."),
     SERVICE_SCHEDULE_STATUS_UPDATE_TOO_EARLY(HttpStatus.BAD_REQUEST, "서비스 종료 일시 이후에만 상태를 변경할 수 있습니다."),
     SERVICE_SCHEDULE_INVALID_STATUS_FOR_RESCHEDULING(HttpStatus.BAD_REQUEST, "SCHEDULED 상태의 서비스 일정만 연기할 수 있습니다."),
     SERVICE_SCHEDULE_DELAY_DEADLINE_EXCEEDED(HttpStatus.BAD_REQUEST, "일정 시작 24시간 전까지만 변경할 수 있습니다."),
@@ -19,7 +18,7 @@ public enum ScheduleErrorCode implements ErrorCode {
     SERVICE_RESULTS_TIME_RANGE_INVALID(HttpStatus.BAD_REQUEST, "시작 일시는 종료 일시보다 이전이어야 합니다."),
 
     // 403
-    AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "요청 권한이 없습니다."),
+    SERVICE_SCHEDULE_CANCEL_DEADLINE_EXCEEDED(HttpStatus.FORBIDDEN, "일정 시작 24시간 전까지만 취소할 수 있습니다."),
 
     // 404
     SERVICE_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 서비스 일정입니다."),
