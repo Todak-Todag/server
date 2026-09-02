@@ -17,6 +17,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -173,6 +174,45 @@ class ServiceScheduleQueryRepositoryImplTest {
         ServiceSchedule found = entityManager.find(ServiceSchedule.class, schedule.getId());
         assertThat(found.getCreatedBy()).isEqualTo(SystemId.SYSTEM_USER_ID);
         assertThat(found.getCreatedAt()).isNotNull();
+    }
+
+    @Test
+    void id로_조회하면_해당_일정을_반환한다() {
+        // given
+        ServiceSchedule schedule = persistSchedule(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        Optional<ServiceSchedule> result = serviceScheduleRepository.findById(schedule.getId());
+
+        // then
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(schedule.getId());
+    }
+
+    @Test
+    void 존재하지_않는_id로_조회하면_빈_Optional을_반환한다() {
+        // when
+        Optional<ServiceSchedule> result = serviceScheduleRepository.findById(UUID.randomUUID());
+
+        // then
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    void 소프트_삭제된_일정은_id로_조회해도_반환되지_않는다() {
+        // given
+        ServiceSchedule schedule = persistSchedule(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1));
+        schedule.markDeleted(SystemId.SYSTEM_USER_ID);
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        Optional<ServiceSchedule> result = serviceScheduleRepository.findById(schedule.getId());
+
+        // then
+        assertThat(result).isEmpty();
     }
 
     private ServiceSchedule persistSchedule(UUID servicePreferenceId, UUID serviceOfferingId, LocalDate date) {
