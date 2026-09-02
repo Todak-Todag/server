@@ -1,0 +1,19 @@
+package com.todak_todag.user_service.user.presentation.controller.api;
+
+import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.user.presentation.response.RegionFindAvailableListResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.ResponseEntity;
+
+@Tag(name = "Region", description = "지역 API")
+public interface RegionApiSpec {
+
+    @Operation(
+            summary = "서비스 가능 지역 목록 조회",
+            description = "회원가입 시 사용자가 선택할 수 있도록 서비스 지원 중인 지역 목록을 조회한다."
+    )
+    @ApiResponses
+    ResponseEntity<ApiResponse<RegionFindAvailableListResponse>> findAvailableRegions();
+}

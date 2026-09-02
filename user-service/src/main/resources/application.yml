@@ -46,7 +46,7 @@ logging:
     com.todak_todag.user_service: info
 
 internal:
-  key: ${INTERNAL_API_KEY}
+  key: ${INTERNAL_API_KEY:test-internal-key}
   
 jwt:
   secret: ${JWT_SECRET}
