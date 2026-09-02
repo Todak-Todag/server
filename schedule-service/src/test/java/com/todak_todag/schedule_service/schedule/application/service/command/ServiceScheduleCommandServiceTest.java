@@ -6,10 +6,10 @@ import com.todak_todag.schedule_service.schedule.application.command.ServiceSche
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
+import com.todak_todag.schedule_service.schedule.application.support.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
-import com.todak_todag.schedule_service.schedule.domain.repository.query.ServiceScheduleQueryRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -29,24 +29,29 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// CarePlanPort(Care Plan Internal API)와 ProviderReMatchEventPort(이벤트 발행)는 전부 Mock으로 대체
+// Care Plan 조회는 ServiceScheduleFacade가 트랜잭션 밖에서 미리 수행해 carePlanRange 파라미터로 전달하므로
+// 이 서비스는 CarePlanPort를 직접 호출하지 않는다 (오케스트레이션 검증은 ServiceScheduleFacadeTest 참고).
+// ProviderReMatched 이벤트는 실제 브로커로 즉시 발행하지 않고 ScheduleOutboxCommandService.enqueue()로
+// 같은 트랜잭션 안에서 아웃박스에 적재하기만 한다 (아웃박스 패턴). 실제 발행은 ScheduleOutboxRelayFacade 참고.
 @ExtendWith(MockitoExtension.class)
 class ServiceScheduleCommandServiceTest {
+
+    private static final String SERIALIZED_PAYLOAD = "{\"serialized\":true}";
 
     @Mock
     private ServiceScheduleCommandRepository serviceScheduleCommandRepository;
 
     @Mock
-    private CarePlanPort carePlanPort;
+    private ScheduleOutboxCommandService scheduleOutboxCommandService;
 
     @Mock
-    private ProviderReMatchEventPort providerReMatchEventPort;
+    private ProviderReMatchEventPayloadSerializer providerReMatchEventPayloadSerializer;
 
     @InjectMocks
     private ServiceScheduleCommandService serviceScheduleCommandService;
 
     @Test
-    void 하루_앞당기기_요청은_RESCHEDULING으로_변경되고_이벤트를_발행한다() {
+    void 하루_앞당기기_요청은_RESCHEDULING으로_변경되고_아웃박스에_이벤트를_적재한다() {
         // given
         UUID patientId = UUID.randomUUID();
         LocalDate currentDate = LocalDate.now().plusDays(3);
@@ -54,25 +59,26 @@ class ServiceScheduleCommandServiceTest {
         ServiceSchedule schedule = confirmedSchedule(currentDate);
 
         when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
-        when(carePlanPort.findCarePlanRange(any()))
-                .thenReturn(new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId));
         when(serviceScheduleCommandRepository.save(schedule)).thenReturn(schedule);
+        when(providerReMatchEventPayloadSerializer.serialize(any())).thenReturn(SERIALIZED_PAYLOAD);
 
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
 
         // when
-        ServiceScheduleRescheduleResult result = serviceScheduleCommandService.reschedule(command);
+        ServiceScheduleRescheduleResult result = serviceScheduleCommandService.reschedule(command, carePlanRange);
 
         // then
         assertThat(schedule.getStatus()).isEqualTo(ScheduleStatus.RESCHEDULING);
         assertThat(result.status()).isEqualTo(ScheduleStatus.RESCHEDULING);
-        verify(providerReMatchEventPort).publish(
+        verify(providerReMatchEventPayloadSerializer).serialize(
                 new ProviderReMatchEventPort.ProviderReMatchEvent(schedule.getId(), schedule.getServiceOfferingId(), requestedDate)
         );
+        verify(scheduleOutboxCommandService).enqueue(ProviderReMatchEventPort.EVENT_TYPE, schedule.getId(), SERIALIZED_PAYLOAD);
     }
 
     @Test
-    void 하루_미루기_요청은_RESCHEDULING으로_변경되고_이벤트를_발행한다() {
+    void 하루_미루기_요청은_RESCHEDULING으로_변경되고_아웃박스에_이벤트를_적재한다() {
         // given
         UUID patientId = UUID.randomUUID();
         LocalDate currentDate = LocalDate.now().plusDays(3);
@@ -80,21 +86,19 @@ class ServiceScheduleCommandServiceTest {
         ServiceSchedule schedule = confirmedSchedule(currentDate);
 
         when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
-        when(carePlanPort.findCarePlanRange(any()))
-                .thenReturn(new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId));
         when(serviceScheduleCommandRepository.save(schedule)).thenReturn(schedule);
+        when(providerReMatchEventPayloadSerializer.serialize(any())).thenReturn(SERIALIZED_PAYLOAD);
 
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
 
         // when
-        ServiceScheduleRescheduleResult result = serviceScheduleCommandService.reschedule(command);
+        ServiceScheduleRescheduleResult result = serviceScheduleCommandService.reschedule(command, carePlanRange);
 
         // then
         assertThat(schedule.getStatus()).isEqualTo(ScheduleStatus.RESCHEDULING);
         assertThat(result.status()).isEqualTo(ScheduleStatus.RESCHEDULING);
-        verify(providerReMatchEventPort).publish(
-                new ProviderReMatchEventPort.ProviderReMatchEvent(schedule.getId(), schedule.getServiceOfferingId(), requestedDate)
-        );
+        verify(scheduleOutboxCommandService).enqueue(ProviderReMatchEventPort.EVENT_TYPE, schedule.getId(), SERIALIZED_PAYLOAD);
     }
 
     @Test
@@ -109,18 +113,17 @@ class ServiceScheduleCommandServiceTest {
         setStartedAt(schedule, LocalDateTime.now().plusHours(48));
 
         when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
-        when(carePlanPort.findCarePlanRange(any()))
-                .thenReturn(new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId));
 
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
 
         // when & then
-        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command))
+        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_RESCHEDULE_TO_TODAY_NOT_ALLOWED);
         verify(serviceScheduleCommandRepository, never()).save(any());
-        verify(providerReMatchEventPort, never()).publish(any());
+        verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
     }
 
     @Test
@@ -133,18 +136,17 @@ class ServiceScheduleCommandServiceTest {
         ServiceSchedule schedule = confirmedSchedule(currentDate);
 
         when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
-        when(carePlanPort.findCarePlanRange(any()))
-                .thenReturn(new CarePlanPort.CarePlanRange(UUID.randomUUID(), finishDate, patientId));
 
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), finishDate, patientId);
 
         // when & then
-        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command))
+        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_RESCHEDULE_EXCEEDS_CARE_PLAN_RANGE);
         verify(serviceScheduleCommandRepository, never()).save(any());
-        verify(providerReMatchEventPort, never()).publish(any());
+        verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
     }
 
     @Test
@@ -156,16 +158,16 @@ class ServiceScheduleCommandServiceTest {
         ServiceSchedule schedule = confirmedSchedule(currentDate);
 
         when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
-        when(carePlanPort.findCarePlanRange(any()))
-                .thenReturn(new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId));
 
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
 
         // when & then
-        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command))
+        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_RESCHEDULE_DATE);
+        verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
     }
 
     @Test
@@ -178,18 +180,17 @@ class ServiceScheduleCommandServiceTest {
         setStatus(schedule, ScheduleStatus.COMPLETED);
 
         when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
-        when(carePlanPort.findCarePlanRange(any()))
-                .thenReturn(new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId));
 
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
 
         // when & then
-        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command))
+        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_RESCHEDULING);
         verify(serviceScheduleCommandRepository, never()).save(any());
-        verify(providerReMatchEventPort, never()).publish(any());
+        verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
     }
 
     @Test
@@ -202,18 +203,17 @@ class ServiceScheduleCommandServiceTest {
         setStartedAt(schedule, LocalDateTime.now().plusHours(2));
 
         when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
-        when(carePlanPort.findCarePlanRange(any()))
-                .thenReturn(new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId));
 
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
 
         // when & then
-        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command))
+        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_DELAY_DEADLINE_EXCEEDED);
         verify(serviceScheduleCommandRepository, never()).save(any());
-        verify(providerReMatchEventPort, never()).publish(any());
+        verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
     }
 
     @Test
@@ -226,18 +226,17 @@ class ServiceScheduleCommandServiceTest {
         ServiceSchedule schedule = confirmedSchedule(currentDate);
 
         when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
-        when(carePlanPort.findCarePlanRange(any()))
-                .thenReturn(new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId));
 
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, otherRequesterId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
 
         // when & then
-        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command))
+        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ScheduleErrorCode.AUTH_FORBIDDEN);
         verify(serviceScheduleCommandRepository, never()).save(any());
-        verify(providerReMatchEventPort, never()).publish(any());
+        verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
     }
 
     @Test
@@ -249,13 +248,15 @@ class ServiceScheduleCommandServiceTest {
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(
                 serviceScheduleId, LocalDate.now().plusDays(1), UUID.randomUUID()
         );
+        CarePlanPort.CarePlanRange carePlanRange =
+                new CarePlanPort.CarePlanRange(UUID.randomUUID(), LocalDate.now().plusDays(10), UUID.randomUUID());
 
         // when & then
-        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command))
+        assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_NOT_FOUND);
-        verify(carePlanPort, never()).findCarePlanRange(any());
+        verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
     }
 
     private ServiceSchedule confirmedSchedule(LocalDate date) {

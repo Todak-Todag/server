@@ -29,6 +29,11 @@ spring:
 internal:
   key: 01234567890123456789012345678901
 
+schedule:
+  outbox:
+    relay:
+      enabled: false
+
 management:
   endpoints:
     web:

@@ -3,8 +3,8 @@ package com.todak_todag.schedule_service.schedule.presentation.controller.api;
 import com.todak_todag.schedule_service.global.config.SecurityConfig;
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
+import com.todak_todag.schedule_service.schedule.application.facade.ServiceScheduleFacade;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
-import com.todak_todag.schedule_service.schedule.application.service.command.ServiceScheduleCommandService;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,7 +35,7 @@ class ServiceScheduleApiControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private ServiceScheduleCommandService serviceScheduleCommandService;
+    private ServiceScheduleFacade serviceScheduleFacade;
 
     private String body(String date) {
         return """
@@ -50,7 +50,7 @@ class ServiceScheduleApiControllerTest {
         UUID serviceScheduleId = UUID.randomUUID();
         LocalDate requestedDate = LocalDate.now().plusDays(2);
 
-        given(serviceScheduleCommandService.reschedule(any()))
+        given(serviceScheduleFacade.reschedule(any()))
                 .willReturn(new ServiceScheduleRescheduleResult(serviceScheduleId, ScheduleStatus.RESCHEDULING));
 
         // when & then
@@ -73,7 +73,7 @@ class ServiceScheduleApiControllerTest {
         UUID serviceScheduleId = UUID.randomUUID();
         LocalDate requestedDate = LocalDate.now().plusDays(4);
 
-        given(serviceScheduleCommandService.reschedule(any()))
+        given(serviceScheduleFacade.reschedule(any()))
                 .willReturn(new ServiceScheduleRescheduleResult(serviceScheduleId, ScheduleStatus.RESCHEDULING));
 
         // when & then
@@ -92,7 +92,7 @@ class ServiceScheduleApiControllerTest {
         // given
         UUID serviceScheduleId = UUID.randomUUID();
 
-        given(serviceScheduleCommandService.reschedule(any()))
+        given(serviceScheduleFacade.reschedule(any()))
                 .willThrow(new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_RESCHEDULE_TO_TODAY_NOT_ALLOWED));
 
         // when & then
@@ -112,7 +112,7 @@ class ServiceScheduleApiControllerTest {
         // given
         UUID serviceScheduleId = UUID.randomUUID();
 
-        given(serviceScheduleCommandService.reschedule(any()))
+        given(serviceScheduleFacade.reschedule(any()))
                 .willThrow(new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_RESCHEDULE_EXCEEDS_CARE_PLAN_RANGE));
 
         // when & then
@@ -131,7 +131,7 @@ class ServiceScheduleApiControllerTest {
         // given
         UUID serviceScheduleId = UUID.randomUUID();
 
-        given(serviceScheduleCommandService.reschedule(any()))
+        given(serviceScheduleFacade.reschedule(any()))
                 .willThrow(new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_RESCHEDULING));
 
         // when & then
@@ -150,7 +150,7 @@ class ServiceScheduleApiControllerTest {
         // given
         UUID serviceScheduleId = UUID.randomUUID();
 
-        given(serviceScheduleCommandService.reschedule(any()))
+        given(serviceScheduleFacade.reschedule(any()))
                 .willThrow(new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_DELAY_DEADLINE_EXCEEDED));
 
         // when & then
@@ -169,7 +169,7 @@ class ServiceScheduleApiControllerTest {
         // given
         UUID serviceScheduleId = UUID.randomUUID();
 
-        given(serviceScheduleCommandService.reschedule(any()))
+        given(serviceScheduleFacade.reschedule(any()))
                 .willThrow(new BusinessException(ScheduleErrorCode.AUTH_FORBIDDEN));
 
         // when & then
@@ -188,7 +188,7 @@ class ServiceScheduleApiControllerTest {
         // given
         UUID serviceScheduleId = UUID.randomUUID();
 
-        given(serviceScheduleCommandService.reschedule(any()))
+        given(serviceScheduleFacade.reschedule(any()))
                 .willThrow(new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_NOT_FOUND));
 
         // when & then
