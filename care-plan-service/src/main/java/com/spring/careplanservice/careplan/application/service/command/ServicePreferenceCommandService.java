@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+
 @Service
 @RequiredArgsConstructor
 public class ServicePreferenceCommandService {
@@ -28,18 +30,34 @@ public class ServicePreferenceCommandService {
     public ServicePreferenceCreateResult createServicePreference(
             ServicePreferenceCreateCommand servicePreferenceCreateCommand
     ) {
-        CarePlanService carePlanService = carePlanServiceQueryRepository.findById(servicePreferenceCreateCommand.planServiceId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
+        CarePlanService carePlanService = carePlanServiceQueryRepository
+                .findById(servicePreferenceCreateCommand.planServiceId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_SERVICE_NOT_FOUND
+                        )
+                );
 
-        CarePlan carePlan = carePlanCommandRepository.findById(carePlanService.getCarePlanId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanService.getCarePlanId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_NOT_FOUND
+                        )
+                );
 
-        // TODO : 기존 Care Plan 관련 PR merge 후
+        // TODO: 기존 Care Plan 관련 PR merge 후
         // CarePlanServiceCommandService의 소유자 검증도
         // CarePlanOwnerValidator로 통일
         carePlanOwnerValidator.validate(
                 servicePreferenceCreateCommand.userId(),
                 carePlan.getPatientId()
+        );
+
+        validatePreferredDate(
+                servicePreferenceCreateCommand.preferredDate(),
+                carePlan.getStartDate(),
+                carePlan.getFinishDate()
         );
 
         CarePlanServicePreference carePlanServicePreference = CarePlanServicePreference.create(
@@ -48,8 +66,26 @@ public class ServicePreferenceCommandService {
                 servicePreferenceCreateCommand.preferredTimeSlot()
         );
 
-        CarePlanServicePreference savedPreference = servicePreferenceCommandRepository.save(carePlanServicePreference);
+        CarePlanServicePreference savedPreference = servicePreferenceCommandRepository.save(
+                carePlanServicePreference
+        );
 
-        return ServicePreferenceCreateResult.from(savedPreference);
+        return ServicePreferenceCreateResult.from(
+                savedPreference
+        );
+    }
+
+    private void validatePreferredDate(
+            LocalDate preferredDate,
+            LocalDate startDate,
+            LocalDate finishDate
+    ) {
+        if (preferredDate.isBefore(startDate)
+                || preferredDate.isAfter(finishDate)) {
+
+            throw new BusinessException(
+                    ErrorCode.SERVICE_PREFERENCE_DATE_OUT_OF_RANGE
+            );
+        }
     }
 }

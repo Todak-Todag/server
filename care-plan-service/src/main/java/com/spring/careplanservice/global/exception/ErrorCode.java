@@ -40,7 +40,7 @@ public enum ErrorCode {
 
     CARE_PLAN_NOT_FOUND(
             HttpStatus.NOT_FOUND,
-            "Care Plan 서비스를 찾을 수 없습니다."
+            "Care Plan을 찾을 수 없습니다."
     ),
     CARE_PLAN_ALREADY_EXISTS(
             HttpStatus.CONFLICT,
@@ -55,6 +55,16 @@ public enum ErrorCode {
     DISCHARGE_NOT_COMPLETED(
             HttpStatus.CONFLICT,
             "실제 퇴원이 완료되지 않았습니다."
+    ),
+
+    CARE_PLAN_SERVICE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "Care Plan 서비스를 찾을 수 없습니다."
+    ),
+
+    SERVICE_PREFERENCE_DATE_OUT_OF_RANGE(
+            HttpStatus.BAD_REQUEST,
+            "희망 날짜는 Care Plan 제공 기간 내에서만 선택할 수 있습니다."
     ),
     ;
 
