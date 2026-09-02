@@ -5,6 +5,7 @@ on:
     branches: [develop, main]
     paths:
       - 'schedule-service/**'
+      - 'config-repo/schedule-service-*.yml'
       - '.github/workflows/schedule-service-ci.yml'
 
 permissions:

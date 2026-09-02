@@ -5,6 +5,7 @@ on:
     branches: [develop, main]
     paths:
       - 'user-service/**'
+      - 'config-repo/user-service-*.yml'
       - '.github/workflows/user-service-ci.yml'
 
 permissions:
