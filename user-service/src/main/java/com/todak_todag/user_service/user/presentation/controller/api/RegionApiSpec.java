@@ -14,6 +14,15 @@ public interface RegionApiSpec {
             summary = "서비스 가능 지역 목록 조회",
             description = "회원가입 시 사용자가 선택할 수 있도록 서비스 지원 중인 지역 목록을 조회한다."
     )
-    @ApiResponses
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "서비스 가능 지역 목록 조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "서버 내부 오류"
+            )
+    })
     ResponseEntity<ApiResponse<RegionFindAvailableListResponse>> findAvailableRegions();
 }
