@@ -260,7 +260,7 @@ class AuthenticationRoutingIntegrationTest {
 		request.exchange()
 				.expectStatus().isEqualTo(expectedStatus)
 				.expectBody()
-				.jsonPath("$.code").isEqualTo(expectedCode.getCode());
+				.jsonPath("$.error.errorCode").isEqualTo(expectedCode.getCode());
 
 		assertThat(DOWNSTREAM_REQUESTS)
 				.as("차단된 요청은 downstream 으로 나가면 안 된다")

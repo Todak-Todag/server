@@ -81,8 +81,8 @@ class SecurityErrorResponseTest {
 				.expectStatus().isUnauthorized()
 				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
 				.expectBody()
-				.jsonPath("$.code").isEqualTo(TokenErrorCode.UNAUTHORIZED.getCode())
-				.jsonPath("$.message").isEqualTo(TokenErrorCode.UNAUTHORIZED.getMessage());
+				.jsonPath("$.error.errorCode").isEqualTo(TokenErrorCode.UNAUTHORIZED.getCode())
+				.jsonPath("$.error.message").isEqualTo(TokenErrorCode.UNAUTHORIZED.getMessage());
 	}
 
 	@Test
@@ -146,7 +146,7 @@ class SecurityErrorResponseTest {
 				.expectStatus().isUnauthorized()
 				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
 				.expectBody()
-				.jsonPath("$.code").isEqualTo(TokenErrorCode.UNAUTHORIZED.getCode());
+				.jsonPath("$.error.errorCode").isEqualTo(TokenErrorCode.UNAUTHORIZED.getCode());
 	}
 
 	@Test
@@ -174,8 +174,8 @@ class SecurityErrorResponseTest {
 				.expectStatus().isEqualTo(expectedStatus)
 				.expectHeader().contentTypeCompatibleWith(MediaType.APPLICATION_JSON)
 				.expectBody()
-				.jsonPath("$.code").isEqualTo(expectedCode.getCode())
-				.jsonPath("$.message").isEqualTo(expectedCode.getMessage());
+				.jsonPath("$.error.errorCode").isEqualTo(expectedCode.getCode())
+				.jsonPath("$.error.message").isEqualTo(expectedCode.getMessage());
 	}
 
 	private static String validToken() {
