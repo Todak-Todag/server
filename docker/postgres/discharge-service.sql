@@ -4,7 +4,7 @@ CREATE TYPE discharge_schema.discharge_status AS ENUM (
     'SCHEDULED', 'POSTPONED', 'COMPLETED', 'CANCELED'
 );
 
-CREATE TABLE discharge_schema.p_discharge (
+CREATE TABLE IF NOT EXISTS discharge_schema.p_discharge (
     discharge_id UUID PRIMARY KEY,
     -- 논리 FK -> user_schema.p_users(user_id)
     patient_id UUID NOT NULL,

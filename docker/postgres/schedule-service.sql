@@ -5,7 +5,7 @@ CREATE TYPE schedule_schema.service_schedule_status AS ENUM (
     'COMPLETED', 'CANCELED', 'NO_SHOW'
 );
 
-CREATE TABLE schedule_schema.p_service_schedules (
+CREATE TABLE IF NOT EXISTS schedule_schema.p_service_schedules (
     service_schedule_id UUID PRIMARY KEY,
 
     -- 논리 FK -> care_plan_schema.p_care_plan_service_preferences(service_preference_id)
@@ -28,7 +28,7 @@ CREATE TABLE schedule_schema.p_service_schedules (
     deleted_by UUID
 );
 
-CREATE TABLE schedule_schema.p_care_plan_service_results (
+CREATE TABLE IF NOT EXISTS schedule_schema.p_care_plan_service_results (
     service_result_id UUID PRIMARY KEY,
     service_schedule_id UUID NOT NULL,
     started_at TIMESTAMP NOT NULL,

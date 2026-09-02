@@ -4,7 +4,7 @@ CREATE TYPE social_worker_schema.matching_status AS ENUM (
     'REQUESTED', 'ACTIVE', 'ENDED'
 );
 
-CREATE TABLE social_worker_schema.p_social_worker_matching_results (
+CREATE TABLE IF NOT EXISTS social_worker_schema.p_social_worker_matching_results (
     matching_result_id UUID PRIMARY KEY,
     patient_id UUID NOT NULL,
     social_worker_id UUID NOT NULL,

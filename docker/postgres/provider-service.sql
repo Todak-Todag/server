@@ -1,6 +1,6 @@
 CREATE SCHEMA IF NOT EXISTS provider_schema;
 
-CREATE TABLE provider_schema.p_provide_services (
+CREATE TABLE IF NOT EXISTS provider_schema.p_provide_services (
     provide_service_id UUID PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     content VARCHAR(255) NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE provider_schema.p_provide_services (
     deleted_by UUID
 );
 
-CREATE TABLE provider_schema.p_provide_service_offerings (
+CREATE TABLE IF NOT EXISTS provider_schema.p_provide_service_offerings (
     service_offering_id UUID PRIMARY KEY,
 
     -- 논리 FK -> user_schema.p_users(user_id)
@@ -32,7 +32,7 @@ CREATE TABLE provider_schema.p_provide_service_offerings (
     deleted_by UUID
 );
 
-CREATE TABLE provider_schema.p_provide_works (
+CREATE TABLE IF NOT EXISTS provider_schema.p_provide_works (
     provide_work_id UUID PRIMARY KEY,
     service_offering_id UUID NOT NULL,
     day INTEGER NOT NULL,

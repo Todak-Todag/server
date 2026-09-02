@@ -4,7 +4,7 @@ CREATE TYPE user_schema.user_status AS ENUM (
     'PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED', 'WITHDRAWN'
 );
 
-CREATE TYPE user_schema.user_role AS ENUM (
+CREATE TYPE  user_schema.user_role AS ENUM (
     'PATIENT', 'HOSPITAL_STAFF', 'SOCIAL_WORKER',
     'SERVICE_PROVIDER', 'ADMIN', 'MASTER'
 );
@@ -13,7 +13,7 @@ CREATE TYPE user_schema.consent_status AS ENUM (
     'AGREED', 'WITHDRAWN'
 );
 
-CREATE TABLE user_schema.p_regions (
+CREATE TABLE IF NOT EXISTS user_schema.p_regions (
     region_id UUID PRIMARY KEY,
     province VARCHAR(20) NOT NULL,
     district VARCHAR(20) NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE user_schema.p_regions (
     deleted_by UUID
 );
 
-CREATE TABLE user_schema.p_users (
+CREATE TABLE IF NOT EXISTS user_schema.p_users (
     user_id UUID PRIMARY KEY,
     region_id UUID,
     username VARCHAR(50) NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE user_schema.p_users (
 
 );
 
-CREATE TABLE user_schema.p_auths (
+CREATE TABLE IF NOT EXISTS user_schema.p_auths (
     auth_id UUID PRIMARY KEY,
     user_id UUID NOT NULL,
     refresh_token_hash VARCHAR(255) NOT NULL,
@@ -56,7 +56,7 @@ CREATE TABLE user_schema.p_auths (
     logout_at TIMESTAMP
 );
 
-CREATE TABLE user_schema.p_consent_documents (
+CREATE TABLE IF NOT EXISTS user_schema.p_consent_documents (
     consent_document_id UUID PRIMARY KEY,
     consent_type VARCHAR(30) NOT NULL,
     title VARCHAR(255) NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE user_schema.p_consent_documents (
     deleted_by UUID
 );
 
-CREATE TABLE user_schema.p_consent_document_versions (
+CREATE TABLE IF NOT EXISTS user_schema.p_consent_document_versions (
     consent_document_version_id UUID PRIMARY KEY,
     consent_document_id UUID NOT NULL,
     version VARCHAR(30) NOT NULL,
@@ -80,7 +80,7 @@ CREATE TABLE user_schema.p_consent_document_versions (
 
 );
 
-CREATE TABLE user_schema.p_consents (
+CREATE TABLE IF NOT EXISTS user_schema.p_consents (
     consent_id UUID PRIMARY KEY,
     user_id UUID NOT NULL,
     consent_document_version_id UUID NOT NULL,
@@ -95,6 +95,6 @@ CREATE TABLE user_schema.p_consents (
 
 );
 
-CREATE UNIQUE INDEX ux_p_users_username_active
+CREATE UNIQUE INDEX IF NOT EXISTS ux_p_users_username_active
     ON user_schema.p_users (username)
     WHERE deleted_at IS NULL;

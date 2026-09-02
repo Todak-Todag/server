@@ -8,7 +8,7 @@ CREATE TYPE care_plan_schema.preferred_time_slot AS ENUM (
     'MORNING', 'AFTERNOON'
 );
 
-CREATE TABLE care_plan_schema.p_care_plans (
+CREATE TABLE IF NOT EXISTS care_plan_schema.p_care_plans (
     care_plan_id UUID PRIMARY KEY,
 
     -- 논리 FK -> user_schema.p_users(user_id)
@@ -29,7 +29,7 @@ CREATE TABLE care_plan_schema.p_care_plans (
     deleted_by UUID
 );
 
-CREATE TABLE care_plan_schema.p_care_plan_services (
+CREATE TABLE IF NOT EXISTS care_plan_schema.p_care_plan_services (
     plan_service_id UUID PRIMARY KEY,
     care_plan_id UUID NOT NULL,
 
@@ -42,7 +42,7 @@ CREATE TABLE care_plan_schema.p_care_plan_services (
     deleted_by UUID
 );
 
-CREATE TABLE care_plan_schema.p_care_plan_service_preferences (
+CREATE TABLE IF NOT EXISTS care_plan_schema.p_care_plan_service_preferences (
     service_preference_id UUID PRIMARY KEY,
     plan_service_id UUID NOT NULL,
     preferred_time_slot care_plan_schema.preferred_time_slot NOT NULL,
