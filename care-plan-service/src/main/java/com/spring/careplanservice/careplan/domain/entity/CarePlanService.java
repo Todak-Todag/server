@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Getter
 @Entity
-@Table(name = "p_care_plan_services")
+@Table(name = "p_care_plan_service")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class CarePlanService extends BaseCreateDeleteEntity {
     @Id

@@ -4,6 +4,7 @@ import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatie
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
+import com.spring.careplanservice.careplan.application.service.query.CarePlanQueryService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;

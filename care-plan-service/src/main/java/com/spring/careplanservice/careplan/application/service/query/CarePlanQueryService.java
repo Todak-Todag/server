@@ -1,4 +1,4 @@
-package com.spring.careplanservice.careplan.application.query_service;
+package com.spring.careplanservice.careplan.application.service.query;
 
 
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;

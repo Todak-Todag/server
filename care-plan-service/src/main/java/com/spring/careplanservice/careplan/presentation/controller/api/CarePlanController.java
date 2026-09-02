@@ -1,4 +1,4 @@
-package com.spring.careplanservice.careplan.presentation.api_controller;
+package com.spring.careplanservice.careplan.presentation.controller.api;
 
 import lombok.RequiredArgsConstructor;
 
