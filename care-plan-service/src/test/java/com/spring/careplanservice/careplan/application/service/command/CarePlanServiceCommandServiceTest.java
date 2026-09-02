@@ -21,7 +21,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -127,6 +126,31 @@ class CarePlanServiceCommandServiceTest {
         @Test
         @DisplayName("환자가 이미 선택한 서비스이면 예외")
         void selectCarePlanService_alreadyExists() {
+            CarePlanServiceSelectCommand carePlanServiceSelectCommand = new CarePlanServiceSelectCommand(
+                    patientId,
+                    carePlanId,
+                    provideServiceId
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+            given(carePlanServiceCommandRepository.existsByCarePlanIdAndProvideServiceId(
+                    carePlanId,
+                    provideServiceId,
+                    patientId
+            )).willReturn(true);
+
+            assertThatThrownBy(() -> carePlanServiceCommandService.selectCarePlanService(carePlanServiceSelectCommand))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(carePlanServiceCommandRepository, never()).save(any(CarePlanService.class));
         }
     }
 }
