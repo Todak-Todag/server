@@ -23,9 +23,9 @@ public class CarePlanServiceController {
     @PostMapping("/care-plans/{carePlanId}/services")
     public ResponseEntity<ApiResponse<CarePlanServiceSelectResponse>> selectCarePlanService(
             @AuthenticationPrincipal UserContext user,
-            @PathVariable UUID carePlanId,
-            @Valid @RequestBody CarePlanServiceSelectRequest request
+            @PathVariable("carePlanId") UUID carePlanId,
+            @Valid @RequestBody CarePlanServiceSelectRequest carePlanServiceSelectRequest
     ) {
-
+        return null;
     }
 }
