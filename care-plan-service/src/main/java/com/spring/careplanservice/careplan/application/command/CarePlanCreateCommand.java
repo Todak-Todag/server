@@ -7,6 +7,7 @@ public record CarePlanCreateCommand(
         UUID patientId,
         UUID dischargeId,
         String note,
-        List<UUID> provideServiceIds
+        List<UUID> provideServiceIds,
+        UUID userId
 ) {
 }

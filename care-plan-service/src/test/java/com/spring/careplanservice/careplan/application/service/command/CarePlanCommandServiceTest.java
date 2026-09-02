@@ -34,6 +34,7 @@ class CarePlanCommandServiceTest {
     UUID dischargeId = UUID.randomUUID();
     UUID provideServiceId = UUID.randomUUID();
     UUID dischargePatientId = UUID.randomUUID();
+    UUID userId = UUID.randomUUID();
 
     @Mock
     private CarePlanCommandRepository carePlanCommandRepository;
@@ -56,7 +57,8 @@ class CarePlanCommandServiceTest {
                     patientId,
                     dischargeId,
                     "Care Plan 생성",
-                    List.of(provideServiceId)
+                    List.of(provideServiceId),
+                    userId
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(
@@ -96,7 +98,8 @@ class CarePlanCommandServiceTest {
                     patientId,
                     dischargeId,
                     null,
-                    null
+                    null,
+                    userId
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(
@@ -124,7 +127,8 @@ class CarePlanCommandServiceTest {
                     patientId,
                     dischargeId,
                     null,
-                    null
+                    null,
+                    userId
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(
@@ -151,7 +155,8 @@ class CarePlanCommandServiceTest {
                     patientId,
                     dischargeId,
                     null,
-                    null
+                    null,
+                    userId
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(
@@ -178,7 +183,8 @@ class CarePlanCommandServiceTest {
                     patientId,
                     dischargeId,
                     null,
-                    null
+                    null,
+                    userId
             );
 
             DischargeFindResult dischargeFindResult = new DischargeFindResult(

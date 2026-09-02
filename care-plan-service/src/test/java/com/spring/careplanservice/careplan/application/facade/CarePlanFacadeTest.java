@@ -22,6 +22,8 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class CarePlanFacadeTest {
+    UUID userId = UUID.randomUUID();
+
     @Mock
     private CarePlanCommandService carePlanCommandService;
 
@@ -41,7 +43,8 @@ class CarePlanFacadeTest {
                 patientId,
                 dischargeId,
                 null,
-                null
+                null,
+                userId
         );
 
         DischargeFindResult discharge = new DischargeFindResult(

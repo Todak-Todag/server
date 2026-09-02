@@ -120,6 +120,7 @@ class CarePlanQueryServiceTest {
             given(carePlanService.getCarePlanId()).willReturn(carePlanId);
             given(carePlan.getId()).willReturn(carePlanId);
             given(carePlan.getFinishDate()).willReturn(finishDate);
+            given(carePlan.getPatientId()).willReturn(patientId);
             given(servicePreferenceQueryRepository.findById(servicePreferenceId)).willReturn(Optional.of(preference));
             given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
             given(carePlanQueryRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
@@ -129,6 +130,7 @@ class CarePlanQueryServiceTest {
             CarePlanFindByPreferenceResult carePlanFindByPreferenceResult = carePlanQueryService.findByServicePreference(carePlanFindByPreferenceQuery);
 
             assertThat(carePlanFindByPreferenceResult.carePlanId()).isEqualTo(carePlanId);
+            assertThat(carePlanFindByPreferenceResult.patientId()).isEqualTo(patientId);
             assertThat(carePlanFindByPreferenceResult.finishDate()).isEqualTo(finishDate);
         }
 

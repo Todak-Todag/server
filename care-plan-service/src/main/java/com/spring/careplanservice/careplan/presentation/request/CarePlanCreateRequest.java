@@ -18,12 +18,13 @@ public record CarePlanCreateRequest(
         List<UUID> provideServiceIds
 ) {
 
-    public CarePlanCreateCommand toCommand() {
+    public CarePlanCreateCommand toCommand(UUID userId) {
         return new CarePlanCreateCommand(
                 patientId,
                 dischargeId,
                 note,
-                provideServiceIds
+                provideServiceIds,
+                userId
         );
     }
 }
