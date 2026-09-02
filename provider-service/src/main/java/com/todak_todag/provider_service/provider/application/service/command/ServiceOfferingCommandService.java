@@ -1,4 +1,4 @@
-package com.todak_todag.provider_service.provider.application.command_service;
+package com.todak_todag.provider_service.provider.application.service.command;
 
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;

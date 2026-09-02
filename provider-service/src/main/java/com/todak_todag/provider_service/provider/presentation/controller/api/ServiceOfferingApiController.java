@@ -1,10 +1,10 @@
-package com.todak_todag.provider_service.provider.presentation.api_controller;
+package com.todak_todag.provider_service.provider.presentation.controller.api;
 
 import com.todak_todag.provider_service.global.response.ApiResponse;
 import com.todak_todag.provider_service.global.security.UserContext;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
-import com.todak_todag.provider_service.provider.application.command_service.ServiceOfferingCommandService;
+import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.presentation.request.ServiceOfferingCreateRequest;
 import com.todak_todag.provider_service.provider.presentation.response.ServiceOfferingCreateResponse;
