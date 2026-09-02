@@ -96,7 +96,9 @@ public class ServiceSchedule extends BaseAuditableEntity {
     // 예정된 일정을 변경
     // SCHEDULED 상태에서만 일정 변경이 가능
     public void rescheduling() {
-        ensureStatusIn(ScheduleStatus.SCHEDULED);
+        if (status != ScheduleStatus.SCHEDULED) {
+            throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_RESCHEDULING);
+        }
 
         this.status = ScheduleStatus.RESCHEDULING;
     }
