@@ -5,6 +5,7 @@ on:
     branches: [develop, main]
     paths:
       - 'api-gateway/**'
+      - 'config-repo/api-gateway-*.yml'
       - '.github/workflows/api-gateway-ci.yml'
 
 permissions:

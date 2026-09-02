@@ -5,6 +5,7 @@ on:
     branches: [develop, main]
     paths:
       - 'discharge-service/**'
+      - 'config-repo/discharge-server-*.yml'
       - '.github/workflows/discharge-service-ci.yml'
 
 permissions:
