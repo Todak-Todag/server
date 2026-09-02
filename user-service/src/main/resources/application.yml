@@ -4,6 +4,8 @@ server:
 spring:
   application:
     name: user-service
+  profiles:
+    active: local
 
   config:
     import:
@@ -46,7 +48,7 @@ logging:
     com.todak_todag.user_service: info
 
 internal:
-  key: ${INTERNAL_API_KEY}
+  key: ${INTERNAL_KEY}
   
 jwt:
   secret: ${JWT_SECRET}
