@@ -19,7 +19,7 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 ### `p_service_schedules` — 서비스 일정
 
 | 컬럼명 | 타입 | PK | FK/참조 | Nullable | 제약조건/기본값 | 설명 |
-| --- | --- | --- | --- | --- | --- | --- |
+|---|---|---|---|---|---|---|
 | service_schedule_id | UUID | O | | X | | 서비스 일정 ID |
 | service_preference_id | UUID | | 논리 FK → p_care_plan_service_preferences.service_preference_id | X | | 서비스 희망 ID |
 | service_offering_id | UUID | | 논리 FK → p_provide_service_offerings.service_offering_id | X | | 제공 서비스 ID |
@@ -36,7 +36,7 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 ### `p_care_plan_service_results` — 서비스 수행 결과
 
 | 컬럼명 | 타입 | PK | FK/참조 | Nullable | 설명 |
-| --- | --- | --- | --- | --- | --- |
+|---|---|---|---|---|---|
 | service_result_id | UUID | O | | X | 케어플랜 내의 서비스 결과 ID |
 | service_schedule_id | UUID | | 논리 FK → p_service_schedules.service_schedule_id | X | 서비스 일정 ID |
 | started_at | TIMESTAMP | | | X | 서비스 시작 일시 |
@@ -53,7 +53,7 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 ## 3. 상태(status) 정의
 
 | 상태 | 의미 |
-| --- | --- |
+|---|---|
 | `SCHEDULED` | 예정 (기본값) |
 | `RESCHEDULING` | **변경 중** (일정 변경 요청 후 재매칭 진행 중인 중간 상태) |
 | `CHANGED` | **변경 완료** (재매칭이 성공하여 변경이 확정된 최종 상태) — ✅ 신규 추가 (2026-09-01 Table 명세서 재확인) |
@@ -65,48 +65,59 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 >
 > ⚠️ **새로 발견 (2026-09-01, Table 명세서 재확인)**: Table 명세서의 status 설명 "예정, 변경 중, 변경 완료, 수행 완료, 취소, 수행 안함"이 `SCHEDULED / RESCHEDULING / CHANGED / COMPLETED / CANCELED / NO_SHOW` 순서로 대응되어, `RESCHEDULING`이 최종 상태가 아니라 **중간 상태**이고 `CHANGED`가 실제 최종 상태임이 확인되었다.
 >
-> ✅ **확정 (2026-09-01)**: 신규 일정 생성과 기존 건 갱신은 서로 다른 이벤트가 전담한다.
-> ```
+> ✅ **확정 (2026-09-01/02)**: 신규 일정 생성과 기존 건 갱신은 서로 다른 이벤트가 전담한다.
+> ```plain text
 > [신규 생성]
 > CarePlanConfirmed → Provider-Service 매칭 → ProviderMatched 발행 → Schedule-Service 수신 → 새 레코드 생성 (SCHEDULED)
 >
-> [기존 건 갱신]
-> SCHEDULED → (03_서비스일정연기 요청) → RESCHEDULING → ProviderReMatched 발행
+> [기존 건 갱신] (03_서비스일정변경.md, 2026-09-02 갱신 기준)
+> SCHEDULED → (03_서비스일정변경 요청) → RESCHEDULING → ProviderReMatched 발행
 >   → 성공 시 → CHANGED
->   → 실패 시 → CANCELED (13번 문서 참고)
+>   → 실패 시 → SCHEDULED로 복구 (⚠️ 13번 문서의 "CANCELED"와 상충, 아래 참고)
 > ```
-> ⚠️ **확인 필요**: `ProviderReMatched`는 현재 "Schedule-Service가 발행만 함"으로 기록되어 있는데(11번 문서), 재매칭 성공 여부를 Schedule-Service가 다시 알아야 `CHANGED`로 갱신할 수 있다. 이 확인/응답을 Schedule-Service가 어떻게 수신하는지(같은 이벤트명 재사용 여부, 별도 이벤트 여부)는 아직 불명확하다 (임의로 만들어내지 않음, 11번 문서 참고).
+>
+> ⚠️ **확인 필요 (미해소)**:
+> 1. `ProviderReMatched`는 현재 "Schedule-Service가 발행만 함"으로 기록되어 있는데(11번 문서), 재매칭 결과를 Schedule-Service가 다시 알아야 `CHANGED`/`SCHEDULED` 전환이 가능하다. 이 결과를 어떤 이벤트로 수신하는지 불명확하다 (임의로 만들어내지 않음, 11번 문서 참고).
+> 2. **문서 간 상충**: `03_서비스일정변경.md`(2026-09-02 갱신, 최신 확정본)는 "재매칭 실패 시 `SCHEDULED`로 복구"라고 명시하는데, `13_이벤트수신_ProviderMatchFailed.md`(기존)는 "매칭 실패 시 `CANCELED`로 변경"이라고 되어 있다. 두 문서 모두 임의로 통일하지 않았으니 팀 확인 필요.
 
 ---
 
 ## 4. 핵심 비즈니스 규칙
 
 ### 4.1 서비스 일정 변경(연기)
+
 - **요청 주체는 퇴원 예정자다** (확정).
 - 일정 **시작 24시간 전까지만** 변경 가능하다.
 - 본인에게 배정된 일정만 변경 가능하며, `status`가 `SCHEDULED`인 경우에만 가능하다.
 - 기존 일정 날짜 `D` 기준 **하루 앞당기기(D-1)** 또는 **하루 미루기(D+1)** 만 가능하다.
   - 하루 앞당기기: 변경일이 오늘(당일)인 경우 불가
-  - 하루 미루기: Care Plan의 일정 범위를 초과할 수 없음
-- 변경이 완료되면 `status`는 `DELAY`로 바뀌고, 변경된 날짜에 대해 `ProviderReMatched` 이벤트를 발행한다.
+  - 하루 미루기: Care Plan의 일정 범위(`finishDate`)를 초과할 수 없음
+- ✅ **확정 (2026-09-02, `03_서비스일정변경.md` 갱신 반영)**: "하루 미루기" 범위 검증을 위해 `servicePreferenceId`를 기준으로 **care-plan-service Internal API(Feign)를 호출**하여 `carePlanId`, `finishDate`를 조회한다. schedule-service와 care-plan-service는 데이터 소유권이 분리되어 있으므로 DB 직접 조인이 아닌 Internal API 호출로 처리한다 (상세: 5.5절 참고).
+- 변경 요청이 접수되면 `status`는 `RESCHEDULING`(**변경 중**, 중간 상태)으로 바뀌고, 변경된 날짜에 대해 `ProviderReMatched` 이벤트를 발행한다.
+- 재매칭 **성공** 시 `status`는 `CHANGED`(**변경 완료**, 최종 상태)로 전환된다.
+- 재매칭 **실패** 시 `status`는 `SCHEDULED`로 복구된다 — ⚠️ 단, `13_이벤트수신_ProviderMatchFailed.md`(기존)는 "`CANCELED`로 전환"이라고 되어 있어 상충 상태다 (3장, 8장 참고 — 확인 필요).
 
 ### 4.2 서비스 일정 취소
+
 - 요청 주체는 퇴원 예정자다.
 - **일정 시작 24시간 전까지만** 취소 가능하다.
 - 취소 시 `status`는 `CANCELED`로 변경되고 `cancelReason`, `canceledAt`이 기록된다.
 - 이미 완료되었거나 취소된 서비스는 `409 CONFLICT`를 반환한다.
 
 ### 4.3 서비스 수행 완료 처리
+
 - 요청 주체는 서비스 제공자다.
 - `status`가 `SCHEDULED`일 때만 변경 가능하며, 요청 시점이 일정의 `finishedAt` 이후여야 한다.
 - 이미 취소/연기/완료/부도 처리된 서비스는 `409 CONFLICT`를 반환한다.
 - 결과 값은 `COMPLETED` 또는 `NO_SHOW` 중 하나다.
 
 ### 4.4 서비스 수행 결과 등록
+
 - 요청 주체는 서비스 제공자다.
 - 실제 서비스 시작/종료 일시와 비고(`note`)를 등록한다.
 
 ### 4.5 조회 권한 공통 규칙
+
 - 퇴원 예정자는 **본인이 받은** 일정/결과만 조회할 수 있다.
 - 서비스 제공자는 **본인이 제공한** 일정/결과만 조회할 수 있다.
 
@@ -118,7 +129,7 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 
 ### 5.1 전체 흐름
 
-```
+```plain text
 Care-Plan-Service (CarePlanConfirmed 발행)
         ↓
 Provider-Service (매칭 가능 Provider 조회 시, 내부 API로 Schedule-Service 호출)
@@ -127,7 +138,9 @@ Provider-Service (ProviderMatched 발행) ──▶ Schedule-Service 수신 ─�
         ↓ (매칭 실패 시)
 Provider-Service (ProviderMatchFailed 발행) ──▶ Schedule-Service 수신 ──▶ 일정 상태 변경
 
-Schedule-Service (일정 연기, 퇴원예정자 요청) ──▶ ProviderReMatched 발행 ──▶ Provider-Service 재매칭
+Schedule-Service (일정 연기, 퇴원예정자 요청)
+   → Care-Plan-Service Internal API 호출 (carePlanId/finishDate 조회, 5.5절)
+   → ProviderReMatched 발행 ──▶ Provider-Service 재매칭
 
 Schedule-Service (모든 서비스 수행 완료) ──▶ CarePlanCompleted 발행 ──▶ Care-Plan-Service 수신 (p_care_plans.status → COMPLETED)
 ```
@@ -135,20 +148,20 @@ Schedule-Service (모든 서비스 수행 완료) ──▶ CarePlanCompleted �
 ### 5.2 발행(Publish) 이벤트
 
 | 이벤트명 | 발행 시점 | 상세 문서 |
-| --- | --- | --- |
-| `CarePlanCompleted` | 서비스 수행 결과 등록으로 케어플랜의 서비스가 모두 완료되었을 때 | [`api/10_이벤트발행_CarePlanCompleted.md`](./api/10_이벤트발행_CarePlanCompleted.md) |
-| `ProviderReMatched` | 서비스 일정이 연기(변경)되었을 때 (**기존 건 갱신 전담**, `RESCHEDULING`→`CHANGED`) | [`api/11_이벤트발행_ProviderReMatched.md`](./api/11_이벤트발행_ProviderReMatched.md) |
+|---|---|---|
+| `CarePlanCompleted` | 서비스 수행 결과 등록으로 케어플랜의 서비스가 모두 완료되었을 때 | [`api/10_이벤트발행_CarePlanCompleted.md`](https://app.notion.com/p/api/10_%EC%9D%B4%EB%B2%A4%ED%8A%B8%EB%B0%9C%ED%96%89_CarePlanCompleted.md) |
+| `ProviderReMatched` | 서비스 일정이 연기(변경)되었을 때 (**기존 건 갱신 전담**, `RESCHEDULING`→`CHANGED`) | [`api/11_이벤트발행_ProviderReMatched.md`](https://app.notion.com/p/api/11_%EC%9D%B4%EB%B2%A4%ED%8A%B8%EB%B0%9C%ED%96%89_ProviderReMatched.md) |
 
 ### 5.3 수신(Consume) 이벤트
 
 | 이벤트명 | 처리 내용 | 상세 문서 |
-| --- | --- | --- |
-| `ProviderMatched` | Provider-Service의 매칭 결과를 수신하여 `p_service_schedules`에 **새 일정 생성 전담** (신규 생성만, 확정) | [`api/12_이벤트수신_ProviderMatched.md`](./api/12_이벤트수신_ProviderMatched.md) |
-| `ProviderMatchFailed` | Provider-Service의 매칭 실패를 수신하여 일정 상태를 변경 | [`api/13_이벤트수신_ProviderMatchFailed.md`](./api/13_이벤트수신_ProviderMatchFailed.md) |
+|---|---|---|
+| `ProviderMatched` | Provider-Service의 매칭 결과를 수신하여 `p_service_schedules`에 **새 일정 생성 전담** (신규 생성만, 확정) | [`api/12_이벤트수신_ProviderMatched.md`](https://app.notion.com/p/api/12_%EC%9D%B4%EB%B2%A4%ED%8A%B8%EC%88%98%EC%8B%A0_ProviderMatched.md) |
+| `ProviderMatchFailed` | Provider-Service의 매칭 실패를 수신하여 일정 상태를 변경 | [`api/13_이벤트수신_ProviderMatchFailed.md`](https://app.notion.com/p/api/13_%EC%9D%B4%EB%B2%A4%ED%8A%B8%EC%88%98%EC%8B%A0_ProviderMatchFailed.md) |
 
 > ⚠️ **이벤트 전체 미확정 (2026-09-01 팀 확인)**: 4개 이벤트의 실제 페이로드 필드, Exchange/Queue/Routing Key 이름, 재시도·DLQ 정책, 멱등성 처리 방식은 **모두 미확정 상태**다. 특히 `ProviderMatched` 수신 이벤트는 `p_service_schedules`의 NOT NULL 컬럼(`date`, `started_at`, `finished_at`)에 대응하는 필드가 페이로드에 없어, 실제 개발 착수 전 Provider-Service 팀과 페이로드를 재정의해야 한다. 각 이벤트 문서에 TBD로 표시했다.
 
-### 5.4 내부(Internal) API
+### 5.4 내부(Internal) API — Provider-Service → Schedule-Service (수신 방향)
 
 Schedule-Service는 Provider-Service가 매칭 가능 Provider를 판단할 때 호출하는 동기 내부 API를 제공한다.
 
@@ -158,42 +171,62 @@ Schedule-Service는 Provider-Service가 매칭 가능 Provider를 판단할 때 
 - **응답 설계 원칙**: 이 API는 "가능/불가능" boolean을 직접 판단하지 않고 해당 기간의 기존 일정 목록을 그대로 반환한다. 시간대 겹침 판단은 Provider-Service가 직접 수행한다(책임 분리).
 - **조회 대상 상태** (✅ 2026-09-01 확장): `SCHEDULED`, `RESCHEDULING` 상태 일정만 반환 (기존엔 `SCHEDULED`만이었으나 확장됨). `COMPLETED`/`NO_SHOW`/`CANCELED`는 향후 일정과 충돌하지 않아 제외.
 - **Batch 조회 전략** (✅ 신규): 개별 호출 대신 `startDate`부터 **30일간(고정값)**의 일정을 한 번에 반환 (Care Plan 최대 일정 범위 기준, Care Plan마다 가변적이지 않음). 파라미터도 `from`/`to`에서 `startDate` 단일 필수값으로 변경됨.
-- 상세 스펙: [`api/06_내부API_서비스제공자일정조회.md`](./api/06_내부API_서비스제공자일정조회.md)
+- 상세 스펙: [`api/06_내부API_서비스제공자일정조회.md`](https://app.notion.com/p/api/06_%EB%82%B4%EB%B6%80API_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%A0%9C%EA%B3%B5%EC%9E%90%EC%9D%BC%EC%A0%95%EC%A1%B0%ED%9A%8C.md)
+
+### 5.5 내부(Internal) API — Schedule-Service → Care-Plan-Service (호출 방향) — ✅ 신규 반영 (2026-09-02)
+
+Schedule-Service가 서비스 일정 변경(4.1) 처리 중 Care Plan의 일정 범위를 검증하기 위해 호출하는 동기 내부 API. `03_서비스일정변경.md` 최신화 과정에서 팀 확인을 거쳐 반영되었다.
+
+- **호출 방향**: Schedule-Service → Care-Plan-Service (5.4의 Provider-Service → Schedule-Service 호출과 반대 방향)
+- **조회 기준**: `servicePreferenceId`
+- **조회 결과**: `carePlanId`, `finishDate`
+- **용도**: "하루 미루기" 요청 시 변경하려는 날짜가 Care Plan의 일정 범위(`finishDate`)를 초과하지 않는지 검증
+- **구현 위치**: `infrastructure/client/` (Feign)
+- **인증**: `X-Internal-Api-Key` 헤더 기반 (5.4와 동일 패턴)
+
+> ⚠️ **확인 필요 (신규)**:
+> 1. 이 호출이 연기 요청 접수 시점(사전 검증)에만 1회 이뤄지는지, 재매칭 실패로 `SCHEDULED` 복구 시에도 재조회가 필요한지 명시되어 있지 않음.
+> 2. Care-Plan-Service Internal API 자체가 실패(서비스 장애, Care Plan 미존재 등)했을 때의 에러 처리/상태 코드가 정해져 있지 않음.
+> 3. Care-Plan-Service 측에 이 조회를 위한 Internal API 엔드포인트가 실제로 존재하는지, 엔드포인트 URL/응답 필드 스펙이 무엇인지 아직 문서화되어 있지 않음 (Care-Plan-Service 쪽 API 명세서 확인 필요).
 
 ---
 
 ## 6. API 목록
 
 | # | 기능 | Method | URL | 문서 |
-| --- | --- | --- | --- | --- |
-| 01 | 서비스 일정 목록 조회 | GET | `/api/v1/service-schedules` | [01](./api/01_서비스일정목록조회.md) |
-| 02 | 서비스 일정 상세 조회 | GET | `/api/v1/service-schedules/{serviceScheduleId}` | [02](./api/02_서비스일정상세조회.md) |
-| 03 | 서비스 일정 연기 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/delay` | [03](./api/03_서비스일정연기.md) |
-| 04 | 서비스 일정 취소 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/cancel` | [04](./api/04_서비스일정취소.md) |
-| 05 | 서비스 수행 완료 상태 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | [05](./api/05_서비스수행완료상태변경.md) |
-| 06 | [내부 API] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | [06](./api/06_내부API_서비스제공자일정조회.md) |
-| 07 | 서비스 수행 결과 등록 | POST | `/api/v1/service-results/{serviceScheduleId}` | [07](./api/07_서비스수행결과등록.md) |
-| 08 | 서비스 수행 결과 목록 조회 | GET | `/api/v1/service-results` | [08](./api/08_서비스수행결과목록조회.md) |
-| 09 | 서비스 수행 결과 상세 조회 | GET | `/api/v1/service-results/{serviceResultId}` | [09](./api/09_서비스수행결과상세조회.md) |
-| 10 | [이벤트 발행] CarePlanCompleted | - | RabbitMQ Publish | [10](./api/10_이벤트발행_CarePlanCompleted.md) |
-| 11 | [이벤트 발행] ProviderReMatched | - | RabbitMQ Publish | [11](./api/11_이벤트발행_ProviderReMatched.md) |
-| 12 | [이벤트 수신] ProviderMatched | - | RabbitMQ Consume | [12](./api/12_이벤트수신_ProviderMatched.md) |
-| 13 | [이벤트 수신] ProviderMatchFailed | - | RabbitMQ Consume | [13](./api/13_이벤트수신_ProviderMatchFailed.md) |
+|---|---|---|---|---|
+| 01 | 서비스 일정 목록 조회 | GET | `/api/v1/service-schedules` | [01](https://app.notion.com/p/api/01_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%9D%BC%EC%A0%95%EB%AA%A9%EB%A1%9D%EC%A1%B0%ED%9A%8C.md) |
+| 02 | 서비스 일정 상세 조회 | GET | `/api/v1/service-schedules/{serviceScheduleId}` | [02](https://app.notion.com/p/api/02_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%9D%BC%EC%A0%95%EC%83%81%EC%84%B8%EC%A1%B0%ED%9A%8C.md) |
+| 03 | 서비스 일정 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | [03](https://app.notion.com/p/api/03_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%9D%BC%EC%A0%95%EB%B3%80%EA%B2%BD.md) |
+| 04 | 서비스 일정 취소 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/cancel` | [04](https://app.notion.com/p/api/04_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%9D%BC%EC%A0%95%EC%B7%A8%EC%86%8C.md) |
+| 05 | 서비스 수행 완료 상태 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | [05](https://app.notion.com/p/api/05_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%88%98%ED%96%89%EC%99%84%EB%A3%8C%EC%83%81%ED%83%9C%EB%B3%80%EA%B2%BD.md) |
+| 06 | \[내부 API\] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | [06](https://app.notion.com/p/api/06_%EB%82%B4%EB%B6%80API_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%A0%9C%EA%B3%B5%EC%9E%90%EC%9D%BC%EC%A0%95%EC%A1%B0%ED%9A%8C.md) |
+| 07 | 서비스 수행 결과 등록 | POST | `/api/v1/service-results/{serviceScheduleId}` | [07](https://app.notion.com/p/api/07_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%88%98%ED%96%89%EA%B2%B0%EA%B3%BC%EB%93%B1%EB%A1%9D.md) |
+| 08 | 서비스 수행 결과 목록 조회 | GET | `/api/v1/service-results` | [08](https://app.notion.com/p/api/08_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%88%98%ED%96%89%EA%B2%B0%EA%B3%BC%EB%AA%A9%EB%A1%9D%EC%A1%B0%ED%9A%8C.md) |
+| 09 | 서비스 수행 결과 상세 조회 | GET | `/api/v1/service-results/{serviceResultId}` | [09](https://app.notion.com/p/api/09_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%88%98%ED%96%89%EA%B2%B0%EA%B3%BC%EC%83%81%EC%84%B8%EC%A1%B0%ED%9A%8C.md) |
+| 10 | \[이벤트 발행\] CarePlanCompleted | - | RabbitMQ Publish | [10](https://app.notion.com/p/api/10_%EC%9D%B4%EB%B2%A4%ED%8A%B8%EB%B0%9C%ED%96%89_CarePlanCompleted.md) |
+| 11 | \[이벤트 발행\] ProviderReMatched | - | RabbitMQ Publish | [11](https://app.notion.com/p/api/11_%EC%9D%B4%EB%B2%A4%ED%8A%B8%EB%B0%9C%ED%96%89_ProviderReMatched.md) |
+| 12 | \[이벤트 수신\] ProviderMatched | - | RabbitMQ Consume | [12](https://app.notion.com/p/api/12_%EC%9D%B4%EB%B2%A4%ED%8A%B8%EC%88%98%EC%8B%A0_ProviderMatched.md) |
+| 13 | \[이벤트 수신\] ProviderMatchFailed | - | RabbitMQ Consume | [13](https://app.notion.com/p/api/13_%EC%9D%B4%EB%B2%A4%ED%8A%B8%EC%88%98%EC%8B%A0_ProviderMatchFailed.md) |
+
+> ⚠️ 참고: API 목록에는 Schedule-Service가 **호출하는** Care-Plan-Service Internal API(5.5절, `carePlanId`/`finishDate` 조회)가 아직 별도 번호로 등록되어 있지 않다. 해당 API는 Care-Plan-Service 쪽 명세이므로 이 목록에는 포함하지 않되, 03번 문서와 5.5절에서 연동 대상으로 참조만 한다.
 
 ---
 
 ## 7. 인증/인가
 
 - **인증(Authentication)**: API Gateway에서 수행 (JWT 검증). 인증된 요청자 정보는 `X-User-Id`, `X-User-Role` 헤더로 각 서비스에 전달된다.
+  - ✅ **확정 (2026-09-02, 03번 문서 근거)**: Controller는 이 헤더를 직접 읽지 않고 **`@AuthenticationPrincipal UserContext user`**로 주입받는다 (Spring Security 기반, 06번 내부 API의 Interceptor 처리와 유사한 패턴). 헤더→`UserContext` 변환 로직(Filter/Resolver)은 아직 코드에 없음.
+  - ⚠️ **확인 필요**: 이 패턴이 03번 문서에서만 확인됐다. 나머지 8개 REST API(01,02,04,05,07,08,09 + 06은 내부용이라 별개)도 동일하게 `@AuthenticationPrincipal UserContext user`를 쓰는지, 각 API 문서에 개별적으로 반영이 필요한지 확인 필요.
 - **인가(Authorization)**: 각 API를 처리하는 Schedule-Service 내부에서 수행한다 (예: 본인 소유 일정인지, 역할이 일치하는지 검증).
-- **내부 API**(`/internal/v1/*`)는 API Gateway를 거치지 않는 서비스 간 통신이며, `X-Internal-Api-Key` 헤더 기반으로 별도 인증한다.
+- **내부 API**(`/internal/v1/*`)는 API Gateway를 거치지 않는 서비스 간 통신이며, `X-Internal-Api-Key` 헤더 기반으로 별도 인증한다. 5.5절의 Schedule-Service → Care-Plan-Service 호출도 동일한 인증 패턴을 따른다 (✅ 확정, 2026-09-02).
 
 ---
 
 ## 8. 알려진 미확정/논의 사항 정리
 
 | 구분 | 내용 | 상태 |
-| --- | --- | --- |
+|---|---|---|
 | 이벤트 페이로드 | `CarePlanCompleted`, `ProviderReMatched`, `ProviderMatched`, `ProviderMatchFailed` 4종 전체 | 미확정 (TBD) |
 | Exchange/Queue/Routing Key | 4개 이벤트 전부 실제 이름 미정 | 미확정 (TBD) |
 | 재시도/DLQ 정책 | 수신 이벤트(`ProviderMatched`, `ProviderMatchFailed`) | 미확정 (TBD) |
@@ -202,9 +235,22 @@ Schedule-Service는 Provider-Service가 매칭 가능 Provider를 판단할 때 
 | `status` 명칭 | `DELAY` → `RESCHEDULING` 확정 완료 (2026-09-01, 코드/문서 전체 반영) | ✅ 확정 |
 | Error Response 포맷 | `success/code/message/details/timestamp` (details는 고정 레코드 `ErrorDetail(reason)`, reason은 항상 errorCode 기본 메시지)로 확정, 코드와 Notion API 문서 일치 | ✅ 확정 |
 | 인증 헤더 | 전체 9개 REST API Request에 `X-User-Role` 헤더 존재 확인 | ✅ 반영 완료 |
+| 외부 API 인증 주입 방식 | 03번 문서 기준 `@AuthenticationPrincipal UserContext user`로 확정. 나머지 8개 API 문서에도 동일 적용되는지, 각 문서의 Request 표에서 `X-User-Id`/`X-User-Role` 행을 제거해야 하는지 확인 필요 | 확인 필요 (03번만 반영됨) |
 | `ProviderMatchFailed` 처리 시 기록 위치 | 문서상 "note"에 실패 사유 기록으로 되어 있으나 테이블엔 `note` 컬럼이 없고 `cancel_reason`만 존재 | 확인 필요 |
 | SSE 알림 | 매칭 실패 시 SSE 알림 전송 여부 | 확인 필요 (범위 포함 여부 미정) |
 | 내부 API Batch 조회 범위 | `startDate`부터 30일간 고정 조회 (Care Plan마다 가변적이지 않음, 06번 API 문서 참고) | ✅ 확정 |
 | `CHANGED` 상태 신규 추가 | Table 명세서 재확인 결과 `RESCHEDULING`(변경 중)과 별도로 `CHANGED`(변경 완료) 상태가 존재. ✅ 확정: 신규 생성=`ProviderMatched`, 기존 건 갱신(`RESCHEDULING`→`CHANGED`)=`ProviderReMatched` 흐름으로 역할 분리됨 | ✅ 확정 (역할 분리) / ⚠️ 확인 필요 (아래 참고) |
 | `ProviderReMatched`의 수신(확인) 측 누락 | 현재 11번 문서는 Schedule-Service가 "발행"만 하는 것으로 기록되어 있으나, "기존 건 갱신"을 수행하려면 Provider-Service의 재매칭 성공 응답을 Schedule-Service가 다시 **수신**하는 과정이 필요해 보임. 같은 이벤트명이 반대 방향으로도 쓰이는지, 별도 이벤트가 있는지 확인 필요 (임의로 만들어내지 않음) | 확인 필요 |
+| 재매칭 실패 시 상태 전환 상충 | `03_서비스일정변경.md`(2026-09-02 갱신, 최신 확정본)는 "실패 시 `SCHEDULED`로 복구", `13_이벤트수신_ProviderMatchFailed.md`(기존)는 "실패 시 `CANCELED`로 변경"이라고 서로 다르게 기재됨. 03번이 더 최근에 팀 확인을 거쳤으나, 13번 문서를 아직 그에 맞춰 갱신하지 않았으므로 두 문서 중 하나로 임의 통일하지 않음 | 확인 필요 (상충) |
 | 내부 API(06) Batch 조회 대상에 `CHANGED` 포함 여부 | ✅ 확정 (2026-09-01): `CHANGED`는 Batch 조회 대상에 **포함하지 않음** | ✅ 확정 |
+| **Care Plan 범위 검증용 Internal API (신규)** | Schedule-Service → Care-Plan-Service 방향의 Internal API(`servicePreferenceId` → `carePlanId`/`finishDate`, 5.5절)가 `03_서비스일정변경.md` 갱신으로 신규 확인됨. 다만 (1) 재조회 필요 시점, (2) 실패 시 에러 처리, (3) Care-Plan-Service 측 실제 엔드포인트 스펙 3가지가 미정 | 확인 필요 (신규) |
+
+---
+
+## 변경 이력
+
+| 날짜 | 변경 내용 |
+|---|---|
+| 2026-09-02 | 4.1절의 `DELAY` 잔존 표현을 `RESCHEDULING`/`CHANGED`로 정정 (3장과의 불일치 해소) |
+| 2026-09-02 | `03_서비스일정변경.md` 최신화 내용 반영 — Care Plan 범위 검증용 Internal API(Schedule-Service → Care-Plan-Service, Feign) 호출을 4.1절 및 신규 5.5절로 추가 |
+| 2026-09-02 | 8장 미확정 사항 테이블에 Care Plan 범위 검증 Internal API 관련 신규 확인 필요 항목 추가 |
