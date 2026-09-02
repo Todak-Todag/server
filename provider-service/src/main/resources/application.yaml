@@ -60,6 +60,9 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: alpha
 
+internal:
+  key: ${INTERNAL_API_KEY}
+
 logging:
   level:
     com.todak_todag.provider_service: info
