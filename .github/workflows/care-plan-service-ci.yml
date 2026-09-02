@@ -5,6 +5,7 @@ on:
     branches: [ develop, main ]
     paths:
       - 'care-plan-service/**'
+      - 'config-repo/care-plan-service-*.yml'
       - '.github/workflows/care-plan-service-ci.yml'
 
 permissions:
