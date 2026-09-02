@@ -5,11 +5,13 @@ import com.todak_todag.schedule_service.schedule.domain.entity.QServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.query.ServiceScheduleQueryRepository;
+import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -17,6 +19,12 @@ import java.util.UUID;
 public class ServiceScheduleQueryRepositoryImpl implements ServiceScheduleQueryRepository {
 
     private final JPAQueryFactory jpaQueryFactory;
+    private final SpringDataServiceScheduleRepository springDataServiceScheduleRepository;
+
+    @Override
+    public Optional<ServiceSchedule> findById(UUID serviceScheduleId) {
+        return springDataServiceScheduleRepository.findByIdAndDeletedAtIsNull(serviceScheduleId);
+    }
 
     @Override
     public List<ServiceSchedule> findSchedules(

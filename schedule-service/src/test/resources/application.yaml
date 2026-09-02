@@ -26,6 +26,13 @@ spring:
         default_schema: public
         default_batch_fetch_size: 100
 
+internal:
+  key: 01234567890123456789012345678901
+
+schedule:
+  outbox:
+    relay:
+      enabled: false
 
 management:
   endpoints:

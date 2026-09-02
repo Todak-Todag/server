@@ -5,6 +5,7 @@ import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ServiceScheduleQueryRepository {
@@ -16,4 +17,7 @@ public interface ServiceScheduleQueryRepository {
             LocalDate endDate,
             List<ScheduleStatus> statuses
     );
+
+    // 단건 조회 — 소프트 삭제된 일정은 제외
+    Optional<ServiceSchedule> findById(UUID serviceScheduleId);
 }
