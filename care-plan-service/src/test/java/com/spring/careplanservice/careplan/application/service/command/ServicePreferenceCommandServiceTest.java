@@ -150,9 +150,35 @@ class ServicePreferenceCommandServiceTest {
         @Test
         @DisplayName("요청자가 Care Plan의 환자가 아니면 예외")
         void createServicePreference_forbidden() {
+            UUID otherPatientId = UUID.randomUUID();
 
+            ServicePreferenceCreateCommand command = new ServicePreferenceCreateCommand(
+                    patientId,
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.AFTERNOON
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    otherPatientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.createServicePreference(command))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
         }
-
-
     }
 }
