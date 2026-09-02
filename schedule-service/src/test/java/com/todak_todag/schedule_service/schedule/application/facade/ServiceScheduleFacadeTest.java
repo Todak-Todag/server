@@ -1,9 +1,11 @@
 package com.todak_todag.schedule_service.schedule.application.facade;
 
 import com.todak_todag.schedule_service.global.exception.BusinessException;
-import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
+import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
+import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleResult;
 import com.todak_todag.schedule_service.schedule.application.service.command.ServiceScheduleCommandService;
@@ -16,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -72,7 +75,7 @@ class ServiceScheduleFacadeTest {
     }
 
     @Test
-    void 존재하지_않는_일정이면_404를_던지고_Care_Plan을_조회하지_않는다() {
+    void 존재하지_않는_일정이면_403을_던지고_Care_Plan을_조회하지_않는다_리소스_존재_비노출() {
         // given
         UUID serviceScheduleId = UUID.randomUUID();
         ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(
@@ -84,9 +87,49 @@ class ServiceScheduleFacadeTest {
         assertThatThrownBy(() -> serviceScheduleFacade.reschedule(command))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_NOT_FOUND);
+                .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
 
         verify(carePlanPort, never()).findCarePlanRange(any());
         verify(serviceScheduleCommandService, never()).reschedule(any(), any());
+    }
+
+    @Test
+    void 취소_요청도_일정을_조회하고_Care_Plan을_조회한_뒤_CommandService에_위임한다() {
+        // given
+        UUID servicePreferenceId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+        ServiceScheduleCancelCommand command = new ServiceScheduleCancelCommand(UUID.randomUUID(), "개인 사정", requesterId);
+        ServiceScheduleResult scheduleResult = new ServiceScheduleResult(command.serviceScheduleId(), servicePreferenceId);
+        CarePlanPort.CarePlanRange carePlanRange =
+                new CarePlanPort.CarePlanRange(UUID.randomUUID(), LocalDate.now().plusDays(10), requesterId);
+        ServiceScheduleCancelResult expected = new ServiceScheduleCancelResult(command.serviceScheduleId(), LocalDateTime.now());
+
+        when(serviceScheduleQueryService.findById(command.serviceScheduleId())).thenReturn(Optional.of(scheduleResult));
+        when(carePlanPort.findCarePlanRange(servicePreferenceId)).thenReturn(carePlanRange);
+        when(serviceScheduleCommandService.cancel(command, carePlanRange)).thenReturn(expected);
+
+        // when
+        ServiceScheduleCancelResult result = serviceScheduleFacade.cancel(command);
+
+        // then
+        assertThat(result).isEqualTo(expected);
+        verify(serviceScheduleCommandService).cancel(command, carePlanRange);
+    }
+
+    @Test
+    void 취소_대상_일정이_존재하지_않으면_403을_던지고_Care_Plan을_조회하지_않는다_리소스_존재_비노출() {
+        // given
+        UUID serviceScheduleId = UUID.randomUUID();
+        ServiceScheduleCancelCommand command = new ServiceScheduleCancelCommand(serviceScheduleId, "개인 사정", UUID.randomUUID());
+        when(serviceScheduleQueryService.findById(serviceScheduleId)).thenReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> serviceScheduleFacade.cancel(command))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+
+        verify(carePlanPort, never()).findCarePlanRange(any());
+        verify(serviceScheduleCommandService, never()).cancel(any(), any());
     }
 }

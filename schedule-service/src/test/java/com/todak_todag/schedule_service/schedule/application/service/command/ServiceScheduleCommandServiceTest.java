@@ -1,8 +1,11 @@
 package com.todak_todag.schedule_service.schedule.application.service.command;
 
 import com.todak_todag.schedule_service.global.exception.BusinessException;
+import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
+import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
@@ -234,13 +237,13 @@ class ServiceScheduleCommandServiceTest {
         assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ScheduleErrorCode.AUTH_FORBIDDEN);
+                .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
         verify(serviceScheduleCommandRepository, never()).save(any());
         verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
     }
 
     @Test
-    void 존재하지_않는_일정이면_404를_던진다() {
+    void 존재하지_않는_일정이면_403을_던진다_리소스_존재_비노출() {
         // given
         UUID serviceScheduleId = UUID.randomUUID();
         when(serviceScheduleCommandRepository.findById(serviceScheduleId)).thenReturn(Optional.empty());
@@ -255,8 +258,135 @@ class ServiceScheduleCommandServiceTest {
         assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_NOT_FOUND);
+                .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
         verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
+    }
+
+    @Test
+    void 정상_취소_요청은_CANCELED로_변경되고_취소_사유와_취소_일시가_기록된다() {
+        // given
+        UUID patientId = UUID.randomUUID();
+        LocalDate currentDate = LocalDate.now().plusDays(3);
+        ServiceSchedule schedule = confirmedSchedule(currentDate);
+
+        when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+        when(serviceScheduleCommandRepository.save(schedule)).thenReturn(schedule);
+
+        ServiceScheduleCancelCommand command = new ServiceScheduleCancelCommand(schedule.getId(), "개인 사정으로 취소합니다", patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
+
+        // when
+        ServiceScheduleCancelResult result = serviceScheduleCommandService.cancel(command, carePlanRange);
+
+        // then
+        assertThat(schedule.getStatus()).isEqualTo(ScheduleStatus.CANCELED);
+        assertThat(schedule.getCancelReason()).isEqualTo("개인 사정으로 취소합니다");
+        assertThat(schedule.getCanceledAt()).isNotNull();
+        assertThat(result.serviceScheduleId()).isEqualTo(schedule.getId());
+        assertThat(result.canceledAt()).isEqualTo(schedule.getCanceledAt());
+    }
+
+    @Test
+    void 이미_완료된_일정_취소_시도는_409를_던진다() {
+        // given
+        UUID patientId = UUID.randomUUID();
+        LocalDate currentDate = LocalDate.now().plusDays(3);
+        ServiceSchedule schedule = confirmedSchedule(currentDate);
+        setStatus(schedule, ScheduleStatus.COMPLETED);
+
+        when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+
+        ServiceScheduleCancelCommand command = new ServiceScheduleCancelCommand(schedule.getId(), "취소 사유", patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
+
+        // when & then
+        assertThatThrownBy(() -> serviceScheduleCommandService.cancel(command, carePlanRange))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_CANCEL);
+        verify(serviceScheduleCommandRepository, never()).save(any());
+    }
+
+    @Test
+    void 이미_취소된_일정_재취소_시도는_409를_던진다() {
+        // given
+        UUID patientId = UUID.randomUUID();
+        LocalDate currentDate = LocalDate.now().plusDays(3);
+        ServiceSchedule schedule = confirmedSchedule(currentDate);
+        setStatus(schedule, ScheduleStatus.CANCELED);
+
+        when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+
+        ServiceScheduleCancelCommand command = new ServiceScheduleCancelCommand(schedule.getId(), "취소 사유", patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
+
+        // when & then
+        assertThatThrownBy(() -> serviceScheduleCommandService.cancel(command, carePlanRange))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_CANCEL);
+        verify(serviceScheduleCommandRepository, never()).save(any());
+    }
+
+    @Test
+    void 일정_시작_24시간_이내_취소_요청이면_403을_던진다() {
+        // given
+        UUID patientId = UUID.randomUUID();
+        LocalDate currentDate = LocalDate.now().plusDays(3);
+        ServiceSchedule schedule = confirmedSchedule(currentDate);
+        setStartedAt(schedule, LocalDateTime.now().plusHours(2));
+
+        when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+
+        ServiceScheduleCancelCommand command = new ServiceScheduleCancelCommand(schedule.getId(), "취소 사유", patientId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
+
+        // when & then
+        assertThatThrownBy(() -> serviceScheduleCommandService.cancel(command, carePlanRange))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_CANCEL_DEADLINE_EXCEEDED);
+        verify(serviceScheduleCommandRepository, never()).save(any());
+    }
+
+    @Test
+    void 본인_소유가_아닌_일정_취소_시도는_403을_던진다() {
+        // given
+        UUID patientId = UUID.randomUUID();
+        UUID otherRequesterId = UUID.randomUUID();
+        LocalDate currentDate = LocalDate.now().plusDays(3);
+        ServiceSchedule schedule = confirmedSchedule(currentDate);
+
+        when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+
+        ServiceScheduleCancelCommand command = new ServiceScheduleCancelCommand(schedule.getId(), "취소 사유", otherRequesterId);
+        CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
+
+        // when & then
+        assertThatThrownBy(() -> serviceScheduleCommandService.cancel(command, carePlanRange))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+        verify(serviceScheduleCommandRepository, never()).save(any());
+    }
+
+    @Test
+    void 취소_대상_일정이_존재하지_않으면_403을_던진다_리소스_존재_비노출() {
+        // given
+        UUID serviceScheduleId = UUID.randomUUID();
+        when(serviceScheduleCommandRepository.findById(serviceScheduleId)).thenReturn(Optional.empty());
+
+        ServiceScheduleCancelCommand command = new ServiceScheduleCancelCommand(
+                serviceScheduleId, "취소 사유", UUID.randomUUID()
+        );
+        CarePlanPort.CarePlanRange carePlanRange =
+                new CarePlanPort.CarePlanRange(UUID.randomUUID(), LocalDate.now().plusDays(10), UUID.randomUUID());
+
+        // when & then
+        assertThatThrownBy(() -> serviceScheduleCommandService.cancel(command, carePlanRange))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
     }
 
     private ServiceSchedule confirmedSchedule(LocalDate date) {
