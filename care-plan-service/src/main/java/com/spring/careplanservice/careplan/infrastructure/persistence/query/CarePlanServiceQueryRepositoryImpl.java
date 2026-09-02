@@ -11,7 +11,7 @@ import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
-public class CarePlanServiceQueryRepositoryImpl implements CarePlanServiceQueryRepository {
+public class CarePlanServiceQueryRepositoryImpl implements CarePlanServiceQueryRepository  {
     private final JpaCarePlanServiceRepository jpaCarePlanServiceRepository;
 
     @Override

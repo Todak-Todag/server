@@ -40,7 +40,7 @@ public enum ErrorCode {
 
     CARE_PLAN_NOT_FOUND(
             HttpStatus.NOT_FOUND,
-            "Care Plan을 찾을 수 없습니다."
+            "Care Plan 조회 실패"
     ),
     CARE_PLAN_ALREADY_EXISTS(
             HttpStatus.CONFLICT,
@@ -65,6 +65,11 @@ public enum ErrorCode {
     SERVICE_PREFERENCE_DATE_OUT_OF_RANGE(
             HttpStatus.BAD_REQUEST,
             "희망 날짜는 Care Plan 제공 기간 내에서만 선택할 수 있습니다."
+    ),
+
+    CARE_PLAN_SERVICE_ALREADY_EXISTS(
+            HttpStatus.CONFLICT,
+            "이미 선택한 Care Plan 서비스입니다."
     ),
     ;
 

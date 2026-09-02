@@ -7,11 +7,31 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
 public class CarePlanServiceCommandRepositoryImpl implements CarePlanServiceCommandRepository {
     private final JpaCarePlanServiceRepository jpaCarePlanServiceRepository;
+
+    @Override
+    public boolean existsByCarePlanIdAndProvideServiceIdAndCreatedBy(
+            UUID carePlanId,
+            UUID provideServiceId,
+            UUID createdBy
+    ) {
+        return jpaCarePlanServiceRepository
+                .existsByCarePlanIdAndProvideServiceIdAndCreatedByAndDeletedAtIsNull(
+                        carePlanId,
+                        provideServiceId,
+                        createdBy
+                );
+    }
+
+    @Override
+    public CarePlanService save(CarePlanService carePlanService) {
+        return jpaCarePlanServiceRepository.save(carePlanService);
+    }
 
     @Override
     public List<CarePlanService> saveAll(
