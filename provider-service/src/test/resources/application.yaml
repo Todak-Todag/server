@@ -28,6 +28,17 @@ spring:
         default_schema: provider_schema
         default_batch_fetch_size: 100
 
+# FeignConfig가 시작 시 주입받는 값이라, 컨텍스트 기동을 위한 더미 키를 둔다.
+internal:
+  key: test-internal-api-key
+
+# CI·로컬 테스트에는 Eureka 서버가 없으므로 서비스 디스커버리를 끈다.
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
 management:
   endpoints:
     web:
