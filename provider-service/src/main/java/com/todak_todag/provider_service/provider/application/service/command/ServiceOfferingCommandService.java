@@ -1,6 +1,5 @@
 package com.todak_todag.provider_service.provider.application.service.command;
 
-import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
@@ -78,11 +77,8 @@ public class ServiceOfferingCommandService {
     }
 
     private void validateDeletable(ServiceOffering serviceOffering, ServiceOfferingDeleteCommand command) {
-        if (command.userRole() == UserRole.ADMIN) {
-            // ADMIN은 담당 지역 내에서만 삭제 가능
-            // TODO: User-Service 사용자 조회 API 구현 후 담당 지역 검증 추가
-            return;
-        }
+        // TODO: User-Service 사용자 조회 API 구현 후 ADMIN 담당 지역 검증으로 교체
+        //       그 전까지는 ADMIN도 본인 소유만 삭제 가능하도록 제한
 
         if (!serviceOffering.isOwnedBy(command.userId())) {
             throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);

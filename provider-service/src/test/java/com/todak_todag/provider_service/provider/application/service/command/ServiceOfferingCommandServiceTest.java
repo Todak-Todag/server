@@ -215,21 +215,21 @@ class ServiceOfferingCommandServiceTest {
         }
 
         @Test
-        @DisplayName("ADMIN은 본인 소유가 아니어도 삭제할 수 있다")
-        void adminCanDelete() {
+        @DisplayName("ADMIN도 본인 소유가 아니면 AUTH_FORBIDDEN")
+        void adminCannotDeleteOthers() {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
-            given(offering.getId()).willReturn(serviceOfferingId);
+            given(offering.isOwnedBy(providerId)).willReturn(false);
 
             given(serviceOfferingQueryRepository.findById(serviceOfferingId))
                     .willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
-                    .willReturn(List.of());
 
-            serviceOfferingCommandService.delete(command(UserRole.ADMIN));
+            assertThatThrownBy(() -> serviceOfferingCommandService.delete(command(UserRole.ADMIN)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
 
-            verify(offering).markDeleted(providerId);
-            verify(offering, never()).isOwnedBy(any());
+            verify(schedulePort, never()).existsConfirmedSchedule(any());
+            verify(offering, never()).markDeleted(any());
         }
 
         @Test
