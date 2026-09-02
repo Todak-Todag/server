@@ -39,6 +39,10 @@ public class SecurityConfig {
 				.addFilterBefore(new HeaderAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
 				
 				.authorizeHttpRequests(auth -> auth
+						// 내부 서비스 간 호출 인가는 InternalApiIntercepter 담당
+						.requestMatchers("/internal/**")
+						.permitAll()
+						
 						// 공개 API
 						.requestMatchers(
 								"/api/v1/auth/login",

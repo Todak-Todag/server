@@ -38,4 +38,23 @@ public class CarePlan extends BaseAuditEntity {
 
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
+
+    public static CarePlan create(
+            UUID patientId,
+            UUID dischargeId,
+            LocalDate startDate,
+            LocalDate finishDate,
+            String note
+    ) {
+        CarePlan carePlan = new CarePlan();
+
+        carePlan.patientId = patientId;
+        carePlan.dischargeId = dischargeId;
+        carePlan.status = CarePlanStatus.UNDER_REVIEW;
+        carePlan.startDate = startDate;
+        carePlan.finishDate = finishDate;
+        carePlan.note = note;
+
+        return carePlan;
+    }
 }

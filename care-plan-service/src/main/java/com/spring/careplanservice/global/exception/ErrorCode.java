@@ -42,7 +42,20 @@ public enum ErrorCode {
             HttpStatus.NOT_FOUND,
             "Care Plan 조회 실패"
     ),
+    CARE_PLAN_ALREADY_EXISTS(
+            HttpStatus.CONFLICT,
+            "이미 Care Plan이 존재합니다."
+    ),
 
+    CARE_PLAN_PATIENT_MISMATCH(
+            HttpStatus.BAD_REQUEST,
+            "퇴원 건의 환자와 Care Plan 대상 환자가 일치하지 않습니다."
+    ),
+
+    DISCHARGE_NOT_COMPLETED(
+            HttpStatus.CONFLICT,
+            "실제 퇴원이 완료되지 않았습니다."
+    ),
     ;
 
 

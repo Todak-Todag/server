@@ -2,6 +2,8 @@ package com.spring.careplanservice.careplan.domain.repository.command;
 
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 
+import java.util.List;
+
 public interface CarePlanServiceCommandRepository {
-    CarePlanService save(CarePlanService carePlanService);
+    List<CarePlanService> saveAll(List<CarePlanService> carePlanServices);
 }
