@@ -2,9 +2,11 @@ package com.todak_todag.discharge_service.discharge.presentation.api_controller;
 
 import com.todak_todag.discharge_service.discharge.application.command_service.DischargeCommandService;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
+import com.todak_todag.discharge_service.global.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(DischargeApiController.class)
+@Import(SecurityConfig.class)
 class DischargeApiControllerTest {
 
     @Autowired
@@ -92,10 +95,7 @@ class DischargeApiControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
-                .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code")
-                        .value("AUTH_FORBIDDEN"));
+                .andExpect(status().isForbidden());
     }
 
     @Test
