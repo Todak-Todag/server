@@ -76,8 +76,8 @@ public class CarePlanServiceResult extends BaseAuditableEntity {
             throw new BusinessException(CommonErrorCode.INVALID_PARAMETER);
         }
 
-        // 종료 일시는 시작 일시보다 빠를 수 없음
-        if (finishedAt.isBefore(startedAt)) {
+        // 종료 시간은 시작 시간보다 같거나 빠를 수 없음
+        if (!finishedAt.isAfter(startedAt)) {
             throw new BusinessException(CommonErrorCode.INVALID_PARAMETER);
         }
     }
