@@ -2,6 +2,7 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceCreateCommand;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
+import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -48,6 +50,9 @@ class ServicePreferenceCommandServiceTest {
 
     @Mock
     private CarePlanCommandRepository carePlanCommandRepository;
+
+    @Spy
+    private CarePlanOwnerValidator carePlanOwnerValidator;
 
     @Nested
     @DisplayName("서비스 희망 일정 생성")
