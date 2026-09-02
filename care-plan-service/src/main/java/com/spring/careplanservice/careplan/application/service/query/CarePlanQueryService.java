@@ -3,8 +3,11 @@ package com.spring.careplanservice.careplan.application.service.query;
 
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
+import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -15,11 +18,14 @@ import com.spring.careplanservice.careplan.domain.repository.query.ServicePrefer
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -63,6 +69,36 @@ public class CarePlanQueryService {
         return CarePlanFindByPreferenceResult.from(carePlan);
     }
 
+    public CarePlanFindResult findCarePlan(
+            CarePlanFindQuery carePlanFindQuery
+    ) {
+        CarePlan carePlan = carePlanQueryRepository
+                .findById(carePlanFindQuery.carePlanId())
+                .orElseThrow(this::carePlanIdNotFound);
+
+        validateOwner(
+                carePlan,
+                carePlanFindQuery.userId()
+        );
+
+        return CarePlanFindResult.from(carePlan);
+    }
+
+    public Page<CarePlanSearchResult> searchCarePlans(
+            CarePlanFindQuery carePlanFindQuery
+    ) {
+        CarePlan carePlan = carePlanQueryRepository
+                .findById(carePlanFindQuery.carePlanId())
+                .orElseThrow(this::carePlanIdNotFound);
+
+        validateOwner(
+                carePlan,
+                carePlanFindQuery.userId()
+        );
+
+        return CarePlanFindResult.from(carePlan);
+    }
+
     private BusinessException carePlanNotFound() {
         return new BusinessException(
                 ErrorCode.CARE_PLAN_NOT_FOUND,
@@ -81,5 +117,27 @@ public class CarePlanQueryService {
                         "존재하지 않는 patientId입니다."
                 )
         );
+    }
+
+    private BusinessException carePlanIdNotFound() {
+        return new BusinessException(
+                ErrorCode.CARE_PLAN_NOT_FOUND,
+                Map.of(
+                        "reason",
+                        "carePlanId에 해당하는 Care Plan이 존재하지 않습니다."
+                )
+        );
+    }
+
+    // TODO : 추후 분리
+    private void validateOwner(
+            CarePlan carePlan,
+            UUID userId
+    ) {
+        if (!carePlan.getPatientId().equals(userId)) {
+            throw new BusinessException(
+                    ErrorCode.AUTH_FORBIDDEN
+            );
+        }
     }
 }
