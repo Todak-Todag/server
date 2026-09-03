@@ -25,8 +25,6 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-// 실제 발행 대상(ProviderReMatchEventPort)은 아직 NoOp 스텁이라, 여기서는 실패 격리와
-// 이벤트 상태 갱신 호출이 올바른지만 검증한다(각 이벤트는 서로 독립된 실패 단위여야 한다).
 @ExtendWith(MockitoExtension.class)
 class ScheduleOutboxRelayFacadeTest {
 
