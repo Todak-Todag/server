@@ -6,12 +6,18 @@ import com.todak_todag.schedule_service.global.config.QueryDslConfig;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.query.ServiceScheduleQueryRepository;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.lang.reflect.Field;
@@ -213,6 +219,276 @@ class ServiceScheduleQueryRepositoryImplTest {
 
         // then
         assertThat(result).isEmpty();
+    }
+
+    @Nested
+    @DisplayName("서비스 일정 목록 조회")
+    class searchTest {
+
+        @Test
+        @DisplayName("servicePreferenceIds를 전달하면 해당 ID 소유의 일정만 반환한다 (퇴원 예정자 소유권 필터링)")
+        void search_withServicePreferenceIds_returnsOnlyMatchingOwner() {
+            // given
+            UUID myPreferenceId = UUID.randomUUID();
+            UUID otherPreferenceId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceSchedule mine = persistSchedule(myPreferenceId, UUID.randomUUID(), date);
+            ServiceSchedule others = persistSchedule(otherPreferenceId, UUID.randomUUID(), date);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    List.of(myPreferenceId), null, null, null, PageRequest.of(0, 10)
+            );
+
+            // then
+            assertThat(result.getContent()).extracting(ServiceSchedule::getId)
+                    .containsExactly(mine.getId())
+                    .doesNotContain(others.getId());
+        }
+
+        @Test
+        @DisplayName("serviceOfferingIds를 전달하면 해당 ID 소유의 일정만 반환한다 (서비스 제공자 소유권 필터링)")
+        void search_withServiceOfferingIds_returnsOnlyMatchingOwner() {
+            // given
+            UUID myOfferingId = UUID.randomUUID();
+            UUID otherOfferingId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceSchedule mine = persistSchedule(UUID.randomUUID(), myOfferingId, date);
+            ServiceSchedule others = persistSchedule(UUID.randomUUID(), otherOfferingId, date);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    null, List.of(myOfferingId), null, null, PageRequest.of(0, 10)
+            );
+
+            // then
+            assertThat(result.getContent()).extracting(ServiceSchedule::getId)
+                    .containsExactly(mine.getId())
+                    .doesNotContain(others.getId());
+        }
+
+        @Test
+        @DisplayName("status 필터를 전달하면 해당 상태의 일정만 반환한다")
+        void search_withStatusFilter_returnsOnlyMatchingStatus() {
+            // given
+            UUID offeringId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceSchedule scheduled = persistSchedule(UUID.randomUUID(), offeringId, date);
+            ServiceSchedule canceled = persistSchedule(UUID.randomUUID(), offeringId, date);
+            canceled.cancel("사유");
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    null, List.of(offeringId), ScheduleStatus.SCHEDULED, null, PageRequest.of(0, 10)
+            );
+
+            // then
+            assertThat(result.getContent()).extracting(ServiceSchedule::getId)
+                    .containsExactly(scheduled.getId())
+                    .doesNotContain(canceled.getId());
+        }
+
+        @Test
+        @DisplayName("date 필터를 전달하면 해당 날짜의 일정만 반환한다")
+        void search_withDateFilter_returnsOnlyMatchingDate() {
+            // given
+            UUID offeringId = UUID.randomUUID();
+            LocalDate targetDate = LocalDate.now().plusDays(1);
+            LocalDate otherDate = LocalDate.now().plusDays(2);
+
+            ServiceSchedule onTargetDate = persistSchedule(UUID.randomUUID(), offeringId, targetDate);
+            ServiceSchedule onOtherDate = persistSchedule(UUID.randomUUID(), offeringId, otherDate);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    null, List.of(offeringId), null, targetDate, PageRequest.of(0, 10)
+            );
+
+            // then
+            assertThat(result.getContent()).extracting(ServiceSchedule::getId)
+                    .containsExactly(onTargetDate.getId())
+                    .doesNotContain(onOtherDate.getId());
+        }
+
+        @Test
+        @DisplayName("조회 결과가 없으면 빈 페이지와 올바른 pageInfo를 반환한다")
+        void search_noResult_returnsEmptyPage() {
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    null, List.of(UUID.randomUUID()), null, null, PageRequest.of(0, 10)
+            );
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            assertThat(result.getTotalPages()).isZero();
+        }
+
+        @Test
+        @DisplayName("servicePreferenceIds가 null이 아닌 빈 리스트면 소유권 필터가 그대로 적용되어 다른 소유자의 일정이 결과에 포함되지 않는다")
+        void search_emptyServicePreferenceIds_stillAppliesOwnershipFilter() {
+            // given
+            UUID otherPreferenceId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceSchedule others = persistSchedule(otherPreferenceId, UUID.randomUUID(), date);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    List.of(), null, null, null, PageRequest.of(0, 10)
+            );
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getContent()).extracting(ServiceSchedule::getId)
+                    .doesNotContain(others.getId());
+        }
+
+        @Test
+        @DisplayName("serviceOfferingIds가 null이 아닌 빈 리스트면 소유권 필터가 그대로 적용되어 다른 소유자의 일정이 결과에 포함되지 않는다")
+        void search_emptyServiceOfferingIds_stillAppliesOwnershipFilter() {
+            // given
+            UUID otherOfferingId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceSchedule others = persistSchedule(UUID.randomUUID(), otherOfferingId, date);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    null, List.of(), null, null, PageRequest.of(0, 10)
+            );
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getContent()).extracting(ServiceSchedule::getId)
+                    .doesNotContain(others.getId());
+        }
+
+        @Test
+        @DisplayName("페이지네이션이 정상 동작한다 (page/size)")
+        void search_pagination_works() {
+            // given
+            UUID offeringId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            for (int i = 0; i < 3; i++) {
+                persistSchedule(UUID.randomUUID(), offeringId, date);
+            }
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceSchedule> firstPage = serviceScheduleRepository.search(
+                    null, List.of(offeringId), null, null, PageRequest.of(0, 2)
+            );
+            Page<ServiceSchedule> secondPage = serviceScheduleRepository.search(
+                    null, List.of(offeringId), null, null, PageRequest.of(1, 2)
+            );
+
+            // then
+            assertThat(firstPage.getContent()).hasSize(2);
+            assertThat(firstPage.getTotalElements()).isEqualTo(3);
+            assertThat(firstPage.getTotalPages()).isEqualTo(2);
+            assertThat(secondPage.getContent()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("정렬(오래된순 ASC)이 정상 동작한다")
+        void search_sortAscending_ordersByCreatedAtAsc() throws InterruptedException {
+            // given
+            UUID offeringId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceSchedule first = persistSchedule(UUID.randomUUID(), offeringId, date);
+            entityManager.flush();
+            Thread.sleep(5);
+            ServiceSchedule second = persistSchedule(UUID.randomUUID(), offeringId, date);
+            entityManager.flush();
+            entityManager.clear();
+
+            Pageable ascending = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "createdAt"));
+
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    null, List.of(offeringId), null, null, ascending
+            );
+
+            // then
+            assertThat(result.getContent()).extracting(ServiceSchedule::getId)
+                    .containsExactly(first.getId(), second.getId());
+        }
+
+        @Test
+        @DisplayName("정렬(최신순 DESC)이 정상 동작한다")
+        void search_sortDescending_ordersByCreatedAtDesc() throws InterruptedException {
+            // given
+            UUID offeringId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceSchedule first = persistSchedule(UUID.randomUUID(), offeringId, date);
+            entityManager.flush();
+            Thread.sleep(5);
+            ServiceSchedule second = persistSchedule(UUID.randomUUID(), offeringId, date);
+            entityManager.flush();
+            entityManager.clear();
+
+            Pageable descending = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
+
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    null, List.of(offeringId), null, null, descending
+            );
+
+            // then
+            assertThat(result.getContent()).extracting(ServiceSchedule::getId)
+                    .containsExactly(second.getId(), first.getId());
+        }
+
+        @Test
+        @DisplayName("소프트 삭제된 일정은 목록 조회에서 제외된다")
+        void search_excludesSoftDeletedSchedules() {
+            // given
+            UUID offeringId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceSchedule active = persistSchedule(UUID.randomUUID(), offeringId, date);
+            ServiceSchedule deleted = persistSchedule(UUID.randomUUID(), offeringId, date);
+            deleted.markDeleted(SystemId.SYSTEM_USER_ID);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceSchedule> result = serviceScheduleRepository.search(
+                    null, List.of(offeringId), null, null, PageRequest.of(0, 10)
+            );
+
+            // then
+            assertThat(result.getContent()).extracting(ServiceSchedule::getId)
+                    .containsExactly(active.getId())
+                    .doesNotContain(deleted.getId());
+        }
     }
 
     private ServiceSchedule persistSchedule(UUID servicePreferenceId, UUID serviceOfferingId, LocalDate date) {

@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.application.facade;
 
+import com.todak_todag.schedule_service.global.common.UserRole;
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
@@ -8,10 +9,12 @@ import com.todak_todag.schedule_service.schedule.application.command.ServiceSche
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderOfferingPort;
+import com.todak_todag.schedule_service.schedule.application.query.ServiceScheduleSearchQuery;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleResult;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleSearchResult;
 import com.todak_todag.schedule_service.schedule.application.service.command.ServiceScheduleCommandService;
 import com.todak_todag.schedule_service.schedule.application.service.query.ServiceScheduleQueryService;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
@@ -22,9 +25,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -195,6 +203,91 @@ class ServiceScheduleFacadeTest {
 
             verify(providerOfferingPort, never()).findAssignedProviderId(any());
             verify(serviceScheduleCommandService, never()).complete(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("서비스 일정 목록 조회")
+    class searchTest {
+
+        private final Pageable pageable = PageRequest.of(0, 10);
+
+        @Test
+        @DisplayName("퇴원 예정자면 care-plan-service에서 servicePreferenceId 목록을 조회해 QueryService에 위임한다")
+        void search_patient_delegatesWithServicePreferenceIds() {
+            // given
+            UUID patientId = UUID.randomUUID();
+            List<UUID> servicePreferenceIds = List.of(UUID.randomUUID(), UUID.randomUUID());
+            ServiceScheduleSearchQuery query = new ServiceScheduleSearchQuery(patientId, UserRole.PATIENT, null, null, pageable);
+            Page<ServiceScheduleSearchResult> expected = new PageImpl<>(List.of());
+
+            when(carePlanPort.findServicePreferenceIds(patientId)).thenReturn(servicePreferenceIds);
+            when(serviceScheduleQueryService.search(servicePreferenceIds, null, null, null, pageable)).thenReturn(expected);
+
+            // when
+            Page<ServiceScheduleSearchResult> result = serviceScheduleFacade.search(query);
+
+            // then
+            assertThat(result).isEqualTo(expected);
+            verify(serviceScheduleQueryService).search(servicePreferenceIds, null, null, null, pageable);
+            verify(providerOfferingPort, never()).findServiceOfferingIds(any());
+        }
+
+        @Test
+        @DisplayName("서비스 제공자면 provider-service에서 serviceOfferingId 목록을 조회해 QueryService에 위임한다")
+        void search_serviceProvider_delegatesWithServiceOfferingIds() {
+            // given
+            UUID providerId = UUID.randomUUID();
+            List<UUID> serviceOfferingIds = List.of(UUID.randomUUID());
+            ServiceScheduleSearchQuery query = new ServiceScheduleSearchQuery(providerId, UserRole.SERVICE_PROVIDER, ScheduleStatus.SCHEDULED, null, pageable);
+            Page<ServiceScheduleSearchResult> expected = new PageImpl<>(List.of());
+
+            when(providerOfferingPort.findServiceOfferingIds(providerId)).thenReturn(serviceOfferingIds);
+            when(serviceScheduleQueryService.search(null, serviceOfferingIds, ScheduleStatus.SCHEDULED, null, pageable)).thenReturn(expected);
+
+            // when
+            Page<ServiceScheduleSearchResult> result = serviceScheduleFacade.search(query);
+
+            // then
+            assertThat(result).isEqualTo(expected);
+            verify(serviceScheduleQueryService).search(null, serviceOfferingIds, ScheduleStatus.SCHEDULED, null, pageable);
+            verify(carePlanPort, never()).findServicePreferenceIds(any());
+        }
+
+        @Test
+        @DisplayName("퇴원 예정자가 담당하는 servicePreferenceId가 하나도 없으면 DB 조회 없이 빈 페이지를 반환한다")
+        void search_patient_emptyIds_returnsEmptyPageWithoutQuery() {
+            // given
+            UUID patientId = UUID.randomUUID();
+            ServiceScheduleSearchQuery query = new ServiceScheduleSearchQuery(patientId, UserRole.PATIENT, null, null, pageable);
+
+            when(carePlanPort.findServicePreferenceIds(patientId)).thenReturn(List.of());
+
+            // when
+            Page<ServiceScheduleSearchResult> result = serviceScheduleFacade.search(query);
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            verify(serviceScheduleQueryService, never()).search(any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("서비스 제공자가 담당하는 serviceOfferingId가 하나도 없으면 DB 조회 없이 빈 페이지를 반환한다")
+        void search_serviceProvider_emptyIds_returnsEmptyPageWithoutQuery() {
+            // given
+            UUID providerId = UUID.randomUUID();
+            ServiceScheduleSearchQuery query = new ServiceScheduleSearchQuery(providerId, UserRole.SERVICE_PROVIDER, null, null, pageable);
+
+            when(providerOfferingPort.findServiceOfferingIds(providerId)).thenReturn(List.of());
+
+            // when
+            Page<ServiceScheduleSearchResult> result = serviceScheduleFacade.search(query);
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            verify(serviceScheduleQueryService, never()).search(any(), any(), any(), any(), any());
         }
     }
 }
