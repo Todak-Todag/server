@@ -95,6 +95,7 @@ public class TokenAdapter implements TokenPort {
 		
 		String accessToken = Jwts.builder()
 				.subject(userId.toString())
+				.claim("role", role.name())
 				.issuedAt(iss)
 				.expiration(exp)
 				.signWith(key)

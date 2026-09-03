@@ -48,12 +48,13 @@ public class AuthCommandService {
 		if(!passwordEncoder.matches(loginCommand.password(), loginUser.getPasswordHash())) {
 			throw new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
 		}
-		
-		// 랜덤 액세스 토큰
+		// 랜덤 액세스 토큰 발급
 		String accessToken = tokenPort.createAccessToken();
 		
-		// JWT 형식의 액세스 토큰
-		String jwtAccessToken = tokenPort.createJwtAccessToken(null, null);
+		// JWT 형식의 액세스 토큰 발급
+		String jwtAccessToken = tokenPort.createJwtAccessToken(loginUser.getId(), loginUser.getRole());
+		
+		
 	}
 	
 }
