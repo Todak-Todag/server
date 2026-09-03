@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -54,6 +55,8 @@ public class CarePlanQueryRepositoryImpl implements CarePlanQueryRepository {
                 .where(
                         carePlan.patientId.eq(carePlanSearchQuery.patientId()),
                         statusEq(carePlanSearchQuery.status()),
+                        startDateGoe(carePlanSearchQuery.startDate()),
+                        finishDateLoe(carePlanSearchQuery.finishDate()),
                         carePlan.deletedAt.isNull()
                 )
                 .offset(pageable.getOffset())
@@ -72,5 +75,25 @@ public class CarePlanQueryRepositoryImpl implements CarePlanQueryRepository {
         }
 
         return carePlan.status.eq(status);
+    }
+
+    private BooleanExpression startDateGoe(
+            LocalDate startDate
+    ) {
+        if (startDate == null) {
+            return null;
+        }
+
+        return carePlan.startDate.goe(startDate);
+    }
+
+    private BooleanExpression finishDateLoe(
+            LocalDate finishDate
+    ) {
+        if (finishDate == null) {
+            return null;
+        }
+
+        return carePlan.finishDate.loe(finishDate);
     }
 }
