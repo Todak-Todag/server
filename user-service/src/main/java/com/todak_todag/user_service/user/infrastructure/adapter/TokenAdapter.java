@@ -1,7 +1,13 @@
 package com.todak_todag.user_service.user.infrastructure.adapter;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
+import java.util.HexFormat;
 import java.util.UUID;
 
 import javax.crypto.SecretKey;
@@ -12,6 +18,7 @@ import org.springframework.stereotype.Component;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 
+import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -20,9 +27,11 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class TokenAdapter implements TokenPort {
 
-	private static final int PHANTOM_TOKEN_LENGTH = 64;
+	// AccessToken 문자열 자릿수 - 256bit 엔트로피
+	private static final int ACCESS_TOKEN_LENGTH = 32;
 	
-	private static final String PHANTOM_TOKEN_MATERIAL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+	// 문자열 재료
+	private static final String ACCESS_TOKEN_MATERIAL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
 	
 	private final SecureRandom secureRandom = new SecureRandom();
 	
@@ -51,22 +60,47 @@ public class TokenAdapter implements TokenPort {
 		this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey));
 	}
 
+	// 암호학적 안전한 랜덤 난수로 32자리수 무작위 문자열 토큰 생성 - AccessToken
 	@Override
 	public String createPhantomToken() {
-		// TODO Auto-generated method stub
-		return null;
+		StringBuilder token = new StringBuilder(ACCESS_TOKEN_LENGTH);
+		for(int i = 0; i < ACCESS_TOKEN_LENGTH; i++) {
+			int index = secureRandom.nextInt(ACCESS_TOKEN_MATERIAL.length());
+			token.append(ACCESS_TOKEN_MATERIAL.charAt(index));
+		}
+		return token.toString();
 	}
 
+	// AccessToken을 SHA-256 으로 해시
 	@Override
 	public String hashPhantomToken(String phantomToken) {
-		// TODO Auto-generated method stub
-		return null;
+		try {
+			byte[] hash = MessageDigest.getInstance("SHA-256")
+					.digest(phantomToken.getBytes(StandardCharsets.UTF_8));
+			
+			return HexFormat.of().formatHex(hash);
+		} catch (NoSuchAlgorithmException e) {
+			log.error("[User] 토큰 해시를 만들 알고리즘이 존재하지 않습니다.", e);
+			
+			throw new IllegalStateException("SHA-256을 사용할 수 없습니다.");
+		}
 	}
 	
+	// JWT AccessToken 만들기
 	@Override
 	public String createAccessToken(UUID userId, UserRole role) {
-		// TODO Auto-generated method stub
-		return null;
+		Instant now = Instant.now();
+		Date iss = Date.from(now);
+		Date exp = Date.from(now.plus(accessExpiration));
+		
+		String accessToken = Jwts.builder()
+				.subject(userId.toString())
+				.issuedAt(iss)
+				.expiration(exp)
+				.signWith(key)
+				.compact();
+		
+		return accessToken;
 	}
 	
 	
