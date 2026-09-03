@@ -8,4 +8,6 @@ import com.todak_todag.user_service.user.domain.entity.user.User;
 
 public interface JpaUserRepository extends JpaRepository<User, UUID> {
 
+	boolean existsByUsername(String username);
+
 }

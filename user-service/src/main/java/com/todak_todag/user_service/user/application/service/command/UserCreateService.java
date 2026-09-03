@@ -68,7 +68,7 @@ public class UserCreateService {
 				passwordHash,
 				signup.name(),
 				signup.phone(),
-				UserRole.valueOf(signup.type())
+				signup.type()
 		);
 		
 		User user = userCommandRepo.save(signupUser);

@@ -20,18 +20,17 @@ public class UserPersistenceAdapter implements UserCommandRepository , UserQuery
 
 	@Override
 	public User save(User user) {
-		return null;
+		return jpaRepository.save(user);
 	}
 
 	@Override
 	public Optional<User> findById(UUID userId) {
-		return Optional.empty();
+		return jpaRepository.findById(userId);
 	}
 
 	@Override
 	public boolean duplicateUsername(String username) {
-		// TODO Auto-generated method stub
-		return false;
+		return jpaRepository.existsByUsername(username);
 	}
 	
 }
