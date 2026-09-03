@@ -1,13 +1,7 @@
 package com.spring.careplanservice.careplan.application.service.query;
 
-import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;
-import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
-import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
-import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
+import com.spring.careplanservice.careplan.application.query.*;
+import com.spring.careplanservice.careplan.application.result.*;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -317,17 +311,42 @@ class CarePlanQueryServiceTest {
 
     @Nested
     @DisplayName("[내부 API] patientId 기반 서비스 희망 일정 ID 목록 조회")
-    class FindServicePreferenceIds{
+    class FindServicePreferenceIds {
         @Test
         @DisplayName("성공")
-        void findServicePreferenceIds_success(){
+        void findServicePreferenceIds_success() {
+            UUID anotherServicePreferenceId = UUID.randomUUID();
 
+            given(servicePreferenceQueryRepository.findIdsByPatientId(patientId)).willReturn(List.of(
+                    servicePreferenceId,
+                    anotherServicePreferenceId
+            ));
+
+            ServicePreferenceIdsQuery servicePreferenceIdsQuery = new ServicePreferenceIdsQuery(patientId);
+            ServicePreferenceIdsResult servicePreferenceIdsResult = carePlanQueryService.findServicePreferenceIds(
+                    servicePreferenceIdsQuery
+            );
+
+            // containsExactly : 리스트 내용이 개수 + 값 + 순서까지 전부 정확히 일치하는지
+            assertThat(servicePreferenceIdsResult.servicePreferenceIds()).containsExactly(
+                    servicePreferenceId,
+                    anotherServicePreferenceId
+            );
+            verify(servicePreferenceQueryRepository).findIdsByPatientId(patientId);
         }
 
         @Test
         @DisplayName("서비스 희망 일정이 없으면 빈 목록 반환")
-        void findServicePreferenceIds_empty(){
+        void findServicePreferenceIds_empty() {
+            given(servicePreferenceQueryRepository.findIdsByPatientId(patientId)).willReturn(List.of());
 
+            ServicePreferenceIdsQuery servicePreferenceIdsQuery = new ServicePreferenceIdsQuery(patientId);
+            ServicePreferenceIdsResult result = carePlanQueryService.findServicePreferenceIds(
+                    servicePreferenceIdsQuery
+            );
+
+            assertThat(result.servicePreferenceIds()).isEmpty();
+            verify(servicePreferenceQueryRepository).findIdsByPatientId(patientId);
         }
     }
 }
