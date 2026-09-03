@@ -4,7 +4,9 @@ import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingProviderResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
+import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,6 +31,13 @@ public class ServiceOfferingQueryService {
                         view.provideServiceName(),
                         view.createdAt()
                 ));
+    }
+
+    public ServiceOfferingProviderResult findProvider(UUID serviceOfferingId) {
+        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(serviceOfferingId)
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
+
+        return new ServiceOfferingProviderResult(serviceOffering.getProviderId());
     }
 
     private UUID resolveTargetProviderId(ServiceOfferingSearchQuery query) {

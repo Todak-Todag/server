@@ -36,6 +36,9 @@ public class SecurityConfig {
                 .addFilterBefore(new HeaderAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
 
                 .authorizeHttpRequests(auth -> auth
+                        // 내부 API 인가는 InternalApiKeyInterceptor가 담당
+                        .requestMatchers("/internal/**").permitAll()
+
                         // 모니터링·문서
                         .requestMatchers(
                                 "/actuator/health",

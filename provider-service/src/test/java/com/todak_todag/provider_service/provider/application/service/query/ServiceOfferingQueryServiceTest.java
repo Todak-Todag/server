@@ -4,7 +4,9 @@ import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingProviderResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
+import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingView;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -23,6 +26,7 @@ import org.springframework.data.domain.Sort;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +43,7 @@ class ServiceOfferingQueryServiceTest {
     private final UUID providerId = UUID.randomUUID();
     private final UUID otherProviderId = UUID.randomUUID();
     private final UUID adminId = UUID.randomUUID();
+    private final UUID serviceOfferingId = UUID.randomUUID();
 
     private final Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
 
@@ -153,6 +158,38 @@ class ServiceOfferingQueryServiceTest {
 
             assertThat(results.getContent()).isEmpty();
             assertThat(results.getTotalElements()).isZero();
+        }
+    }
+
+    @Nested
+    @DisplayName("제공자 조회")
+    class FindProvider {
+
+        @Test
+        @DisplayName("providerId를 반환한다")
+        void findProvider_success() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.getProviderId()).willReturn(providerId);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+                    .willReturn(Optional.of(offering));
+
+            ServiceOfferingProviderResult result =
+                    serviceOfferingQueryService.findProvider(serviceOfferingId);
+
+            assertThat(result.providerId()).isEqualTo(providerId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않으면 SERVICE_OFFERING_NOT_FOUND")
+        void findProvider_notFound() {
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> serviceOfferingQueryService.findProvider(serviceOfferingId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
         }
     }
 }
