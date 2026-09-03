@@ -54,7 +54,7 @@ public class UserCreateService {
 		 * 2. In절을 이용하여 List<ConsentDocumentVersion> 조회
 		 * 3. List<UUID>.size == List<ConsentDocumentVersion>.size
 		 * 4. Map<UUID, Boolean> 으로 필수수락해야 할 동의서 약관 매핑
-		 * 5. 필수 약관인 조건 Filter 활용해서 boolean 값 비교 nayMatch
+		 * 5. 필수 약관인 조건 Filter 활용해서 boolean 값 비교 anyMatch
 		 * 6. 전부 통과하면 List<Consent> 로 만들기
 		 */
 		
