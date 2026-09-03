@@ -1,8 +1,12 @@
 FROM eclipse-temurin:21-jre-alpine
 
+ARG JAR_FILE
+
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
-COPY build/libs/*.jar app.jar
+COPY ${JAR_FILE} app.jar
 
 EXPOSE 19005
 
