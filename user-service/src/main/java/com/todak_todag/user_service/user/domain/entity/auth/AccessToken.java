@@ -13,16 +13,16 @@ import lombok.NoArgsConstructor;
 @Getter
 @RedisHash(value = "${authentication.access-token.redis-key-prefix}", timeToLive = 1800)
 @NoArgsConstructor(force = true)
-public class PhantomToken {
+public class AccessToken {
 
 	@Id
-	private final String phantomTokenHash;
+	private final String accessTokenHash;
 	
 	private final UUID userId;
 	
 	@PersistenceCreator
-	public PhantomToken(String phantomTokenHash, String accessToken, UUID userId) {
-		this.phantomTokenHash = Objects.requireNonNull(phantomTokenHash);
+	public AccessToken(String accessTokenHash, UUID userId) {
+		this.accessTokenHash = Objects.requireNonNull(accessTokenHash);
 		this.userId = Objects.requireNonNull(userId);
 	}
 	

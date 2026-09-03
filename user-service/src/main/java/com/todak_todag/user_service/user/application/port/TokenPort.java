@@ -5,9 +5,9 @@ import java.util.UUID;
 import com.todak_todag.user_service.global.common.UserRole;
 
 public interface TokenPort {
-	String createPhantomToken();
+	String createAccessToken();
 	
-	String hashPhantomToken(String phantomToken);
+	String hashAccessToken(String accessToken);
 	
-	String createAccessToken(UUID userId, UserRole role);
+	String createJwtAccessToken(UUID userId, UserRole role);
 }

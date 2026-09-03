@@ -2,13 +2,13 @@ package com.todak_todag.user_service.user.application.port;
 
 import java.util.Optional;
 
-import com.todak_todag.user_service.user.domain.entity.auth.PhantomToken;
+import com.todak_todag.user_service.user.domain.entity.auth.AccessToken;
 
 public interface TokenStoragePort {
 
-	void saveToken(PhantomToken phantomToken);
+	void saveToken(AccessToken phantomToken);
 	
-	Optional<PhantomToken> findAccessTokenByHash(String phantomToken);
+	Optional<AccessToken> findAccessTokenByHash(String phantomToken);
 	
 	void deleteToken(String phantomToken);
 }

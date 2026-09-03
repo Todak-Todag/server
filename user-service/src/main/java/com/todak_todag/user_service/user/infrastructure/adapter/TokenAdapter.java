@@ -62,7 +62,7 @@ public class TokenAdapter implements TokenPort {
 
 	// 암호학적 안전한 랜덤 난수로 32자리수 무작위 문자열 토큰 생성 - AccessToken
 	@Override
-	public String createPhantomToken() {
+	public String createAccessToken() {
 		StringBuilder token = new StringBuilder(ACCESS_TOKEN_LENGTH);
 		for(int i = 0; i < ACCESS_TOKEN_LENGTH; i++) {
 			int index = secureRandom.nextInt(ACCESS_TOKEN_MATERIAL.length());
@@ -73,7 +73,7 @@ public class TokenAdapter implements TokenPort {
 
 	// AccessToken을 SHA-256 으로 해시
 	@Override
-	public String hashPhantomToken(String phantomToken) {
+	public String hashAccessToken(String phantomToken) {
 		try {
 			byte[] hash = MessageDigest.getInstance("SHA-256")
 					.digest(phantomToken.getBytes(StandardCharsets.UTF_8));
@@ -88,7 +88,7 @@ public class TokenAdapter implements TokenPort {
 	
 	// JWT AccessToken 만들기
 	@Override
-	public String createAccessToken(UUID userId, UserRole role) {
+	public String createJwtAccessToken(UUID userId, UserRole role) {
 		Instant now = Instant.now();
 		Date iss = Date.from(now);
 		Date exp = Date.from(now.plus(accessExpiration));
