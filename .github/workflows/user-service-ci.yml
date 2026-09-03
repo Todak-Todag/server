@@ -28,6 +28,8 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
+        volumes:
+          - ${{ github.workspace }}/docker/postgres/user-service.sql:/docker-entrypoint-initdb.d/init.sql
         options: >-
           --health-cmd="pg_isready -U postgres -d todaktodag_db"
           --health-interval=10s
