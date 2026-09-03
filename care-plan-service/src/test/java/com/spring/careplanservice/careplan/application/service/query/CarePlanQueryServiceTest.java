@@ -3,9 +3,11 @@ package com.spring.careplanservice.careplan.application.service.query;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
+import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -23,10 +25,19 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -63,7 +74,7 @@ class CarePlanQueryServiceTest {
         @Test
         @DisplayName("patientId로 Care Plan 조회")
         void findByPatient_success() {
-            CarePlan carePlan = Mockito.mock(CarePlan.class);
+            CarePlan carePlan = mock(CarePlan.class);
 
             given(carePlan.getId()).willReturn(carePlanId);
             given(carePlan.getPatientId()).willReturn(patientId);
@@ -116,9 +127,9 @@ class CarePlanQueryServiceTest {
         void findByServicePreference_success() {
             LocalDate finishDate = LocalDate.now().plusDays(7);
 
-            CarePlanServicePreference preference = Mockito.mock(CarePlanServicePreference.class);
-            CarePlanService carePlanService = Mockito.mock(CarePlanService.class);
-            CarePlan carePlan = Mockito.mock(CarePlan.class);
+            CarePlanServicePreference preference = mock(CarePlanServicePreference.class);
+            CarePlanService carePlanService = mock(CarePlanService.class);
+            CarePlan carePlan = mock(CarePlan.class);
 
             given(preference.getPlanServiceId()).willReturn(planServiceId);
             given(carePlanService.getCarePlanId()).willReturn(carePlanId);
@@ -163,7 +174,7 @@ class CarePlanQueryServiceTest {
             LocalDate startDate = LocalDate.of(2026, 9, 1);
             LocalDate finishDate = LocalDate.of(2026, 9, 30);
 
-            CarePlan carePlan = Mockito.mock(CarePlan.class);
+            CarePlan carePlan = mock(CarePlan.class);
 
             given(carePlan.getId()).willReturn(carePlanId);
             given(carePlan.getPatientId()).willReturn(patientId);
@@ -210,9 +221,56 @@ class CarePlanQueryServiceTest {
             verify(carePlanQueryRepository).findById(carePlanId);
         }
 
-        @Test
-        @DisplayName("요청자가 Care Plan 소유자가 아니면 예외")
-        void findCarePlan_forbidden() {
+        @Nested
+        @DisplayName("Care Plan 목록 조회")
+        class SearchCarePlan {
+            @Test
+            @DisplayName("성공")
+            void searchCarePlan_success() {
+                CarePlanSearchQuery query = CarePlanSearchQuery.of(
+                        patientId,
+                        CarePlanStatus.IN_PROGRESS,
+                        LocalDate.of(2026, 9, 1),
+                        LocalDate.of(2026, 9, 30),
+                        0,
+                        10
+                );
+
+                CarePlan carePlan = mock(CarePlan.class);
+
+                given(carePlan.getId()).willReturn(carePlanId);
+                given(carePlan.getStatus()).willReturn(CarePlanStatus.IN_PROGRESS);
+                given(carePlan.getStartDate()).willReturn(LocalDate.of(2026, 9, 1));
+                given(carePlan.getFinishDate()).willReturn(LocalDate.of(2026, 9, 30));
+                given(carePlan.getCreatedAt()).willReturn(Instant.parse("2026-08-28T03:30:00Z"));
+
+                Page<CarePlan> carePlanPage = new PageImpl<>(
+                        List.of(carePlan),
+                        PageRequest.of(0, 10),
+                        1
+                );
+
+                given(carePlanQueryRepository.search(eq(query), any(Pageable.class))).willReturn(carePlanPage);
+
+                Page<CarePlanSearchResult> result = carePlanQueryService.searchCarePlan(query);
+
+                assertThat(result.getContent()).hasSize(1);
+                assertThat(result.getTotalElements()).isEqualTo(1);
+
+                CarePlanSearchResult carePlanSearchResult = result.getContent().getFirst();
+
+                assertThat(carePlanSearchResult.carePlanId()).isEqualTo(carePlanId);
+                assertThat(carePlanSearchResult.status()).isEqualTo(CarePlanStatus.IN_PROGRESS);
+                assertThat(carePlanSearchResult.startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+                assertThat(carePlanSearchResult.finishDate()).isEqualTo(LocalDate.of(2026, 9, 30));
+                assertThat(carePlanSearchResult.createdAt()).isEqualTo(Instant.parse("2026-08-28T03:30:00Z"));
+
+                verify(carePlanQueryRepository).search(
+                        eq(query),
+                        any(Pageable.class)
+                );
+            }
+
 
         }
     }
