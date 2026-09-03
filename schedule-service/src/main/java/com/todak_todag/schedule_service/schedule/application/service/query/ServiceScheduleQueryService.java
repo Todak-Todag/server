@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.application.service.query;
 
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleDetailResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleSearchResult;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
@@ -25,6 +26,13 @@ public class ServiceScheduleQueryService {
     public Optional<ServiceScheduleResult> findById(UUID serviceScheduleId) {
         return serviceScheduleQueryRepository.findById(serviceScheduleId)
                 .map(ServiceScheduleResult::from);
+    }
+
+    // 서비스 일정 상세 조회
+    @Transactional(readOnly = true)
+    public Optional<ServiceScheduleDetailResult> findDetailById(UUID serviceScheduleId) {
+        return serviceScheduleQueryRepository.findById(serviceScheduleId)
+                .map(ServiceScheduleDetailResult::from);
     }
 
     // 서비스 일정 목록 조회

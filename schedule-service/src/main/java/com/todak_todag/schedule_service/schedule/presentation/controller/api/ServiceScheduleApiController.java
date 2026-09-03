@@ -5,9 +5,11 @@ import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.global.response.PageResponse;
 import com.todak_todag.schedule_service.global.security.UserContext;
 import com.todak_todag.schedule_service.schedule.application.facade.ServiceScheduleFacade;
+import com.todak_todag.schedule_service.schedule.application.query.ServiceScheduleDetailQuery;
 import com.todak_todag.schedule_service.schedule.application.query.ServiceScheduleSearchQuery;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleDetailResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleSearchResult;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
@@ -16,6 +18,7 @@ import com.todak_todag.schedule_service.schedule.presentation.request.ServiceSch
 import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleRescheduleRequest;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleCancelResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleCompleteResponse;
+import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleDetailResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleRescheduleResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleSearchResponse;
 import jakarta.validation.Valid;
@@ -82,6 +85,30 @@ public class ServiceScheduleApiController implements ScheduleApiSpec {
                         ApiResponse.ok(
                                 "서비스 일정 목록 조회 성공",
                                 PageResponse.of(result, ServiceScheduleSearchResponse::from)
+                        )
+                );
+    }
+
+    // [외부 API] 서비스 일정 상세 조회 — 퇴원 예정자/서비스 제공자 공용
+    @Override
+    @GetMapping("/{serviceScheduleId}")
+    @PreAuthorize("hasAnyRole('PATIENT', 'SERVICE_PROVIDER')")
+    public ResponseEntity<ApiResponse<ServiceScheduleDetailResponse>> detail(
+            @PathVariable UUID serviceScheduleId,
+            @AuthenticationPrincipal UserContext user
+    ) {
+        ServiceScheduleDetailQuery detailQuery = new ServiceScheduleDetailQuery(
+                serviceScheduleId, user.getUserId(), user.getRole()
+        );
+
+        ServiceScheduleDetailResult result = serviceScheduleFacade.detail(detailQuery);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(
+                        ApiResponse.ok(
+                                "서비스 일정 상세 조회 성공",
+                                ServiceScheduleDetailResponse.from(result)
                         )
                 );
     }

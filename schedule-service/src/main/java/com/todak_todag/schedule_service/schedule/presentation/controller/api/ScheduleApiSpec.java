@@ -8,6 +8,7 @@ import com.todak_todag.schedule_service.schedule.presentation.request.ServiceSch
 import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleRescheduleRequest;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleCancelResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleCompleteResponse;
+import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleDetailResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleRescheduleResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleSearchResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -41,6 +42,19 @@ public interface ScheduleApiSpec {
             String status,
             @Parameter(description = "날짜 필터")
             LocalDate date,
+            @Parameter(hidden = true)
+            UserContext user
+    );
+
+    @Operation(
+            summary = "서비스 일정 상세 조회",
+            description = "퇴원 예정자는 본인이 받은, 서비스 제공자는 본인이 제공한 서비스 일정 하나의 상세 정보를 조회한다. " +
+                    "취소되지 않은 일정은 cancelReason/canceledAt이 null로 반환된다."
+    )
+    @ApiResponses
+    ResponseEntity<ApiResponse<ServiceScheduleDetailResponse>> detail(
+            @Parameter(name = "serviceScheduleId", description = "조회할 서비스 일정 ID", required = true)
+            UUID serviceScheduleId,
             @Parameter(hidden = true)
             UserContext user
     );
