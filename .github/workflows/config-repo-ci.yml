@@ -21,7 +21,6 @@ on:
     paths:
       - 'config-repo/**'
       - '.github/workflows/config-repo-ci.yml'
-      - '.yamllint.yml'
 
 permissions:
   contents: read
@@ -34,8 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Install yamllint
-        run: pip install yamllint
-
-      - name: Validate YAML files
-        run: yamllint -c .yamllint.yml config-repo/
+      - name: validate yaml files
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: config-repo/

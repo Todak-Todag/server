@@ -1,6 +1,0 @@
-extends: default
-
-rules:
-  line-length:
-    max: 80
-    allow-non-breakable-words: true
