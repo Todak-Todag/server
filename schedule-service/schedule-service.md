@@ -157,7 +157,7 @@ Schedule-Service (모든 서비스 수행 완료) ──▶ CarePlanCompleted �
 Schedule-Service는 Provider-Service가 매칭 가능 Provider를 판단할 때 호출하는 동기 내부 API를 제공한다.
 
 - **엔드포인트**: `GET /internal/v1/service-schedules`
-- **인증**: `X-Internal-Api-Key` 헤더 (서비스별 환경변수로 보유한 Key와 대조하여 검증). ✅ **확정 (2026-09-01)**: 검증은 **Interceptor**에서 수행하며 Controller는 이 헤더를 직접 처리하지 않는다.
+- **인증**: `X-Internal-Api-Key` 헤더 (서비스별 환경변수로 보유한 Key와 대조하여 검증). 검증은 **Interceptor**에서 수행하며 Controller는 이 헤더를 직접 처리하지 않는다.
 - **설계 근거**: 서비스 간 관계가 모두 "논리 FK"로만 연결되어 있어 DB가 분리되어 있다. Provider-Service의 `p_provide_works`는 "제공 가능한 요일/시간대"만 알고 있고, 실제 예약 현황은 Schedule-Service의 `p_service_schedules`에만 있어 SQL JOIN이 불가능하므로 동기 내부 호출로 대체한다.
 - **응답 설계 원칙**: 이 API는 "가능/불가능" boolean을 직접 판단하지 않고 해당 기간의 기존 일정 목록을 그대로 반환한다. 시간대 겹침 판단은 Provider-Service가 직접 수행한다(책임 분리).
 - **조회 대상 상태** : `SCHEDULED`, `RESCHEDULING` 상태 일정만 반환 (기존엔 `SCHEDULED`만이었으나 확장됨). `COMPLETED`/`NO_SHOW`/`CANCELED`는 향후 일정과 충돌하지 않아 제외.
@@ -257,8 +257,8 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 ## 7. 인증/인가
 
 - **인증(Authentication)**: API Gateway에서 수행 (JWT 검증). 인증된 요청자 정보는 `X-User-Id`, `X-User-Role` 헤더로 각 서비스에 전달된다.
-  - ✅ **확정 (2026-09-02, 03번 문서 근거)**: Controller는 이 헤더를 직접 읽지 않고 **`@AuthenticationPrincipal UserContext user`*로 주입받는다 (Spring Security 기반, 06번 내부 API의 Interceptor 처리와 유사한 패턴). 헤더→`UserContext` 변환 로직(Filter/Resolver)은 아직 코드에 없음.
-  - ⚠️ **확인 필요**: 이 패턴이 03번 문서에서만 확인됐다. 나머지 8개 REST API(01,02,04,05,07,08,09 + 06은 내부용이라 별개)도 동일하게 `@AuthenticationPrincipal UserContext user`를 쓰는지, 각 API 문서에 개별적으로 반영이 필요한지 확인 필요.
+  - Controller는 이 헤더를 직접 읽지 않고 **`@AuthenticationPrincipal UserContext user`*로 주입받는다 (Spring Security 기반, 06번 내부 API의 Interceptor 처리와 유사한 패턴). 헤더→`UserContext` 변환 로직(Filter/Resolver)은 아직 코드에 없음.
+  -
 - **인가(Authorization)**: 각 API를 처리하는 Schedule-Service 내부에서 수행한다 (예: 본인 소유 일정인지, 역할이 일치하는지 검증).
 - **내부 API**(`/internal/v1/*`)는 API Gateway를 거치지 않는 서비스 간 통신이며, `X-Internal-Api-Key` 헤더 기반으로 별도 인증한다. 5.5절의 Schedule-Service → Care-Plan-Service 호출도 동일한 인증 패턴을 따른다
 
@@ -292,6 +292,7 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 | **01번 목록 조회 시 소유권 검증 방식** | ✅ 확정 (2026-09-03, 팀 논의 완료): 레코드별 개별 검증 대신, 요청자가 소유한 `servicePreferenceId`/`serviceOfferingId` 전체 목록을 Internal API로 1회 조회한 뒤 `IN` 조건으로 필터링하는 방식으로 확정 (5.7절 참고) | ✅ 확정 (방식) |
 | **ID 목록 반환용 Internal API 스펙** | ✅ 확정 (2026-09-03): care-plan-service(`GET /internal/v1/service-preferences?patientId=`), provider-service(`GET /internal/v1/service-offerings?providerId=`) 엔드포인트/Request/Response 스펙 확정 (5.7절 참고) | ✅ 확정 |
 | **01번 API의 잘못된 status 필터 처리** | ✅ 확정 (2026-09-03): 허용되지 않는 `status` 값이 들어오면 `400`을 반환하는 것으로 확정 | ✅ 확정 |
+| **02번 API의 status 옵션 목록 CHANGED** | ✅ 확정 (2026-09-03): `02_서비스일정상세조회.md`의 Response `status` 옵션 목록에 `CHANGED` 포함 확정 (표에는 이미 있었으나 주석 표기 실수 정정) | ✅ 확정 |
 
 ---
 
@@ -308,3 +309,5 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 | 2026-09-03 | `01_서비스일정목록조회.md` 2차 최신화 — Notion 원본 갱신(`CHANGED` 추가, `servicePreferenceId`/`serviceOfferingId` 응답 추가) 반영, 잘못된 `status` 필터 시 `400` 확정, 목록 조회 소유권 필터링을 "ID 목록 기반 배치 조회" 방식으로 확정(팀 논의 완료), 신규 5.7절 추가 |
 | 2026-09-03 | `01_서비스일정목록조회.md` 3차 최신화 — Notion 원본 오타 정정(퇴원 예정자 조회 시 호출 대상이 "Schedule-Service"로 잘못 기재되어 있던 것을 care-plan-service로 정정), Response의 `servicePreferenceId`/`serviceOfferingId`를 최종적으로 제외하는 것으로 확정(팀 확인 완료, 내부 필터링 전용 ID는 응답에 노출하지 않음). 8장 관련 항목 갱신 |
 | 2026-09-03 | ✅ 확정: 5.7절의 ID 목록 반환 Internal API 엔드포인트 스펙 확정 — care-plan-service `GET /internal/v1/service-preferences?patientId=`, provider-service `GET /internal/v1/service-offerings?providerId=`. 마지막 블로커 해소, 8장 해당 항목 확정으로 전환 |
+| 2026-09-03 | `02_서비스일정상세조회.md` 최신화 반영 — JSON 예시 문법 오류 수정, 비즈니스 규칙 구조화, 03/04/05번의 기존 Internal API(점검증)를 재사용하는 방식임을 명시. `status` 옵션 목록의 `CHANGED` 누락을 8장에 신규 확인 필요로 추가 |
+| 2026-09-03 | ✅ 확정: `02_서비스일정상세조회.md`의 `status` 옵션에 `CHANGED` 포함 확정 (표기 실수 정정). 8장 해당 항목 확정으로 전환 |
