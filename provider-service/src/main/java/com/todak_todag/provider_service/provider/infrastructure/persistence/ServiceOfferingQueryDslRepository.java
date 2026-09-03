@@ -4,7 +4,7 @@ import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
+import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingView;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -25,10 +25,10 @@ public class ServiceOfferingQueryDslRepository {
 
     private final JPAQueryFactory queryFactory;
 
-    public Page<ServiceOfferingSearchResult> searchByProviderId(UUID providerId, Pageable pageable) {
-        List<ServiceOfferingSearchResult> content = queryFactory
+    public Page<ServiceOfferingView> searchByProviderId(UUID providerId, Pageable pageable) {
+        List<ServiceOfferingView> content = queryFactory
                 .select(Projections.constructor(
-                        ServiceOfferingSearchResult.class,
+                        ServiceOfferingView.class,
                         serviceOffering.id,
                         serviceOffering.provideServiceId,
                         provideService.name,

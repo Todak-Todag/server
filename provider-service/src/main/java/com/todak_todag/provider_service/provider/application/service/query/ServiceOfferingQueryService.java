@@ -21,15 +21,21 @@ public class ServiceOfferingQueryService {
     private final ServiceOfferingQueryRepository serviceOfferingQueryRepository;
 
     public Page<ServiceOfferingSearchResult> search(ServiceOfferingSearchQuery query) {
-        return serviceOfferingQueryRepository.searchByProviderId(
-                resolveTargetProviderId(query),
-                query.pageable()
-        );
+        return serviceOfferingQueryRepository
+                .searchByProviderId(resolveTargetProviderId(query), query.pageable())
+                .map(view -> new ServiceOfferingSearchResult(
+                        view.serviceOfferingId(),
+                        view.provideServiceId(),
+                        view.provideServiceName(),
+                        view.createdAt()
+                ));
     }
 
     private UUID resolveTargetProviderId(ServiceOfferingSearchQuery query) {
         if (query.userRole() == UserRole.ADMIN) {
-            // TODO: User-Service 사용자 조회 API 구현 후 ADMIN 담당 지역 검증 추가
+            // ADMIN은 담당 지역 내 제공자만 조회 가능
+            // TODO: User-Service 사용자 조회 API 구현 후 요청자·대상 지역 일치 검증 추가
+            //       그 전까지는 ADMIN이면 모든 지역을 조회할 수 있다
             return query.providerId() != null ? query.providerId() : query.userId();
         }
 

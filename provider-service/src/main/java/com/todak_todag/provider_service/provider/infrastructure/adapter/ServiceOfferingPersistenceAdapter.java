@@ -1,6 +1,6 @@
 package com.todak_todag.provider_service.provider.infrastructure.adapter;
 
-import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
+import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingView;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
@@ -38,7 +38,7 @@ public class ServiceOfferingPersistenceAdapter
     }
 
     @Override
-    public Page<ServiceOfferingSearchResult> searchByProviderId(UUID providerId, Pageable pageable) {
+    public Page<ServiceOfferingView> searchByProviderId(UUID providerId, Pageable pageable) {
         return serviceOfferingQueryDslRepository.searchByProviderId(providerId, pageable);
     }
 }

@@ -5,6 +5,7 @@ import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
+import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingView;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -51,9 +52,9 @@ class ServiceOfferingQueryServiceTest {
         return new ServiceOfferingSearchQuery(requestedProviderId, userId, userRole, pageable);
     }
 
-    private Page<ServiceOfferingSearchResult> page() {
+    private Page<ServiceOfferingView> page() {
         return new PageImpl<>(
-                List.of(new ServiceOfferingSearchResult(
+                List.of(new ServiceOfferingView(
                         UUID.randomUUID(), UUID.randomUUID(), "방문간호", Instant.now())),
                 pageable,
                 1
