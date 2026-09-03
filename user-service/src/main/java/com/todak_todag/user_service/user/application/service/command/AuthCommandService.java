@@ -75,7 +75,7 @@ public class AuthCommandService {
 		// 10. 데이터베이스 저장
 		authCommandRepo.save(auth);
 		
-		return new AuthLoginResult(loginUser.getId(), accessToken, refreshToken);
+		return new AuthLoginResult(loginUser.getId(), accessToken, refreshToken, jwtAccessToken);
 	}
 	
 }

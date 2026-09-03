@@ -7,6 +7,7 @@ public final class AuthResult {
 	public record AuthLoginResult(
 			UUID userId,
 			String accessToken,
-			String refreshToken
+			String refreshToken,
+			String jwtAccessToken
 	) {}
 }
