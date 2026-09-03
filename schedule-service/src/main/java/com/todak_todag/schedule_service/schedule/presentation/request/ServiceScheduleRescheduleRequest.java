@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.util.UUID;
 
-// 03_서비스일정변경.md Request 스펙: date(Body, Date, 필수)
 public record ServiceScheduleRescheduleRequest(
         @NotNull
         LocalDate date

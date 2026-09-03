@@ -2,7 +2,9 @@ package com.todak_todag.schedule_service.schedule.presentation.controller.api;
 
 import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.global.security.UserContext;
+import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleCancelRequest;
 import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleRescheduleRequest;
+import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleCancelResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleRescheduleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,6 +31,22 @@ public interface ScheduleApiSpec {
             @Parameter(description = "변경할 일정 날짜", required = true)
             @Valid
             ServiceScheduleRescheduleRequest request,
+            @Parameter(hidden = true)
+            UserContext user
+    );
+
+    @Operation(
+            summary = "서비스 일정 취소",
+            description = "퇴원 예정자가 본인에게 배정된 서비스 일정을 취소한다. " +
+                    "일정 시작 24시간 전까지만 가능하며, 취소 시 status가 CANCELED로 바뀌고 cancelReason/canceledAt이 기록된다."
+    )
+    @ApiResponses
+    ResponseEntity<ApiResponse<ServiceScheduleCancelResponse>> cancel(
+            @Parameter(name = "serviceScheduleId", description = "취소할 서비스 일정 ID", required = true)
+            UUID serviceScheduleId,
+            @Parameter(description = "취소 사유", required = true)
+            @Valid
+            ServiceScheduleCancelRequest request,
             @Parameter(hidden = true)
             UserContext user
     );
