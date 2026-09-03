@@ -220,100 +220,100 @@ class CarePlanQueryServiceTest {
 
             verify(carePlanQueryRepository).findById(carePlanId);
         }
+    }
 
-        @Nested
-        @DisplayName("Care Plan 목록 조회")
-        class SearchCarePlan {
-            @Test
-            @DisplayName("성공")
-            void searchCarePlan_success() {
-                CarePlanSearchQuery carePlanSearchQuery = CarePlanSearchQuery.of(
-                        patientId,
-                        CarePlanStatus.IN_PROGRESS,
-                        LocalDate.of(2026, 9, 1),
-                        LocalDate.of(2026, 9, 30),
-                        0,
-                        10
-                );
+    @Nested
+    @DisplayName("Care Plan 목록 조회")
+    class SearchCarePlan {
+        @Test
+        @DisplayName("성공")
+        void searchCarePlan_success() {
+            CarePlanSearchQuery carePlanSearchQuery = new CarePlanSearchQuery(
+                    patientId,
+                    CarePlanStatus.IN_PROGRESS,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    0,
+                    10
+            );
 
-                CarePlan carePlan = mock(CarePlan.class);
+            CarePlan carePlan = mock(CarePlan.class);
 
-                given(carePlan.getId()).willReturn(carePlanId);
-                given(carePlan.getStatus()).willReturn(CarePlanStatus.IN_PROGRESS);
-                given(carePlan.getStartDate()).willReturn(LocalDate.of(2026, 9, 1));
-                given(carePlan.getFinishDate()).willReturn(LocalDate.of(2026, 9, 30));
-                given(carePlan.getCreatedAt()).willReturn(Instant.parse("2026-08-28T03:30:00Z"));
+            given(carePlan.getId()).willReturn(carePlanId);
+            given(carePlan.getStatus()).willReturn(CarePlanStatus.IN_PROGRESS);
+            given(carePlan.getStartDate()).willReturn(LocalDate.of(2026, 9, 1));
+            given(carePlan.getFinishDate()).willReturn(LocalDate.of(2026, 9, 30));
+            given(carePlan.getCreatedAt()).willReturn(Instant.parse("2026-08-28T03:30:00Z"));
 
-                Page<CarePlan> carePlanPage = new PageImpl<>(
-                        List.of(carePlan),
-                        PageRequest.of(0, 10),
-                        1
-                );
+            Page<CarePlan> carePlanPage = new PageImpl<>(
+                    List.of(carePlan),
+                    PageRequest.of(0, 10),
+                    1
+            );
 
-                given(carePlanQueryRepository.search(eq(carePlanSearchQuery), any(Pageable.class))).willReturn(carePlanPage);
+            given(carePlanQueryRepository.search(eq(carePlanSearchQuery), any(Pageable.class))).willReturn(carePlanPage);
 
-                Page<CarePlanSearchResult> result = carePlanQueryService.searchCarePlan(carePlanSearchQuery);
+            Page<CarePlanSearchResult> result = carePlanQueryService.searchCarePlan(carePlanSearchQuery);
 
-                assertThat(result.getContent()).hasSize(1);
-                assertThat(result.getTotalElements()).isEqualTo(1);
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getTotalElements()).isEqualTo(1);
 
-                CarePlanSearchResult carePlanSearchResult = result.getContent().getFirst();
+            CarePlanSearchResult carePlanSearchResult = result.getContent().getFirst();
 
-                assertThat(carePlanSearchResult.carePlanId()).isEqualTo(carePlanId);
-                assertThat(carePlanSearchResult.status()).isEqualTo(CarePlanStatus.IN_PROGRESS);
-                assertThat(carePlanSearchResult.startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
-                assertThat(carePlanSearchResult.finishDate()).isEqualTo(LocalDate.of(2026, 9, 30));
-                assertThat(carePlanSearchResult.createdAt()).isEqualTo(Instant.parse("2026-08-28T03:30:00Z"));
+            assertThat(carePlanSearchResult.carePlanId()).isEqualTo(carePlanId);
+            assertThat(carePlanSearchResult.status()).isEqualTo(CarePlanStatus.IN_PROGRESS);
+            assertThat(carePlanSearchResult.startDate()).isEqualTo(LocalDate.of(2026, 9, 1));
+            assertThat(carePlanSearchResult.finishDate()).isEqualTo(LocalDate.of(2026, 9, 30));
+            assertThat(carePlanSearchResult.createdAt()).isEqualTo(Instant.parse("2026-08-28T03:30:00Z"));
 
-                verify(carePlanQueryRepository).search(
-                        eq(carePlanSearchQuery),
-                        any(Pageable.class)
-                );
-            }
+            verify(carePlanQueryRepository).search(
+                    eq(carePlanSearchQuery),
+                    any(Pageable.class)
+            );
+        }
 
-            @Test
-            @DisplayName("허용되지 않은 페이지 크기는 10 고정")
-            void searchCarePlan_invalidSize_defaultsTo10() {
-                CarePlanSearchQuery carePlanSearchQuery = CarePlanSearchQuery.of(
-                        UUID.randomUUID(),
-                        null,
-                        null,
-                        null,
-                        0,
-                        20
-                );
+        @Test
+        @DisplayName("허용되지 않은 페이지 크기는 10 고정")
+        void searchCarePlan_invalidSize_defaultsTo10() {
+            CarePlanSearchQuery carePlanSearchQuery = new CarePlanSearchQuery(
+                    UUID.randomUUID(),
+                    null,
+                    null,
+                    null,
+                    0,
+                    20
+            );
 
-                given(carePlanQueryRepository.search(eq(carePlanSearchQuery), any(Pageable.class))).willReturn(Page.empty());
+            given(carePlanQueryRepository.search(eq(carePlanSearchQuery), any(Pageable.class))).willReturn(Page.empty());
 
-                carePlanQueryService.searchCarePlan(carePlanSearchQuery);
+            carePlanQueryService.searchCarePlan(carePlanSearchQuery);
 
-                ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+            ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
-                verify(carePlanQueryRepository).search(eq(carePlanSearchQuery), pageableCaptor.capture());
+            verify(carePlanQueryRepository).search(eq(carePlanSearchQuery), pageableCaptor.capture());
 
-                Pageable pageable = pageableCaptor.getValue();
+            Pageable pageable = pageableCaptor.getValue();
 
-                assertThat(pageable.getPageSize()).isEqualTo(10);
-            }
+            assertThat(pageable.getPageSize()).isEqualTo(10);
+        }
 
-            @Test
-            @DisplayName("page가 음수이면 예외 발생")
-            void searchCarePlan_negativePage_throwsException() {
-                CarePlanSearchQuery carePlanSearchQuery = CarePlanSearchQuery.of(
-                        UUID.randomUUID(),
-                        null,
-                        null,
-                        null,
-                        -1,
-                        10
-                );
+        @Test
+        @DisplayName("page가 음수이면 예외 발생")
+        void searchCarePlan_negativePage_throwsException() {
+            CarePlanSearchQuery carePlanSearchQuery = new CarePlanSearchQuery(
+                    UUID.randomUUID(),
+                    null,
+                    null,
+                    null,
+                    -1,
+                    10
+            );
 
-                assertThatThrownBy(() -> carePlanQueryService.searchCarePlan(carePlanSearchQuery))
-                        .isInstanceOf(BusinessException.class);
+            assertThatThrownBy(() -> carePlanQueryService.searchCarePlan(carePlanSearchQuery))
+                    .isInstanceOf(BusinessException.class);
 
-                verify(carePlanQueryRepository, never()).search(any(CarePlanSearchQuery.class), any(Pageable.class)
-                );
-            }
+            verify(carePlanQueryRepository, never()).search(any(CarePlanSearchQuery.class), any(Pageable.class)
+            );
         }
     }
 }

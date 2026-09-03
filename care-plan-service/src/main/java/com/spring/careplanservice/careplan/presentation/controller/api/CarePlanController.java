@@ -94,7 +94,7 @@ public class CarePlanController {
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size
     ) {
-        CarePlanSearchQuery carePlanSearchQuery = CarePlanSearchQuery.of(
+        CarePlanSearchQuery carePlanSearchQuery = new CarePlanSearchQuery(
                 user.userId(),
                 status,
                 startDate,
