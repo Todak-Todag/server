@@ -13,4 +13,21 @@ public record CarePlanSearchQuery(
         Integer page,
         Integer size
 ) {
+    public static CarePlanSearchQuery of(
+            UUID patientId,
+            CarePlanStatus status,
+            LocalDate startDate,
+            LocalDate finishDate,
+            Integer page,
+            Integer size
+    ) {
+        return new CarePlanSearchQuery(
+                patientId,
+                status,
+                startDate,
+                finishDate,
+                page,
+                size
+        );
+    }
 }
