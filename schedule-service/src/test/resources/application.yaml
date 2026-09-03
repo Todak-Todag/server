@@ -1,4 +1,8 @@
 spring:
+  config:
+    activate:
+      on-profile: test
+
   application:
     name: schedule-service
 
@@ -12,19 +16,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: none
-
-    open-in-view: false
-
-    show-sql: false
-
+      ddl-auto: create-drop
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        boot:
-          allow_jdbc_metadata_access: false
-        default_schema: public
-        default_batch_fetch_size: 100
+        hbm2ddl:
+          create_namespaces: true
 
 internal:
   key: 01234567890123456789012345678901
@@ -59,19 +55,3 @@ management:
 logging:
   level:
     com.todak_todag.schedule_service: debug
-
----
-# DB에 실제로 접근하는 테스트(@DataJpaTest 등)에서 @ActiveProfiles("test")로 사용한다.
-# 기본 프로필은 운영과 동일하게 ddl-auto: none을 유지하고, 이 프로필에서만 스키마를 자동 생성한다.
-spring:
-  config:
-    activate:
-      on-profile: test
-
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    properties:
-      hibernate:
-        hbm2ddl:
-          create_namespaces: true
