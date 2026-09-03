@@ -51,6 +51,8 @@ internal:
   
 jwt:
   secret: ${JWT_SECRET}
+  access:
+    expiration: 30m
 
 authentication:
   access-token:
