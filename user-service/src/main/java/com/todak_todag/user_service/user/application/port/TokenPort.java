@@ -5,7 +5,7 @@ import java.util.UUID;
 import com.todak_todag.user_service.global.common.UserRole;
 
 public interface TokenPort {
-	String createAccessToken();
+	String createToken();
 	
 	String hashAccessToken(String accessToken);
 	

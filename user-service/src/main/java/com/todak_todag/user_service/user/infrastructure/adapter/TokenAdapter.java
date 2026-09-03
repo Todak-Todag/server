@@ -60,9 +60,9 @@ public class TokenAdapter implements TokenPort {
 		this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey));
 	}
 
-	// 암호학적 안전한 랜덤 난수로 32자리수 무작위 문자열 토큰 생성 - AccessToken
+	// 암호학적 안전한 랜덤 난수로 32자리수 무작위 문자열 토큰 생성 - AccessToken, RefreshToken
 	@Override
-	public String createAccessToken() {
+	public String createToken() {
 		StringBuilder token = new StringBuilder(ACCESS_TOKEN_LENGTH);
 		for(int i = 0; i < ACCESS_TOKEN_LENGTH; i++) {
 			int index = secureRandom.nextInt(ACCESS_TOKEN_MATERIAL.length());
