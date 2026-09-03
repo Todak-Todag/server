@@ -40,16 +40,16 @@ public class ServiceScheduleCommandService {
     // 서비스 일정 변경
     // 트랜잭션 처리 범위: 검증 + status를 RESCHEDULING으로 변경 + ProviderReMatched 이벤트를 아웃박스에 적재
     @Transactional
-    public ServiceScheduleRescheduleResult reschedule(ServiceScheduleRescheduleCommand reScheduleCommand, CarePlanPort.CarePlanRange carePlanRange) {
+    public ServiceScheduleRescheduleResult reschedule(ServiceScheduleRescheduleCommand rescheduleCommand, CarePlanPort.CarePlanRange carePlanRange) {
 
         // facade가 이미 존재를 확인했지만, facade의 조회와 이 트랜잭션 사이 시점 차이를 방어하기 위해 다시 조회
-        ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findById(reScheduleCommand.serviceScheduleId())
+        ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findById(rescheduleCommand.serviceScheduleId())
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
 
         // 일정 변경을 위한 검증 진행
-        validateOwnership(reScheduleCommand.requesterId(), carePlanRange.patientId());
+        validateOwnership(rescheduleCommand.requesterId(), carePlanRange.patientId());
         validateDeadline(serviceSchedule.getStartedAt());
-        validateRescheduleDate(serviceSchedule.getDate(), reScheduleCommand.date(), carePlanRange.finishDate());
+        validateRescheduleDate(serviceSchedule.getDate(), rescheduleCommand.date(), carePlanRange.finishDate());
 
         // SCHEDULED 상태 검증 및 RESCHEDULING 전이는 엔티티가 스스로 보장
         serviceSchedule.rescheduling();
@@ -60,13 +60,13 @@ public class ServiceScheduleCommandService {
                 new ProviderReMatchEventPort.ProviderReMatchEvent(
                         saved.getId(),
                         saved.getServiceOfferingId(),
-                        reScheduleCommand.date()
+                        rescheduleCommand.date()
                 )
         );
 
         scheduleOutboxCommandService.enqueue(ProviderReMatchEventPort.EVENT_TYPE, saved.getId(), payload);
 
-        log.info("[Schedule] 서비스 일정 변경 접수 serviceScheduleId={} requestedDate={}", saved.getId(), reScheduleCommand.date());
+        log.info("[Schedule] 서비스 일정 변경 접수 serviceScheduleId={} requestedDate={}", saved.getId(), rescheduleCommand.date());
 
         return ServiceScheduleRescheduleResult.from(saved);
     }
