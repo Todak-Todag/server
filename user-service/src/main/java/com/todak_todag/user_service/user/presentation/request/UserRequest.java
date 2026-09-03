@@ -18,7 +18,7 @@ public final class UserRequest {
 
 	// === 회원가입 요청 바디 === //
 	public record UserSignupRequest(
-			@NotBlank(message = "회원가입 유형은 필수입니다.")
+			@NotNull(message = "회원가입 유형은 필수입니다.")
 			UserRole type,
 			
 			@NotBlank

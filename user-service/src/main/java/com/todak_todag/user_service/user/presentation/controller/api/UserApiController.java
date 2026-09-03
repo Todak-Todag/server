@@ -33,8 +33,8 @@ public class UserApiController implements UserApiSpec {
 		
 		UserSignupCreatedResponse response = UserSignupCreatedResponse.of(result);
 		
-		return ResponseEntity.ok(
-				ApiResponse.created("회원가입 신청이 완료되었습니다.", response)
-		);
+		return ResponseEntity.
+				status(201)
+				.body(ApiResponse.created("회원가입 신청이 완료되었습니다.", response));
 	}
 }
