@@ -3,10 +3,9 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/todaktodag_db?currentSchema=care_plan_schema
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:password}
-
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}?currentSchema=care_plan_schema
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:password}
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5
@@ -26,7 +25,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_SERVER_HOST:localhost}:8761/eureka/
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
 
 management:
   tracing:
