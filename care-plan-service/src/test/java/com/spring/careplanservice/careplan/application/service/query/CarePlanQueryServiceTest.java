@@ -67,7 +67,7 @@ class CarePlanQueryServiceTest {
     private CarePlanServiceQueryRepository carePlanServiceQueryRepository;
 
     @Nested
-    @DisplayName("patientId 기반 Care Plan 조회")
+    @DisplayName("[내부 API] patientId 기반 Care Plan 조회")
     class FindByPatient {
         @Test
         @DisplayName("patientId로 Care Plan 조회")
@@ -118,7 +118,7 @@ class CarePlanQueryServiceTest {
     }
 
     @Nested
-    @DisplayName("servicePreferenceId 기반 Care Plan 조회")
+    @DisplayName("[내부 API] servicePreferenceId 기반 Care Plan 조회")
     class FindByServicePreference {
         @Test
         @DisplayName("servicePreferenceId로 Care Plan 조회")
@@ -312,6 +312,22 @@ class CarePlanQueryServiceTest {
 
             verify(carePlanQueryRepository, never()).search(any(CarePlanSearchQuery.class), any(Pageable.class)
             );
+        }
+    }
+
+    @Nested
+    @DisplayName("[내부 API] patientId 기반 서비스 희망 일정 ID 목록 조회")
+    class FindServicePreferenceIds{
+        @Test
+        @DisplayName("성공")
+        void findServicePreferenceIds_success(){
+
+        }
+
+        @Test
+        @DisplayName("서비스 희망 일정이 없으면 빈 목록 반환")
+        void findServicePreferenceIds_empty(){
+
         }
     }
 }
