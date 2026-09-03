@@ -57,7 +57,10 @@ jwt:
 authentication:
   access-token:
     redis-key-prefix: ${ACCESS_KEY_PREFIX}
-  
+
+master:
+  username: ${MASTER_USERNAME}
+  password: ${MASTER_PASSWORD}
 ---
 spring:
   config:

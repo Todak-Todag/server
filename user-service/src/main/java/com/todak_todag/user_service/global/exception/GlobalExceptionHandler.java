@@ -1,5 +1,6 @@
 package com.todak_todag.user_service.global.exception;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -47,6 +48,13 @@ public class GlobalExceptionHandler {
         log.warn("[User] 데이터 정합성 제약 위반 message={}", e.getMessage());
         return ResponseEntity.status(CommonErrorCode.DUPLICATE_REQUEST.getStatus())
                 .body(ErrorResponse.of(CommonErrorCode.DUPLICATE_REQUEST));
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ErrorResponse> handleDataAccessException(DataAccessException e) {
+        log.error("[User] 데이터 저장소 접근 실패", e);
+        return ResponseEntity.status(CommonErrorCode.DATA_STORE_UNAVAILABLE.getStatus())
+                .body(ErrorResponse.of(CommonErrorCode.DATA_STORE_UNAVAILABLE));
     }
 
     @ExceptionHandler(Exception.class)
