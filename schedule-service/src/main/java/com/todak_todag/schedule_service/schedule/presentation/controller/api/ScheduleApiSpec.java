@@ -3,8 +3,10 @@ package com.todak_todag.schedule_service.schedule.presentation.controller.api;
 import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.global.security.UserContext;
 import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleCancelRequest;
+import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleCompleteRequest;
 import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleRescheduleRequest;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleCancelResponse;
+import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleCompleteResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleRescheduleResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -47,6 +49,22 @@ public interface ScheduleApiSpec {
             @Parameter(description = "취소 사유", required = true)
             @Valid
             ServiceScheduleCancelRequest request,
+            @Parameter(hidden = true)
+            UserContext user
+    );
+
+    @Operation(
+            summary = "서비스 수행 완료",
+            description = "서비스 제공자가 본인에게 배정된 서비스 일정의 수행을 완료(COMPLETED) 또는 미완료(NO_SHOW)로 처리한다. " +
+                    "status가 SCHEDULED인 일정만 대상이며, 요청 시점이 finishedAt 이후여야 한다."
+    )
+    @ApiResponses
+    ResponseEntity<ApiResponse<ServiceScheduleCompleteResponse>> complete(
+            @Parameter(name = "serviceScheduleId", description = "수행을 완료할 서비스 일정 ID", required = true)
+            UUID serviceScheduleId,
+            @Parameter(description = "수행 완료 상태 (COMPLETED 또는 NO_SHOW)", required = true)
+            @Valid
+            ServiceScheduleCompleteRequest request,
             @Parameter(hidden = true)
             UserContext user
     );

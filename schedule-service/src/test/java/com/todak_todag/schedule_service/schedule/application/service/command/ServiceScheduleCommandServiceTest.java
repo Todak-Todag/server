@@ -4,12 +4,16 @@ import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
+import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCompleteCommand;
+import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCompletionStatus;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.application.support.ProviderReMatchEventPayloadSerializer;
+import com.todak_todag.schedule_service.schedule.application.support.ServiceScheduleValidator;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
@@ -19,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
@@ -47,6 +52,9 @@ class ServiceScheduleCommandServiceTest {
 
     @Mock
     private ProviderReMatchEventPayloadSerializer providerReMatchEventPayloadSerializer;
+
+    @Spy
+    private ServiceScheduleValidator serviceScheduleValidator = new ServiceScheduleValidator();
 
     @InjectMocks
     private ServiceScheduleCommandService serviceScheduleCommandService;
@@ -410,6 +418,141 @@ class ServiceScheduleCommandServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("서비스 수행 완료")
+    class completeTest {
+        @Test
+        @DisplayName("정상 완료(COMPLETED) 요청은 COMPLETED로 변경된다")
+        void complete_completed_success() {
+            // given
+            UUID providerId = UUID.randomUUID();
+            LocalDate currentDate = LocalDate.now().plusDays(3);
+            ServiceSchedule schedule = confirmedSchedule(currentDate);
+            setFinishedAt(schedule, LocalDateTime.now().minusHours(1));
+
+            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.save(schedule)).thenReturn(schedule);
+
+            ServiceScheduleCompleteCommand command =
+                    new ServiceScheduleCompleteCommand(schedule.getId(), ServiceScheduleCompletionStatus.COMPLETED, providerId);
+
+            // when
+            ServiceScheduleCompleteResult result = serviceScheduleCommandService.complete(command, providerId);
+
+            // then
+            assertThat(schedule.getStatus()).isEqualTo(ScheduleStatus.COMPLETED);
+            assertThat(result.status()).isEqualTo(ScheduleStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("정상 미완료(NO_SHOW) 요청은 NO_SHOW로 변경된다")
+        void complete_noShow_success() {
+            // given
+            UUID providerId = UUID.randomUUID();
+            LocalDate currentDate = LocalDate.now().plusDays(3);
+            ServiceSchedule schedule = confirmedSchedule(currentDate);
+            setFinishedAt(schedule, LocalDateTime.now().minusHours(1));
+
+            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.save(schedule)).thenReturn(schedule);
+
+            ServiceScheduleCompleteCommand command =
+                    new ServiceScheduleCompleteCommand(schedule.getId(), ServiceScheduleCompletionStatus.NO_SHOW, providerId);
+
+            // when
+            ServiceScheduleCompleteResult result = serviceScheduleCommandService.complete(command, providerId);
+
+            // then
+            assertThat(schedule.getStatus()).isEqualTo(ScheduleStatus.NO_SHOW);
+            assertThat(result.status()).isEqualTo(ScheduleStatus.NO_SHOW);
+        }
+
+        @Test
+        @DisplayName("status가 SCHEDULED가 아니면 409를 던진다")
+        void complete_invalidStatus_conflict() {
+            // given
+            UUID providerId = UUID.randomUUID();
+            LocalDate currentDate = LocalDate.now().plusDays(3);
+            ServiceSchedule schedule = confirmedSchedule(currentDate);
+            setFinishedAt(schedule, LocalDateTime.now().minusHours(1));
+            setStatus(schedule, ScheduleStatus.CANCELED);
+
+            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+
+            ServiceScheduleCompleteCommand command =
+                    new ServiceScheduleCompleteCommand(schedule.getId(), ServiceScheduleCompletionStatus.COMPLETED, providerId);
+
+            // when & then
+            assertThatThrownBy(() -> serviceScheduleCommandService.complete(command, providerId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_COMPLETED);
+            verify(serviceScheduleCommandRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("본인이 배정된 서비스 제공자가 아니면 403을 던진다")
+        void complete_notAssignedProvider_forbidden() {
+            // given
+            UUID assignedProviderId = UUID.randomUUID();
+            UUID requesterId = UUID.randomUUID();
+            LocalDate currentDate = LocalDate.now().plusDays(3);
+            ServiceSchedule schedule = confirmedSchedule(currentDate);
+            setFinishedAt(schedule, LocalDateTime.now().minusHours(1));
+
+            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+
+            ServiceScheduleCompleteCommand command =
+                    new ServiceScheduleCompleteCommand(schedule.getId(), ServiceScheduleCompletionStatus.COMPLETED, requesterId);
+
+            // when & then
+            assertThatThrownBy(() -> serviceScheduleCommandService.complete(command, assignedProviderId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+            verify(serviceScheduleCommandRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("finishedAt 이전 요청이면 400을 던진다")
+        void complete_beforeFinishedAt_badRequest() {
+            // given
+            UUID providerId = UUID.randomUUID();
+            LocalDate currentDate = LocalDate.now().plusDays(3);
+            ServiceSchedule schedule = confirmedSchedule(currentDate);
+            setFinishedAt(schedule, LocalDateTime.now().plusHours(1));
+
+            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+
+            ServiceScheduleCompleteCommand command =
+                    new ServiceScheduleCompleteCommand(schedule.getId(), ServiceScheduleCompletionStatus.COMPLETED, providerId);
+
+            // when & then
+            assertThatThrownBy(() -> serviceScheduleCommandService.complete(command, providerId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_STATUS_UPDATE_TOO_EARLY);
+            verify(serviceScheduleCommandRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 일정이면 403을 던진다 (리소스 존재 비노출)")
+        void complete_notFound_forbidden() {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            when(serviceScheduleCommandRepository.findById(serviceScheduleId)).thenReturn(Optional.empty());
+
+            ServiceScheduleCompleteCommand command =
+                    new ServiceScheduleCompleteCommand(serviceScheduleId, ServiceScheduleCompletionStatus.COMPLETED, UUID.randomUUID());
+
+            // when & then
+            assertThatThrownBy(() -> serviceScheduleCommandService.complete(command, UUID.randomUUID()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+        }
+    }
+
     private ServiceSchedule confirmedSchedule(LocalDate date) {
         return ServiceSchedule.confirm(
                 UUID.randomUUID(),
@@ -435,6 +578,16 @@ class ServiceScheduleCommandServiceTest {
             Field field = ServiceSchedule.class.getDeclaredField("startedAt");
             field.setAccessible(true);
             field.set(schedule, startedAt);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private void setFinishedAt(ServiceSchedule schedule, LocalDateTime finishedAt) {
+        try {
+            Field field = ServiceSchedule.class.getDeclaredField("finishedAt");
+            field.setAccessible(true);
+            field.set(schedule, finishedAt);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(e);
         }

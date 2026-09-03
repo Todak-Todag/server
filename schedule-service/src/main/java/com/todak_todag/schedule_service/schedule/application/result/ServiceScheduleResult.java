@@ -4,13 +4,17 @@ import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 
 import java.util.UUID;
 
-// Facade가 CarePlanPort 호출에 필요한 servicePreferenceId를 얻기 위해 조회하는 결과
 public record ServiceScheduleResult(
         UUID serviceScheduleId,
-        UUID servicePreferenceId
+        UUID servicePreferenceId,
+        UUID serviceOfferingId
 ) {
 
     public static ServiceScheduleResult from(ServiceSchedule serviceSchedule) {
-        return new ServiceScheduleResult(serviceSchedule.getId(), serviceSchedule.getServicePreferenceId());
+        return new ServiceScheduleResult(
+                serviceSchedule.getId(),
+                serviceSchedule.getServicePreferenceId(),
+                serviceSchedule.getServiceOfferingId()
+        );
     }
 }

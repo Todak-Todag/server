@@ -4,10 +4,13 @@ import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.global.security.UserContext;
 import com.todak_todag.schedule_service.schedule.application.facade.ServiceScheduleFacade;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleCancelRequest;
+import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleCompleteRequest;
 import com.todak_todag.schedule_service.schedule.presentation.request.ServiceScheduleRescheduleRequest;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleCancelResponse;
+import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleCompleteResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceScheduleRescheduleResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -75,6 +78,29 @@ public class ServiceScheduleApiController implements ScheduleApiSpec {
                         ApiResponse.ok(
                                 "서비스 일정 취소 성공",
                                 ServiceScheduleCancelResponse.from(cancelResult)
+                        )
+                );
+    }
+
+    // [외부 API] 서비스 수행 완료 — 서비스 제공자 전용
+    @Override
+    @PatchMapping("/{serviceScheduleId}/result")
+    @PreAuthorize("hasRole('SERVICE_PROVIDER')")
+    public ResponseEntity<ApiResponse<ServiceScheduleCompleteResponse>> complete(
+            @PathVariable UUID serviceScheduleId,
+            @Valid @RequestBody ServiceScheduleCompleteRequest completeRequest,
+            @AuthenticationPrincipal UserContext user
+    ) {
+        ServiceScheduleCompleteResult completeResult = serviceScheduleFacade.complete(
+                completeRequest.toCommand(serviceScheduleId, user.getUserId())
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(
+                        ApiResponse.ok(
+                                "서비스 수행 완료 상태 변경 성공",
+                                ServiceScheduleCompleteResponse.from(completeResult)
                         )
                 );
     }

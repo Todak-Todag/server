@@ -199,7 +199,7 @@ Schedule-Service가 서비스 일정 변경(4.1) 처리 중 Care Plan의 일정 
 | 02 | 서비스 일정 상세 조회 | GET | `/api/v1/service-schedules/{serviceScheduleId}` | [02](https://app.notion.com/p/api/02_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%9D%BC%EC%A0%95%EC%83%81%EC%84%B8%EC%A1%B0%ED%9A%8C.md) |
 | 03 | 서비스 일정 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | [03](https://app.notion.com/p/api/03_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%9D%BC%EC%A0%95%EB%B3%80%EA%B2%BD.md) |
 | 04 | 서비스 일정 취소 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/cancel` | [04](https://app.notion.com/p/api/04_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%9D%BC%EC%A0%95%EC%B7%A8%EC%86%8C.md) |
-| 05 | 서비스 수행 완료 상태 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | [05](https://app.notion.com/p/api/05_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%88%98%ED%96%89%EC%99%84%EB%A3%8C%EC%83%81%ED%83%9C%EB%B3%80%EA%B2%BD.md) |
+| 05 | 서비스 수행 완료 상태 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/result` | [05](https://app.notion.com/p/api/05_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%88%98%ED%96%89%EC%99%84%EB%A3%8C%EC%83%81%ED%83%9C%EB%B3%80%EA%B2%BD.md) |
 | 06 | \[내부 API\] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | [06](https://app.notion.com/p/api/06_%EB%82%B4%EB%B6%80API_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%A0%9C%EA%B3%B5%EC%9E%90%EC%9D%BC%EC%A0%95%EC%A1%B0%ED%9A%8C.md) |
 | 07 | 서비스 수행 결과 등록 | POST | `/api/v1/service-results/{serviceScheduleId}` | [07](https://app.notion.com/p/api/07_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%88%98%ED%96%89%EA%B2%B0%EA%B3%BC%EB%93%B1%EB%A1%9D.md) |
 | 08 | 서비스 수행 결과 목록 조회 | GET | `/api/v1/service-results` | [08](https://app.notion.com/p/api/08_%EC%84%9C%EB%B9%84%EC%8A%A4%EC%88%98%ED%96%89%EA%B2%B0%EA%B3%BC%EB%AA%A9%EB%A1%9D%EC%A1%B0%ED%9A%8C.md) |
@@ -251,6 +251,7 @@ Schedule-Service가 서비스 일정 변경(4.1) 처리 중 Care Plan의 일정 
 
 | 날짜 | 변경 내용 |
 |---|---|
+| 2026-09-03 | 6장 API 목록의 05번(서비스 수행 완료) URL을 `/api/v1/service-schedules/{serviceScheduleId}/status`(오기재)에서 실제 구현된 `/api/v1/service-schedules/{serviceScheduleId}/result`로 정정 |
 | 2026-09-02 | 4.1절의 `DELAY` 잔존 표현을 `RESCHEDULING`/`CHANGED`로 정정 (3장과의 불일치 해소) |
 | 2026-09-02 | `03_서비스일정변경.md` 최신화 내용 반영 — Care Plan 범위 검증용 Internal API(Schedule-Service → Care-Plan-Service, Feign) 호출을 4.1절 및 신규 5.5절로 추가 |
 | 2026-09-02 | 8장 미확정 사항 테이블에 Care Plan 범위 검증 Internal API 관련 신규 확인 필요 항목 추가 |
