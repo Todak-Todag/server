@@ -14,7 +14,7 @@ public final class UserCommand {
 			UUID regionId,
 			List<AgreementCommand> agreements
 	) {
-		record AgreementCommand(UUID termsId, Boolean agreed) {}
+		public record AgreementCommand(UUID termsId, Boolean agreed) {}
 		
 		public List<UUID> getTermsIds() {
 			return this.agreements.stream()

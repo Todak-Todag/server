@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCommand;
+import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCommand.AgreementCommand;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -50,19 +51,30 @@ public final class UserRequest {
 			
 			@NotEmpty
 			@Valid
-			List<Agreement> agreements
+			List<AgreementRequest> agreements
 	) {
-		record Agreement(
-				
+		public record AgreementRequest(
 				@NotNull
 				UUID termsId,
 								
 				@NotNull
 				Boolean agreed
-		) {}
+		) {
+			public AgreementCommand toCommand() {
+				return new AgreementCommand(termsId, agreed);
+			}
+		}
 		
 		public UserSignupCommand toCommand() {
-			return null;
+			return new UserSignupCommand(
+					type,
+					username,
+					password,
+					name,
+					phone,
+					regionId,
+					agreements.stream().map(t -> t.toCommand()).toList()
+			);
 		}
 	}
 	

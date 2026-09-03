@@ -45,7 +45,7 @@ public class UserCreateService {
 		
 		// Username 중복 검증 : 가벼운 작업 위로
 		if(userQueryRepo.duplicateUsername(signup.username())) {
-			throw new BusinessException(UserErrorCode.USER_DUPLICATE_USERNAME);
+			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 		}
 		
 		/* TODO: consent 검증

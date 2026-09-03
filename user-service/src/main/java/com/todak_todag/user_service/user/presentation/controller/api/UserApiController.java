@@ -11,6 +11,7 @@ import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.user.application.result.UserResult.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.presentation.request.UserRequest.UserSignupRequest;
+import com.todak_todag.user_service.user.presentation.response.UserResponse.UserSignupCreatedResponse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,8 +29,12 @@ public class UserApiController implements UserApiSpec {
 	public ResponseEntity<ApiResponse<Object>> createUserSignup(
 			@Valid @RequestBody UserSignupRequest userSignupRequest
 	) {
-		UserSignupCreatedResult result = userCreateService.createUserSignup(userSignupRequest);
+		UserSignupCreatedResult result = userCreateService.createUserSignup(userSignupRequest.toCommand());
 		
-		return null;
+		UserSignupCreatedResponse response = UserSignupCreatedResponse.of(result);
+		
+		return ResponseEntity.ok(
+				ApiResponse.created("회원가입 신청이 완료되었습니다.", response)
+		);
 	}
 }
