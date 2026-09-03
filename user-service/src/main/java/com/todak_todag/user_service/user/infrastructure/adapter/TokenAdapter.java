@@ -2,12 +2,14 @@ package com.todak_todag.user_service.user.infrastructure.adapter;
 
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.UUID;
 
 import javax.crypto.SecretKey;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 
 import io.jsonwebtoken.io.Decoders;
@@ -47,6 +49,24 @@ public class TokenAdapter implements TokenPort {
 		
 		this.accessExpiration = accessExpiration;
 		this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey));
+	}
+
+	@Override
+	public String createPhantomToken() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String hashPhantomToken(String phantomToken) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	@Override
+	public String createAccessToken(UUID userId, UserRole role) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 	
 	
