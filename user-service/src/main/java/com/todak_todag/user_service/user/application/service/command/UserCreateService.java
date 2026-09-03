@@ -6,12 +6,16 @@ import org.springframework.transaction.annotation.Transactional;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.user.application.command.UserCommand.UserAdminCreateCommand;
 import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserResult;
+import com.todak_todag.user_service.user.application.result.UserResult.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserResult.UserSignupCreatedResult;
+import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
+import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -27,6 +31,8 @@ public class UserCreateService {
 	private final UserCommandRepository userCommandRepo;
 	
 	private final UserQueryRepository userQueryRepo;
+	
+	private final RegionQueryRepository regionQueryRepo;
 	
 	// private final regionCommandRepo
 	
@@ -77,8 +83,30 @@ public class UserCreateService {
 		return new UserResult.UserSignupCreatedResult(user.getId(), user.getName());
 	}
 	
-	public void createUserAdmin() {
-		// TODO: 운영자 등록 API
+	public UserAdminCreatedResult createUserAdmin(UserAdminCreateCommand createAdmin) {
+		// TODO: 한 건 조회가 생기는 경우 수정
+		Region region = regionQueryRepo.findAllAvailableRegions().getFirst();
+		
+		// Username 중복 검증
+		if(userQueryRepo.duplicateUsername(createAdmin.username())) {
+			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
+		}
+		
+		// 비밀번호 해시
+		String passwordHash = passwordEncoder.encode(createAdmin.password());
+		
+		User admin = User.createAdmin(
+				createAdmin.regionId(),
+				createAdmin.username(),
+				passwordHash,
+				createAdmin.name(),
+				createAdmin.phone(),
+				UserRole.ADMIN
+		);
+		
+		User user = userCommandRepo.save(admin);
+		
+		return new UserResult.UserAdminCreatedResult(user.getId(), user.getName(), region.getProvince(), region.getDistrict());
 	}
 	
 	public void createUserPatient() {
