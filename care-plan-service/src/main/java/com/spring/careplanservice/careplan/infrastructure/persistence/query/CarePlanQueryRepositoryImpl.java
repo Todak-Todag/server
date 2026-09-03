@@ -50,6 +50,7 @@ public class CarePlanQueryRepositoryImpl implements CarePlanQueryRepository {
             CarePlanSearchQuery carePlanSearchQuery,
             Pageable pageable
     ) {
+        // Care Plan 목록 조회
         List<CarePlan> carePlans = queryFactory
                 .selectFrom(carePlan)
                 .where(
@@ -62,10 +63,24 @@ public class CarePlanQueryRepositoryImpl implements CarePlanQueryRepository {
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
+
+        // 전체 조회 건수
+        Long total = queryFactory
+                .select(carePlan.count())
+                .from(carePlan)
+                .where(
+                        carePlan.patientId.eq(carePlanSearchQuery.patientId()),
+                        statusEq(carePlanSearchQuery.status()),
+                        startDateGoe(carePlanSearchQuery.startDate()),
+                        finishDateLoe(carePlanSearchQuery.finishDate()),
+                        carePlan.deletedAt.isNull()
+                )
+                .fetchOne();
+
         return new PageImpl<>(
                 carePlans,
                 pageable,
-                carePlans.size()
+                total != null ? total : 0L
         );
     }
 
