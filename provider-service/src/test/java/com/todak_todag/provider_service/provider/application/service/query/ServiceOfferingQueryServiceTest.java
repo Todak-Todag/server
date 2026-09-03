@@ -4,6 +4,7 @@ import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingIdsResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingProviderResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
@@ -190,6 +191,41 @@ class ServiceOfferingQueryServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("제공자별 제공 서비스 ID 목록 조회")
+    class FindIdsByProvider {
+
+        @Test
+        @DisplayName("보유한 제공 서비스 ID 목록을 반환한다")
+        void findIdsByProvider_success() {
+            UUID providerId = UUID.randomUUID();
+            UUID first = UUID.randomUUID();
+            UUID second = UUID.randomUUID();
+
+            given(serviceOfferingQueryRepository.findIdsByProviderId(providerId))
+                    .willReturn(List.of(first, second));
+
+            ServiceOfferingIdsResult result =
+                    serviceOfferingQueryService.findIdsByProvider(providerId);
+
+            assertThat(result.serviceOfferingIds()).containsExactly(first, second);
+        }
+
+        @Test
+        @DisplayName("보유한 제공 서비스가 없으면 빈 목록을 반환한다")
+        void findIdsByProvider_empty() {
+            UUID providerId = UUID.randomUUID();
+
+            given(serviceOfferingQueryRepository.findIdsByProviderId(providerId))
+                    .willReturn(List.of());
+
+            ServiceOfferingIdsResult result =
+                    serviceOfferingQueryService.findIdsByProvider(providerId);
+
+            assertThat(result.serviceOfferingIds()).isEmpty();
         }
     }
 }
