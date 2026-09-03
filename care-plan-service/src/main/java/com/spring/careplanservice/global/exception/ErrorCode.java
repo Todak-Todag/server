@@ -7,6 +7,10 @@ import org.springframework.http.HttpStatus;
 @Getter
 @RequiredArgsConstructor
 public enum ErrorCode {
+    UNAUTHORIZED_INTERNAL_REQUEST(
+            HttpStatus.UNAUTHORIZED,
+            "내부 API 인증에 실패했습니다."
+    ),
 
     COMMON_INVALID_REQUEST(
             HttpStatus.BAD_REQUEST,
