@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.application.service.command;
+package com.todak_todag.user_service.user.application.service.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

@@ -41,19 +41,19 @@ public class AuthCommandService {
 	public AuthLoginResult login(AuthLoginCommand loginCommand) {
 		// 1. 사용자 있나?
 		User loginUser = userQueryRepo.findLoginByUsername(loginCommand.username())
-				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));	
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED));	
 		
 		// 2. 로그인이 가능한 상태인가?
 		loginUser.validateCanLogin();
 		
-		// 3. 로그인은 가능한데 WITHDRAWN 상태인가?
-		if(loginUser.isWithdrawn()) {
-			// TODO: 동의서 약관 동의 페이지로 이동시키는 에러 응답 형식 작성 API 명세서 수정
-		}
-		
-		// 4. 로그인 가능한 상태니까 아이디와 비밀번호 검증
+		// 3. 로그인 가능한 상태니까 아이디와 비밀번호 검증
 		if(!passwordEncoder.matches(loginCommand.password(), loginUser.getPasswordHash())) {
 			throw new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
+		}
+		
+		// 4. 로그인은 가능한데 WITHDRAWN 상태인가?
+		if(loginUser.isWithdrawn()) {
+			throw new BusinessException(UserErrorCode.USER_LOGIN_WITHDRAWN);
 		}
 		
 		// 5. 랜덤 액세스 토큰 발급

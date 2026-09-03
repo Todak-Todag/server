@@ -19,6 +19,8 @@ public enum UserErrorCode implements ErrorCode {
 	USER_SUSPENDED(HttpStatus.FORBIDDEN, "일시정지된 계정입니다."),
 	
 	USER_LOGIN_MISMATCHED(HttpStatus.CONFLICT, "아이디 또는 비밀번호가 일치하지 않습니다."),
+	
+	USER_LOGIN_WITHDRAWN(HttpStatus.FORBIDDEN, "동의 약관을 철회한 계정입니다. 서비스를 이용하시려면 다시 동의하여주세요."),
 	;
 	private final HttpStatus status;
   private final String message;
