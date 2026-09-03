@@ -1,8 +1,10 @@
 package com.todak_todag.discharge_service.discharge.application.query_service;
 
+import com.todak_todag.discharge_service.discharge.application.result.DischargeFindResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeInternalFindResult;
 import com.todak_todag.discharge_service.discharge.domain.entity.Discharge;
 import com.todak_todag.discharge_service.discharge.domain.repository.DischargeRepository;
+import com.todak_todag.discharge_service.global.common.UserRole;
 import com.todak_todag.discharge_service.global.exception.BusinessException;
 import com.todak_todag.discharge_service.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -19,9 +21,33 @@ public class DischargeQueryService {
 
     private final DischargeRepository dischargeRepository;
 
-    public DischargeInternalFindResult findById(
-            UUID dischargeId
+    public DischargeFindResult findDischarge(
+            UUID dischargeId,
+            UUID userId,
+            UserRole userRole
     ) {
+        Discharge discharge =
+                dischargeRepository.findById(dischargeId)
+                        .orElseThrow(
+                                () -> new BusinessException(
+                                        ErrorCode.DISCHARGE_NOT_FOUND,
+                                        Map.of(
+                                                "reason",
+                                                "퇴원건을 찾을 수 없습니다."
+                                        )
+                                )
+                        );
+
+        validateReadPermission(
+                discharge,
+                userId,
+                userRole
+        );
+
+        return DischargeFindResult.from(discharge);
+    }
+
+    public DischargeInternalFindResult findById(UUID dischargeId) {
         Discharge discharge =
                 dischargeRepository.findById(dischargeId)
                         .orElseThrow(
@@ -35,5 +61,32 @@ public class DischargeQueryService {
                         );
 
         return DischargeInternalFindResult.from(discharge);
+    }
+
+    private void validateReadPermission(
+            Discharge discharge,
+            UUID userId,
+            UserRole userRole
+    ) {
+        boolean hasPermission =
+                switch (userRole) {
+                    case PATIENT ->
+                            discharge.getPatientId().equals(userId);
+
+                    case HOSPITAL_STAFF ->
+                            discharge.getHospitalStaffId().equals(userId);
+
+                    default -> false;
+                };
+
+        if (!hasPermission) {
+            throw new BusinessException(
+                    ErrorCode.AUTH_FORBIDDEN,
+                    Map.of(
+                            "reason",
+                            "퇴원건 조회 권한이 없습니다."
+                    )
+            );
+        }
     }
 }
