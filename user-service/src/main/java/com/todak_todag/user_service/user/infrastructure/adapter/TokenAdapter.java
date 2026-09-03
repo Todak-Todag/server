@@ -73,7 +73,7 @@ public class TokenAdapter implements TokenPort {
 
 	// AccessToken을 SHA-256 으로 해시
 	@Override
-	public String hashAccessToken(String phantomToken) {
+	public String hashToken(String phantomToken) {
 		try {
 			byte[] hash = MessageDigest.getInstance("SHA-256")
 					.digest(phantomToken.getBytes(StandardCharsets.UTF_8));

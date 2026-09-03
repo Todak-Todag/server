@@ -7,7 +7,7 @@ import com.todak_todag.user_service.global.common.UserRole;
 public interface TokenPort {
 	String createToken();
 	
-	String hashAccessToken(String accessToken);
+	String hashToken(String token);
 	
 	String createJwtAccessToken(UUID userId, UserRole role);
 }

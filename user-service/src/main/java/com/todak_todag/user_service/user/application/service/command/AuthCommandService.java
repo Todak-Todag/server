@@ -3,12 +3,14 @@ package com.todak_todag.user_service.user.application.service.command;
 
 import java.time.LocalDateTime;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.AuthCommand.AuthLoginCommand;
+import com.todak_todag.user_service.user.application.event.LoginSuccessEvent;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 import com.todak_todag.user_service.user.application.result.AuthResult.AuthLoginResult;
@@ -24,6 +26,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
 public class AuthCommandService {
+	
+	private final ApplicationEventPublisher eventPublisher;
 	
 	private final TokenPort tokenPort;
 	
@@ -68,14 +72,23 @@ public class AuthCommandService {
 		// 9. 현재 로그인 세션 저장
 		Auth auth = Auth.login(
 				loginUser.getId(),
-				refreshToken,
+				tokenPort.hashToken(refreshToken),
 				now.plusDays(7), now
 		);
 		
 		// 10. 데이터베이스 저장
-		authCommandRepo.save(auth);
+		Auth loginSession = authCommandRepo.save(auth);
 		
-		return new AuthLoginResult(loginUser.getId(), accessToken, refreshToken, jwtAccessToken);
+		// 11. 로그인 이벤트 생성
+		LoginSuccessEvent loginEvent = new LoginSuccessEvent(
+				accessToken,
+				jwtAccessToken
+		);
+		
+		// 12. 로그인 이벤트 발행
+		eventPublisher.publishEvent(loginEvent);
+		
+		return new AuthLoginResult(loginSession.getUserId(), accessToken, refreshToken);
 	}
 	
 }
