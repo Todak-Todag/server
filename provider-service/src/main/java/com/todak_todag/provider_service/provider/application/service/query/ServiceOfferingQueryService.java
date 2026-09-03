@@ -4,6 +4,7 @@ import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingIdsResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingProviderResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
@@ -38,6 +39,11 @@ public class ServiceOfferingQueryService {
                 .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
 
         return new ServiceOfferingProviderResult(serviceOffering.getProviderId());
+    }
+
+    public ServiceOfferingIdsResult findIdsByProvider(UUID providerId) {
+        return new ServiceOfferingIdsResult(
+                serviceOfferingQueryRepository.findIdsByProviderId(providerId));
     }
 
     private UUID resolveTargetProviderId(ServiceOfferingSearchQuery query) {
