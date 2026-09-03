@@ -1,7 +1,10 @@
 package com.spring.careplanservice.careplan.domain.repository.query;
 
+import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import java.util.Optional;
 import java.util.Set;
@@ -13,5 +16,10 @@ public interface CarePlanQueryRepository {
     Optional<CarePlan> findByPatientIdAndStatuses(
             UUID patientId,
             Set<CarePlanStatus> statuses
+    );
+
+    Page<CarePlan> search(
+            CarePlanSearchQuery carePlanSearchQuery,
+            Pageable pageable
     );
 }
