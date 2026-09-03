@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.presentation.internal_controller;
+package com.todak_todag.user_service.user.presentation.controller.internal;
 
 public class UserInternalController {
 
