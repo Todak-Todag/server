@@ -92,7 +92,7 @@ public class AuthCommandService {
 
 		Auth loginSession = authQueryRepo.findActiveByUserId(loginUser.getId())
 				.map(existingSession -> {
-					existingSession.renew(refreshTokenHash, now.plus(refreshExpiration), now);
+					existingSession.renew(refreshTokenHash, now.plus(refreshExpiration));
 					return existingSession;
 				})
 				.orElseGet(() -> authCommandRepo.save(
