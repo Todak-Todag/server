@@ -1,6 +1,7 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -43,6 +44,7 @@ public class UserApiController implements UserApiSpec {
 
 	@Override
 	@PostMapping("/admin/users")
+	@PreAuthorize("hasRole('MASTER')")
 	public ResponseEntity<ApiResponse<UserAdminCreatedResponse>> createAdmin(
 			@Valid @RequestBody UserAdminCreateRequest userAdminCreateRequest
 	) {
