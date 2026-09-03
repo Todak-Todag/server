@@ -6,6 +6,7 @@ import com.spring.careplanservice.careplan.application.result.CarePlanCreateResu
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
 import com.spring.careplanservice.global.common.UserRole;
@@ -75,9 +76,16 @@ public class CarePlanCommandService {
     }
 
     @Transactional
-    public void completeCarePlan(
-            UUID carePlanId
-    ) {
+    public void completeCarePlan(UUID carePlanId) {
+        CarePlan carePlan = carePlanCommandRepository.findById(carePlanId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
+
+        // TODO: IN_PROGRESS 상태에서만 COMPLETED로 전환할 수 있도록 상태 검증 추가
+        if (carePlan.getStatus() == CarePlanStatus.COMPLETED) {
+            return;
+        }
+
+        carePlan.complete();
     }
 
     // 동일한 퇴원 건에 이미 Care Plan이 존재하는지 검사

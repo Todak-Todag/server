@@ -2,9 +2,9 @@ package com.spring.careplanservice.careplan.infrastructure.messaging;
 
 
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.global.config.RabbitMqConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -12,18 +12,13 @@ import org.springframework.stereotype.Component;
 public class CarePlanEventPublisher {
     private final RabbitTemplate rabbitTemplate;
 
-    @Value("${rabbitmq.care-plan-confirmed.exchange}")
-    private String exchange;
-
-    @Value("${rabbitmq.care-plan-confirmed.routing-key}")
-    private String routingKey;
-
+    // TODO: Care Plan 수정 API 구현 시 UNDER_REVIEW -> CONFIRMED 전환 후 CarePlanConfirmed 이벤트 발행 연결
     public void publishCarePlanConfirmed(
             CarePlanConfirmedEvent carePlanConfirmedEvent
     ) {
         rabbitTemplate.convertAndSend(
-                exchange,
-                routingKey,
+                RabbitMqConfig.CARE_PLAN_CONFIRMED_EXCHANGE,
+                RabbitMqConfig.CARE_PLAN_CONFIRMED_ROUTING_KEY,
                 carePlanConfirmedEvent
         );
     }
