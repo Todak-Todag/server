@@ -69,23 +69,25 @@ public class AuthCommandService {
 		// 8. 현재 시간 구하기
 		LocalDateTime now = LocalDateTime.now();
 		
-		// 9. 현재 로그인 세션 저장
-		Auth auth = Auth.login(
-				loginUser.getId(),
-				tokenPort.hashToken(refreshToken),
-				now.plusDays(7), now
-		);
-		
-		// 10. 데이터베이스 저장
-		Auth loginSession = authCommandRepo.save(auth);
-		
-		// 11. 로그인 이벤트 생성
+		// 9. 기존 활성 세션이 있으면 갱신, 없으면 새로 생성 - 멱등처리
+		String refreshTokenHash = tokenPort.hashToken(refreshToken);
+
+		Auth loginSession = authQueryRepo.findActiveByUserId(loginUser.getId())
+				.map(existingSession -> {
+					existingSession.renew(refreshTokenHash, now.plusDays(7), now);
+					return existingSession;
+				})
+				.orElseGet(() -> authCommandRepo.save(
+						Auth.login(loginUser.getId(), refreshTokenHash, now.plusDays(7), now)
+				));
+
+		// 10. 로그인 이벤트 생성
 		LoginSuccessEvent loginEvent = new LoginSuccessEvent(
 				accessToken,
 				jwtAccessToken
 		);
 		
-		// 12. 로그인 이벤트 발행
+		// 11. 로그인 이벤트 발행
 		eventPublisher.publishEvent(loginEvent);
 		
 		return new AuthLoginResult(loginSession.getUserId(), accessToken, refreshToken);

@@ -53,7 +53,13 @@ public class Auth {
 	
 	public void logout() {
 		if(this.logoutAt != null) return;
-		
+
 		this.logoutAt = LocalDateTime.now();
+	}
+
+	public void renew(String refreshTokenHash, LocalDateTime expiresAt, LocalDateTime loginAt) {
+		this.refreshTokenHash = refreshTokenHash;
+		this.expiresAt = expiresAt;
+		this.loginAt = loginAt;
 	}
 }
