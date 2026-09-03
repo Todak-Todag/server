@@ -16,7 +16,13 @@ spring:
     username: ${POSTGRES_USERNAME:postgres}
     password: ${POSTGRES_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
-    
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      timeout: 3s
+
   jpa:
     open-in-view: false
     properties:
@@ -52,11 +58,11 @@ internal:
 jwt:
   secret: ${JWT_SECRET}
   access:
-    expiration: 30m
-    max-age: 7d
+    expiration: ${ACCESS_EXPIRATION:30m}
+    max-age: ${REFRESH_EXPIRATION:7d} # 지금 토큰 인증 구조에선 RefreshToken 과 똑같이
   refresh:
-    expiration: 7d
-    max-age: 7d
+    expiration: ${REFRESH_EXPIRATION:7d}
+    max-age: ${REFRESH_EXPIRATION:7d}
   secure: true
 
 authentication:
@@ -83,6 +89,11 @@ spring:
         hbm2ddl:
           create_namespaces: true
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+          
 jwt:
   http-only: false
   secure: false
