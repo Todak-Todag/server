@@ -6,6 +6,7 @@ import com.todak_todag.schedule_service.schedule.infrastructure.client.dto.CareP
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -20,5 +21,10 @@ public class CarePlanAdapter implements CarePlanPort {
                 carePlanClient.findCarePlanRange(servicePreferenceId).data();
 
         return new CarePlanRange(response.carePlanId(), response.finishDate(), response.patientId());
+    }
+
+    @Override
+    public List<UUID> findServicePreferenceIds(UUID patientId) {
+        return carePlanClient.findServicePreferenceIds(patientId).data().content();
     }
 }
