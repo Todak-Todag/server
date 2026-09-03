@@ -1,5 +1,6 @@
 package com.spring.careplanservice.careplan.infrastructure.persistence.query;
 
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
@@ -52,6 +53,7 @@ public class CarePlanQueryRepositoryImpl implements CarePlanQueryRepository {
                 .selectFrom(carePlan)
                 .where(
                         carePlan.patientId.eq(carePlanSearchQuery.patientId()),
+                        statusEq(carePlanSearchQuery.status()),
                         carePlan.deletedAt.isNull()
                 )
                 .offset(pageable.getOffset())
@@ -62,5 +64,13 @@ public class CarePlanQueryRepositoryImpl implements CarePlanQueryRepository {
                 pageable,
                 carePlans.size()
         );
+    }
+
+    private BooleanExpression statusEq(CarePlanStatus status) {
+        if (status == null) {
+            return null;
+        }
+
+        return carePlan.status.eq(status);
     }
 }
