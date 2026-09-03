@@ -11,4 +11,7 @@ public interface JpaRegionRepository
 
     // 서비스 가능 + 미삭제 지역 조회
     List<Region> findAllByActiveTrueAndDeletedAtIsNull();
+
+    // 로그인 시 지역 검증 : 서비스 기능 + 미삭제 지역 조회
+    boolean existsByIdAndActiveTrueAndDeletedAtIsNull(UUID regionId);
 }

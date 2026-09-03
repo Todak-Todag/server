@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -42,5 +43,10 @@ public class RegionQueryService {
         return regionQueryRepository
                 .findAllByAdminConditions(query, pageable)
                 .map(RegionFindAdminResult::from);
+    }
+
+    // 회원가입시 지역 검증 조회
+    public boolean existsAvailableRegion(UUID regionId) {
+        return regionQueryRepository.existsAvailableRegion(regionId);
     }
 }
