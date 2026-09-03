@@ -15,5 +15,10 @@ public final class UserResponse {
 		}
 	}
 	
-	public record UserAdminCreatedResponse() {}
+	public record UserAdminCreatedResponse(
+			UUID userId,
+			String name,
+			String province,
+			String district
+	) {}
 }
