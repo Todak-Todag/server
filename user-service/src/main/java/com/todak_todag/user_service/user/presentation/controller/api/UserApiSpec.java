@@ -3,7 +3,10 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.user.presentation.request.UserRequest.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserRequest.UserSignupRequest;
+import com.todak_todag.user_service.user.presentation.response.UserResponse.UserAdminCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserResponse.UserSignupCreatedResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,10 +31,25 @@ public interface UserApiSpec {
 			"""
 	)
 	@ApiResponses
-	ResponseEntity<ApiResponse<Object>> createUserSignup(
+	ResponseEntity<ApiResponse<UserSignupCreatedResponse>> createUserSignup(
 			@Parameter(description = "회원가입 정보", required = true)
 			@Valid
 			UserSignupRequest userSignupRequest
 	);
 	
+	@Operation(
+			summary = "운영자 등록",
+			description = """
+					관리자는 운영자를 등록할 수 있습니다.
+					운영자이기 때문에 동의서 약관에 동의할 필요가 없습니다.
+					
+					운영자 등록 후 User는 APPROVED 상태로 저장됩니다.
+			"""
+	)
+	@ApiResponses
+	ResponseEntity<ApiResponse<UserAdminCreatedResponse>> createAdmin(
+			@Parameter(description = "운영자 등록 정보", required = true)
+			@Valid
+			UserAdminCreateRequest userAdminCreateRequest
+	);
 }
