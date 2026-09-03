@@ -37,3 +37,9 @@ jobs:
         uses: ibiqlik/action-yamllint@v3
         with:
           file_or_dir: config-repo/
+          config_data: |
+            extends: default
+            rules:
+              line-length:
+                max: 160
+              document-start: disable

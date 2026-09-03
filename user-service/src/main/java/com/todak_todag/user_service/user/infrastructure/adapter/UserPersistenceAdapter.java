@@ -5,7 +5,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Repository;
 
-import com.todak_todag.user_service.user.domain.entity.User;
+import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaUserRepository;
@@ -20,12 +20,17 @@ public class UserPersistenceAdapter implements UserCommandRepository , UserQuery
 
 	@Override
 	public User save(User user) {
-		return null;
+		return jpaRepository.save(user);
 	}
 
 	@Override
 	public Optional<User> findById(UUID userId) {
-		return Optional.empty();
+		return jpaRepository.findById(userId);
+	}
+
+	@Override
+	public boolean duplicateUsername(String username) {
+		return jpaRepository.existsByUsername(username);
 	}
 	
 }

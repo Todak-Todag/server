@@ -8,7 +8,9 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum UserErrorCode implements ErrorCode {
 	
+	USER_INVALID_CREATE_ROLE(HttpStatus.CONFLICT, "유저 등록을 진행할 수 없는 유형입니다."),
 	
+	USER_DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 사용중인 로그인 아이디입니다."),
 	;
 	private final HttpStatus status;
   private final String message;

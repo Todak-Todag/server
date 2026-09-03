@@ -4,6 +4,7 @@ import com.todak_todag.provider_service.global.response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -38,6 +39,14 @@ public class GlobalExceptionHandler {
         log.warn("[Provider] 접근 권한 없음 message={}", e.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ErrorResponse.of(ProviderErrorCode.AUTH_FORBIDDEN));
+    }
+
+    // 애플리케이션 중복 검증을 동시에 통과한 요청은 DB 유니크 인덱스가 막는다
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        log.warn("[Provider] 데이터 무결성 위반 message={}", e.getMessage());
+        return ResponseEntity.status(ProviderErrorCode.PROVIDE_SERVICE_DUPLICATE.getStatus())
+                .body(ErrorResponse.of(ProviderErrorCode.PROVIDE_SERVICE_DUPLICATE));
     }
 
     @ExceptionHandler(Exception.class)

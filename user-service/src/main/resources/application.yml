@@ -10,7 +10,6 @@ spring:
   config:
     import:
       - optional:file:.env[.properties]
-      - optional:file:../.env[.properties]
       
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
@@ -48,7 +47,7 @@ logging:
     com.todak_todag.user_service: info
 
 internal:
-  key: ${INTERNAL_KEY}
+  key: ${INTERNAL_API_KEY}
   
 jwt:
   secret: ${JWT_SECRET}

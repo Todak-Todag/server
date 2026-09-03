@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.application.query_service;
+package com.todak_todag.user_service.user.application.service.query;
 
 public class UserQueryService {
 

@@ -39,7 +39,10 @@ public class SecurityConfig {
                  * Spring Security 인가 대상에서는 제외한다
                  */
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/internal/**").permitAll()
+                        .requestMatchers(
+                                "/internal/**",
+                                "/actuator/health/**"
+                        ).permitAll()
                         .anyRequest().authenticated()
                 );
 

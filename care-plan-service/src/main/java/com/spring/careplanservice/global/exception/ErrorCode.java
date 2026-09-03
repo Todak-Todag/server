@@ -76,6 +76,11 @@ public enum ErrorCode {
             HttpStatus.CONFLICT,
             "이미 선택한 Care Plan 서비스입니다."
     ),
+
+    CARE_PLAN_BAD_REQUEST(
+            HttpStatus.CONFLICT,
+            "page는 0 이상이어야 합니다."
+    ),
     ;
 
 

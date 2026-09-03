@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.application.command_service;
+package com.todak_todag.user_service.user.application.service.command;
 
 public class UserCommandService {
 
