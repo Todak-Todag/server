@@ -27,9 +27,20 @@ spring:
 
 jwt:
   secret: 7Jmc7J6Q6r6467mM65Oc6rCA7JWM66eI44WT44WH66G444WT44WB7Jik652844WT66qw7J2044WP44WT66qw7Ja044WP66qp44S344WI44WC66WY7Ja8666k7J2044WP7YyM7LKw
+  access:
+    expiration: 30m
+    max-age: 7d
+  refresh:
+    expiration: 7d
+    max-age: 7d
+  secure: false
 
 internal:
   key: 01234567890123456789012345678901
+
+authentication:
+  access-token:
+    redis-key-prefix: "test:access-token:"
   
 management:
   endpoints:

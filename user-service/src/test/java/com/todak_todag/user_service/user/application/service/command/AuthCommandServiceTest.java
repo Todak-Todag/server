@@ -10,17 +10,18 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -81,8 +82,20 @@ class AuthCommandServiceTest {
 	@Mock
 	private User loginUser;
 
-	@InjectMocks
 	private AuthCommandService authCommandService;
+
+	@BeforeEach
+	void setUp() {
+		authCommandService = new AuthCommandService(
+				Duration.ofDays(7),
+				accessTokenStorePort,
+				tokenPort,
+				passwordEncoder,
+				authCommandRepo,
+				authQueryRepo,
+				userQueryRepo
+		);
+	}
 
 	private static AuthLoginCommand loginCommand() {
 		return new AuthLoginCommand(USERNAME, RAW_PASSWORD);

@@ -34,7 +34,7 @@ public class User extends BaseAuditableEntity {
 	@Column(name = "user_id")
 	private UUID id;
 
-	@Column(name = "region_id", nullable = false)
+	@Column(name = "region_id")
 	private UUID regionId;
 
 	@Column(name = "username", unique = true, nullable = false, length = 50)
@@ -131,6 +131,25 @@ public class User extends BaseAuditableEntity {
 		return user;
 	}
 	
+	public static User createMaster(
+			String username,
+			String passwordHash,
+			String name,
+			String phone
+	) {
+		User user = new User();
+
+		user.regionId = null;
+		user.username = username;
+		user.passwordHash = passwordHash;
+		user.name = name;
+		user.phone = phone;
+		user.role = UserRole.MASTER;
+		user.status = UserStatus.APPROVED;
+
+		return user;
+	}
+
 	private static void validateSignup(UserRole role) {
 		// 회원가입 Role 검증
 		switch (role) {

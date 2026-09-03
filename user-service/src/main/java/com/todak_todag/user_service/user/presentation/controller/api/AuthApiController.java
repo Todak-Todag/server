@@ -60,7 +60,7 @@ public class AuthApiController implements AuthApiSpec {
 			throw new IllegalArgumentException("[User] 서버 구동 실패 쿠키 max-age 설정 값 오류");
 		}
 		
-		if(refreshMaxAge.compareTo(accessMaxAge) <= 0) {
+		if(refreshMaxAge.compareTo(accessMaxAge) < 0) {
 			log.error("[User] 쿠키 max-age 설정 오류 refresh.max-age < access.max-age");
 			
 			throw new IllegalStateException("[User] RefreshToken MaxAge 는 AccessToken MaxAge 보다 길어야 합니다.");
