@@ -3,6 +3,10 @@ spring:
     activate:
       on-profile: test
 
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
   cloud:
     config:
       import-check:
@@ -26,6 +30,11 @@ spring:
       hibernate:
         hbm2ddl:
           create_namespaces: true
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
 
 internal:
   key: 01234567890123456789012345678901
