@@ -52,6 +52,10 @@ internal:
 jwt:
   secret: ${JWT_SECRET}
 
+authentication:
+  access-token:
+    redis-key-prefix: ${ACCESS_KEY_PREFIX}
+  
 ---
 spring:
   config:

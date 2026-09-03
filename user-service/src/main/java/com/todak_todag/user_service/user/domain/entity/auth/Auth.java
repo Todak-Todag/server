@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.domain.entity;
+package com.todak_todag.user_service.user.domain.entity.auth;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

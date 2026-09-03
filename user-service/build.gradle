@@ -33,6 +33,7 @@ dependencies {
   implementation 'io.github.openfeign.querydsl:querydsl-jpa:7.4.0'
   implementation 'org.springframework.boot:spring-boot-starter-actuator'
   implementation 'org.springframework.boot:spring-boot-starter-zipkin'
+  implementation 'org.springframework.boot:spring-boot-starter-data-redis'
   
   runtimeOnly 'org.postgresql:postgresql'
   
