@@ -1,6 +1,3 @@
-server:
-  port: 8761
-
 spring:
   application:
     # Config Server가 식별할 서비스 이름을 eureka-server로 지정.
