@@ -15,10 +15,6 @@ jobs:
   test:
     name: build & test (Java 21)
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: user-service
-
     services:
       postgres:
         image: postgres:17
@@ -28,13 +24,11 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
-        volumes:
-          - ${{ github.workspace }}/docker/postgres/user-service.sql:/docker-entrypoint-initdb.d/init.sql
         options: >-
           --health-cmd="pg_isready -U postgres -d todaktodag_db"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=5
+          --health-retries=10
 
       redis:
         image: redis:7.4
@@ -44,7 +38,11 @@ jobs:
           --health-cmd="redis-cli ping"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=5
+          --health-retries=10
+
+    defaults:
+      run:
+        working-directory: user-service
 
     steps:
       - uses: actions/checkout@v6
@@ -56,12 +54,6 @@ jobs:
           cache: gradle
 
       - uses: gradle/actions/wrapper-validation@v6
-
-      - name: apply schema
-        working-directory: .
-        env:
-          PGPASSWORD: postgres
-        run: psql -h localhost -U postgres -d todaktodag_db -f docker/postgres/user-service.sql
 
       - name: build & test
         run: chmod +x gradlew && ./gradlew build --no-daemon
