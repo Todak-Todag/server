@@ -1,7 +1,5 @@
 package com.todak_todag.api_gateway.authentication;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.List;
 
 import org.springframework.dao.DataAccessException;
@@ -50,27 +48,10 @@ public class ClientAuthenticationManager implements ReactiveAuthenticationManage
         .switchIfEmpty(
         		Mono.error(new TokenException(TokenErrorCode.INVALID_ACCESS_TOKEN))
         )
-        .map(storedToken -> validateStoredToken(
-        		cookieToken,
-        		storedToken
-        ))
         .map(jwtTokenParser::parse)
         .map(this::createAuthenticatedToken)
         .doFinally(signalType -> clientToken.eraseCredentials())
         ;
-	}
-	
-	private String validateStoredToken(String cookieToken, String storedToken) {
-		boolean matches = MessageDigest.isEqual(
-				cookieToken.getBytes(StandardCharsets.UTF_8),
-				storedToken.getBytes(StandardCharsets.UTF_8)
-		);
-	
-	  if(!matches) {
-	  	throw new TokenException(TokenErrorCode.INVALID_ACCESS_TOKEN);
-	  }
-	
-	  return storedToken;
 	}
   
 	private Authentication createAuthenticatedToken(AccessTokenClaims claims) {

@@ -155,7 +155,7 @@ public class SecurityConfig {
 			),
 			
 			ServerWebExchangeMatchers.pathMatchers(HttpMethod.POST,
-					"/api/v1/auth/signup",
+					"/api/v1/users/signup",
 					"/api/v1/auth/login",
 					"/api/v1/auth/reissue",
 					"/api/v1/auth/logout"
