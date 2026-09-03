@@ -4,22 +4,30 @@ import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.result.ProvideServiceCreateResult;
+import com.todak_todag.provider_service.provider.application.result.ProvideServiceSearchResult;
 import com.todak_todag.provider_service.provider.application.service.command.ProvideServiceCommandService;
+import com.todak_todag.provider_service.provider.application.service.query.ProvideServiceQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -37,6 +45,10 @@ class ProvideServiceApiControllerTest {
 
     @MockitoBean
     private ProvideServiceCommandService provideServiceCommandService;
+
+    @MockitoBean
+    private ProvideServiceQueryService provideServiceQueryService;
+
 
     @Nested
     @DisplayName("등록")
@@ -137,6 +149,67 @@ class ProvideServiceApiControllerTest {
                             .content(body("가".repeat(51), CONTENT)))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+        }
+    }
+
+    @Nested
+    @DisplayName("목록 조회")
+    class Search {
+
+        @Test
+        @DisplayName("인증된 사용자면 200과 목록을 반환한다")
+        void search_success() throws Exception {
+            UUID provideServiceId = UUID.randomUUID();
+            Instant createdAt = Instant.parse("2026-08-01T09:00:00Z");
+            Page<ProvideServiceSearchResult> page = new PageImpl<>(
+                    List.of(new ProvideServiceSearchResult(provideServiceId, NAME, CONTENT, createdAt)),
+                    PageRequest.of(0, 10), 1);
+
+            given(provideServiceQueryService.search(any())).willReturn(page);
+
+            mockMvc.perform(get(BASE_URL)
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.message").value("서비스 종류 목록 조회 성공"))
+                    .andExpect(jsonPath("$.data.content[0].provideServiceId").value(provideServiceId.toString()))
+                    .andExpect(jsonPath("$.data.content[0].provideServiceName").value(NAME))
+                    .andExpect(jsonPath("$.data.pageInfo.totalElements").value(1));
+        }
+
+        @Test
+        @DisplayName("MASTER가 아니어도 조회할 수 있다")
+        void search_anyRole_success() throws Exception {
+            given(provideServiceQueryService.search(any()))
+                    .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+            mockMvc.perform(get(BASE_URL)
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("인증 헤더가 없으면 403을 반환한다")
+        void search_noAuth_forbidden() throws Exception {
+            mockMvc.perform(get(BASE_URL))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("결과가 없으면 200과 빈 목록을 반환한다")
+        void search_empty() throws Exception {
+            given(provideServiceQueryService.search(any()))
+                    .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
+            mockMvc.perform(get(BASE_URL)
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.content").isEmpty())
+                    .andExpect(jsonPath("$.data.pageInfo.totalElements").value(0));
         }
     }
 }
