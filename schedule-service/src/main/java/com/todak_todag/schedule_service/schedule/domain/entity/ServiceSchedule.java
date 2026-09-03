@@ -121,30 +121,23 @@ public class ServiceSchedule extends BaseAuditableEntity {
     }
 
     // 예정대로 진행 완료
-    // SCHEDULED만 COMPLETED 처리를 허용
+    // SCHEDULED만 COMPLETED 처리를 허용 — 이미 취소/연기중/변경완료/완료/부도 상태는 409
     public void complete() {
-        ensureStatusIn(ScheduleStatus.SCHEDULED);
+        if (status != ScheduleStatus.SCHEDULED) {
+            throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_COMPLETED);
+        }
 
         this.status = ScheduleStatus.COMPLETED;
     }
 
     // 예정대로 진행했어야 했지만 아무 조치 없이 종료 시각이 지남
-    // SCHEDULED만 NO_SHOW 처리 허용
+    // SCHEDULED만 NO_SHOW 처리 허용 — 이미 취소/연기중/변경완료/완료/부도 상태는 409
     public void markNoShow() {
-        ensureStatusIn(ScheduleStatus.SCHEDULED);
-
-        this.status = ScheduleStatus.NO_SHOW;
-    }
-
-    // 상태 변경 조건 확인
-    private void ensureStatusIn(ScheduleStatus... allowed) {
-        for (ScheduleStatus candidate : allowed) {
-            if (status == candidate) {
-                return;
-            }
+        if (status != ScheduleStatus.SCHEDULED) {
+            throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_COMPLETED);
         }
 
-        throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_TRANSITION);
+        this.status = ScheduleStatus.NO_SHOW;
     }
 
     // 일정 생성에 필요한 필수 식별자 및 일정 시간 정보를 검증
