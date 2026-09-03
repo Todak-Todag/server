@@ -30,6 +30,7 @@ public class RegionQueryDslRepositoryImpl implements RegionQueryDslRepository {
         List<Region> content = queryFactory
                 .selectFrom(region)
                 .where(conditions)
+                .orderBy(region.createdAt.desc())
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();
