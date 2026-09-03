@@ -5,4 +5,6 @@ import java.util.UUID;
 public interface ProvideServiceQueryRepository {
 
     boolean existsById(UUID provideServiceId);
+
+    boolean existsByName(String name);
 }
