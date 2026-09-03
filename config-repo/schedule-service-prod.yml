@@ -1,0 +1,69 @@
+server:
+  port: 19004
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: schedule_schema
+        default_batch_fetch_size: 100
+
+        # TODO: Flyway/Liquibase 도입 후 제거
+        # TODO: p_schedule_outbox_events 테이블은 ddl-auto:validate라 자동 생성되지 않음 — prod 반영 시 별도 DDL 필요
+        hbm2ddl:
+          create_namespaces: true
+
+internal:
+  key: ${INTERNAL_API_KEY}
+
+schedule:
+  outbox:
+    relay:
+      enabled: true
+      fixed-delay-ms: 5000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: never
+
+  tracing:
+    sampling:
+      probability: 0.1
+
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
+logging:
+  level:
+    com.todak_todag.schedule_service: info
