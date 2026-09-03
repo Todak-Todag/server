@@ -4,9 +4,11 @@ package com.spring.careplanservice.careplan.application.service.query;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
+import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -14,9 +16,12 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
+import com.spring.careplanservice.global.common.PageableFactory;
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -79,6 +84,20 @@ public class CarePlanQueryService {
         );
 
         return CarePlanFindResult.from(carePlan);
+    }
+
+    public Page<CarePlanSearchResult> searchCarePlan(
+            CarePlanSearchQuery carePlanSearchQuery
+    ) {
+        Pageable pageable = PageableFactory.of(
+                carePlanSearchQuery.page(),
+                carePlanSearchQuery.size(),
+                null
+        );
+
+        return carePlanQueryRepository
+                .search(carePlanSearchQuery, pageable)
+                .map(CarePlanSearchResult::from);
     }
 
     private BusinessException carePlanNotFound() {
