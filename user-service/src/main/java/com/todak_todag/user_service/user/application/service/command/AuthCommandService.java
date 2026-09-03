@@ -1,8 +1,10 @@
 package com.todak_todag.user_service.user.application.service.command;
 
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,12 +21,11 @@ import com.todak_todag.user_service.user.domain.repository.command.AuthCommandRe
 import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
-import lombok.RequiredArgsConstructor;
-
 @Service
-@RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
 public class AuthCommandService {
+	
+	private final Duration refreshExpiration;
 	
 	private final AccessTokenStorePort accessTokenStorePort;
 
@@ -37,6 +38,24 @@ public class AuthCommandService {
 	private final AuthQueryRepository authQueryRepo;
 	
 	private final UserQueryRepository userQueryRepo;
+	
+	public AuthCommandService(
+			@Value("${jwt.refresh.expiration}") Duration refreshExpiration,
+			AccessTokenStorePort accessTokenStorePort,
+			TokenPort tokenPort,
+			PasswordEncoderPort passwordEncoder,
+			AuthCommandRepository authCommandRepo,
+			AuthQueryRepository authQueryRepo,
+			UserQueryRepository userQueryRepo
+	) {
+		this.refreshExpiration = refreshExpiration;
+		this.accessTokenStorePort = accessTokenStorePort;
+		this.tokenPort = tokenPort;
+		this.passwordEncoder = passwordEncoder;
+		this.authCommandRepo = authCommandRepo;
+		this.authQueryRepo = authQueryRepo;
+		this.userQueryRepo = userQueryRepo;
+	}
 	
 	public AuthLoginResult login(AuthLoginCommand loginCommand) {
 		// 1. 사용자 있나?
@@ -73,7 +92,7 @@ public class AuthCommandService {
 
 		Auth loginSession = authQueryRepo.findActiveByUserId(loginUser.getId())
 				.map(existingSession -> {
-					existingSession.renew(refreshTokenHash, now.plusDays(7), now);
+					existingSession.renew(refreshTokenHash, now.plus(refreshExpiration), now);
 					return existingSession;
 				})
 				.orElseGet(() -> authCommandRepo.save(

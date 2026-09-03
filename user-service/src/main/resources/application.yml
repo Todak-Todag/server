@@ -53,6 +53,12 @@ jwt:
   secret: ${JWT_SECRET}
   access:
     expiration: 30m
+    max-age: 7d
+  refresh:
+    expiration: 7d
+    max-age: 7d
+  http-only: true
+  secure: true
 
 authentication:
   access-token:
@@ -77,6 +83,10 @@ spring:
         format_sql: true
         hbm2ddl:
           create_namespaces: true
+
+jwt:
+  http-only: false
+  secure: false
           
 logging:
   level:
@@ -94,6 +104,8 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
+  http-only: true
+  secure: true
       
 logging:
   level:

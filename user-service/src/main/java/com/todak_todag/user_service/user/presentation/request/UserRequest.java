@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import com.todak_todag.user_service.global.common.UserRole;
+import com.todak_todag.user_service.user.application.command.AuthCommand.AuthLoginCommand;
 import com.todak_todag.user_service.user.application.command.UserCommand.UserAdminCreateCommand;
 import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCommand;
 import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCommand.AgreementCommand;
@@ -24,7 +25,12 @@ public final class UserRequest {
 			
 			@NotBlank(message = "로그인 시 비밀번호는 필수입니다.")
 			String password
-	) {}
+	) {
+
+		public AuthLoginCommand toCommand() {
+			return new AuthLoginCommand(username, password);
+		}
+	}
 	
 	// === 회원가입 요청 바디 === //
 	public record UserSignupRequest(

@@ -25,6 +25,8 @@ public interface AuthApiSpec {
 					
 					- AccessToken CookieName = AccessToken
 					- RefreshToken CookieName = RefreshToken
+					
+					204 no-content 응답
 			"""
 	)
 	ResponseEntity<ApiResponse<Void>> login(
