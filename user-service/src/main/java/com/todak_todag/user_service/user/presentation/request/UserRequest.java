@@ -17,6 +17,15 @@ import jakarta.validation.constraints.Size;
 
 public final class UserRequest {
 
+	// === 로그인 요청 바디 === //
+	public record UserLoginRequest(
+			@NotBlank(message = "로그인 시 아이디는 필수입니다.")
+			String username,
+			
+			@NotBlank(message = "로그인 시 비밀번호는 필수입니다.")
+			String password
+	) {}
+	
 	// === 회원가입 요청 바디 === //
 	public record UserSignupRequest(
 			@NotNull(message = "회원가입 유형은 필수입니다.")

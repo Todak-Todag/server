@@ -7,6 +7,7 @@ import org.hibernate.annotations.SQLRestriction;
 import com.todak_todag.user_service.global.common.BaseAuditableEntity;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 
 import jakarta.persistence.Column;
@@ -169,4 +170,21 @@ public class User extends BaseAuditableEntity {
 	public void changeRegion(UUID regionId) {
 		this.regionId = regionId;
 	}
+	
+	public void validateCanLogin() {
+		switch (this.status) {
+			case APPROVED, WITHDRAWN -> {}
+			
+			case PENDING -> { throw new BusinessException(UserErrorCode.USER_NOT_APPROVAL); }
+			
+			case SUSPENDED -> { throw new BusinessException(UserErrorCode.USER_SUSPENDED); }
+			
+			default -> { throw new BusinessException(CommonErrorCode.SERVICE_ACCESS_DENIED); }
+		}
+	}
+	
+	public boolean isWithdrawn() {
+		return this.status == UserStatus.WITHDRAWN;
+	}
+	
 }
