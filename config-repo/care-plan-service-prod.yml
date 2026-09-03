@@ -3,8 +3,7 @@ server:
 
 spring:
   datasource:
-    # yamllint disable-line rule:line-length
-    url: jdbc:postgresql://${DB_HOST}:5432/todaktodag_db?currentSchema=care_plan_schema
+    url: jdbc:postgresql://${DB_HOST}:5432/todaktodag_db?currentSchema=care_plan_schema # yamllint disable-line rule:line-length
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
 
