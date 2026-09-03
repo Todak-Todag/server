@@ -21,6 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -227,7 +228,7 @@ class CarePlanQueryServiceTest {
             @Test
             @DisplayName("성공")
             void searchCarePlan_success() {
-                CarePlanSearchQuery query = CarePlanSearchQuery.of(
+                CarePlanSearchQuery carePlanSearchQuery = CarePlanSearchQuery.of(
                         patientId,
                         CarePlanStatus.IN_PROGRESS,
                         LocalDate.of(2026, 9, 1),
@@ -250,9 +251,9 @@ class CarePlanQueryServiceTest {
                         1
                 );
 
-                given(carePlanQueryRepository.search(eq(query), any(Pageable.class))).willReturn(carePlanPage);
+                given(carePlanQueryRepository.search(eq(carePlanSearchQuery), any(Pageable.class))).willReturn(carePlanPage);
 
-                Page<CarePlanSearchResult> result = carePlanQueryService.searchCarePlan(query);
+                Page<CarePlanSearchResult> result = carePlanQueryService.searchCarePlan(carePlanSearchQuery);
 
                 assertThat(result.getContent()).hasSize(1);
                 assertThat(result.getTotalElements()).isEqualTo(1);
@@ -266,12 +267,35 @@ class CarePlanQueryServiceTest {
                 assertThat(carePlanSearchResult.createdAt()).isEqualTo(Instant.parse("2026-08-28T03:30:00Z"));
 
                 verify(carePlanQueryRepository).search(
-                        eq(query),
+                        eq(carePlanSearchQuery),
                         any(Pageable.class)
                 );
             }
 
+            @Test
+            @DisplayName("허용되지 않은 페이지 크기는 10 고정")
+            void searchCarePlan_invalidSize_defaultsTo10() {
+                CarePlanSearchQuery carePlanSearchQuery = CarePlanSearchQuery.of(
+                        UUID.randomUUID(),
+                        null,
+                        null,
+                        null,
+                        0,
+                        20
+                );
 
+                given(carePlanQueryRepository.search(eq(carePlanSearchQuery), any(Pageable.class))).willReturn(Page.empty());
+
+                carePlanQueryService.searchCarePlan(carePlanSearchQuery);
+
+                ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+                verify(carePlanQueryRepository).search(eq(carePlanSearchQuery), pageableCaptor.capture());
+
+                Pageable pageable = pageableCaptor.getValue();
+
+                assertThat(pageable.getPageSize()).isEqualTo(10);
+            }
         }
     }
 }
