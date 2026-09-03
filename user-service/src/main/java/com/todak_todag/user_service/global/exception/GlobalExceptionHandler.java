@@ -1,5 +1,6 @@
 package com.todak_todag.user_service.global.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -39,6 +40,13 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
         log.warn("[User] 요청 파라미터 타입 오류 name={}", e.getName());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(CommonErrorCode.INVALID_PARAMETER));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
+        log.warn("[User] 데이터 정합성 제약 위반 message={}", e.getMessage());
+        return ResponseEntity.status(CommonErrorCode.DUPLICATE_REQUEST.getStatus())
+                .body(ErrorResponse.of(CommonErrorCode.DUPLICATE_REQUEST));
     }
 
     @ExceptionHandler(Exception.class)
