@@ -8,6 +8,7 @@ import com.todak_todag.schedule_service.schedule.application.facade.ServiceSched
 import com.todak_todag.schedule_service.schedule.application.query.ServiceScheduleSearchQuery;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleDetailResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleSearchResult;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
@@ -45,6 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ServiceScheduleApiControllerTest {
 
     private static final String SEARCH_URI = "/api/v1/service-schedules";
+    private static final String DETAIL_URI = "/api/v1/service-schedules/%s";
     private static final String URI = "/api/v1/service-schedules/%s/status";
     private static final String CANCEL_URI = "/api/v1/service-schedules/%s/cancel";
     private static final String COMPLETE_URI = "/api/v1/service-schedules/%s/result";
@@ -71,6 +73,168 @@ class ServiceScheduleApiControllerTest {
         return """
                 { "status": "%s" }
                 """.formatted(status);
+    }
+
+    @Nested
+    @DisplayName("서비스 일정 상세 조회 API")
+    class detailTest {
+
+        private ServiceScheduleDetailResult sampleDetail(
+                UUID serviceScheduleId,
+                UUID servicePreferenceId,
+                UUID serviceOfferingId,
+                String cancelReason,
+                LocalDateTime canceledAt
+        ) {
+            return new ServiceScheduleDetailResult(
+                    serviceScheduleId,
+                    servicePreferenceId,
+                    serviceOfferingId,
+                    cancelReason == null ? ScheduleStatus.SCHEDULED : ScheduleStatus.CANCELED,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDateTime.of(2026, 9, 1, 9, 0),
+                    LocalDateTime.of(2026, 9, 1, 10, 0),
+                    cancelReason,
+                    canceledAt
+            );
+        }
+
+        @Test
+        @DisplayName("퇴원 예정자가 본인 소유 일정을 조회하면 200과 상세 정보를 반환한다 (care-plan-service Internal API는 Facade에서 Mock 처리)")
+        void detail_patient_owner_success() throws Exception {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            UUID servicePreferenceId = UUID.randomUUID();
+            UUID serviceOfferingId = UUID.randomUUID();
+            ServiceScheduleDetailResult detail = sampleDetail(serviceScheduleId, servicePreferenceId, serviceOfferingId, null, null);
+
+            given(serviceScheduleFacade.detail(any())).willReturn(detail);
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(serviceScheduleId))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.serviceScheduleId").value(serviceScheduleId.toString()))
+                    .andExpect(jsonPath("$.data.servicePreferenceId").value(servicePreferenceId.toString()))
+                    .andExpect(jsonPath("$.data.serviceOfferingId").value(serviceOfferingId.toString()))
+                    .andExpect(jsonPath("$.data.status").value("SCHEDULED"));
+        }
+
+        @Test
+        @DisplayName("서비스 제공자가 본인 담당 일정을 조회하면 200과 상세 정보를 반환한다 (provider-service Internal API는 Facade에서 Mock 처리)")
+        void detail_serviceProvider_owner_success() throws Exception {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            ServiceScheduleDetailResult detail = sampleDetail(serviceScheduleId, UUID.randomUUID(), UUID.randomUUID(), null, null);
+
+            given(serviceScheduleFacade.detail(any())).willReturn(detail);
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(serviceScheduleId))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.serviceScheduleId").value(serviceScheduleId.toString()));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 serviceScheduleId면 403을 반환한다 (03/04/05번과 동일하게 리소스 존재 여부 비노출)")
+        void detail_notFound_forbidden() throws Exception {
+            // given
+            given(serviceScheduleFacade.detail(any()))
+                    .willThrow(new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+        }
+
+        @Test
+        @DisplayName("퇴원 예정자가 본인 소유가 아닌 일정을 조회하면 403을 반환한다 (patientId 불일치)")
+        void detail_patient_notOwner_forbidden() throws Exception {
+            // given
+            given(serviceScheduleFacade.detail(any()))
+                    .willThrow(new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+        }
+
+        @Test
+        @DisplayName("서비스 제공자가 본인 담당이 아닌 일정을 조회하면 403을 반환한다 (providerId 불일치)")
+        void detail_serviceProvider_notOwner_forbidden() throws Exception {
+            // given
+            given(serviceScheduleFacade.detail(any()))
+                    .willThrow(new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+        }
+
+        @Test
+        @DisplayName("취소된 일정을 조회하면 cancelReason/canceledAt이 값과 함께 반환된다")
+        void detail_canceledSchedule_returnsCancelFields() throws Exception {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            LocalDateTime canceledAt = LocalDateTime.of(2026, 8, 31, 12, 0);
+            ServiceScheduleDetailResult detail = sampleDetail(
+                    serviceScheduleId, UUID.randomUUID(), UUID.randomUUID(), "개인 사정으로 취소합니다", canceledAt
+            );
+
+            given(serviceScheduleFacade.detail(any())).willReturn(detail);
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(serviceScheduleId))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status").value("CANCELED"))
+                    .andExpect(jsonPath("$.data.cancelReason").value("개인 사정으로 취소합니다"))
+                    .andExpect(jsonPath("$.data.canceledAt").value("2026-08-31T12:00:00"));
+        }
+
+        @Test
+        @DisplayName("취소되지 않은 일정을 조회하면 cancelReason/canceledAt이 null로 반환된다")
+        void detail_notCanceledSchedule_returnsNullCancelFields() throws Exception {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            ServiceScheduleDetailResult detail = sampleDetail(serviceScheduleId, UUID.randomUUID(), UUID.randomUUID(), null, null);
+
+            given(serviceScheduleFacade.detail(any())).willReturn(detail);
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(serviceScheduleId))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.cancelReason").doesNotExist())
+                    .andExpect(jsonPath("$.data.canceledAt").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("퇴원 예정자/서비스 제공자가 아닌 역할이면 403을 반환한다")
+        void detail_unsupportedRole_forbidden() throws Exception {
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "SOCIAL_WORKER"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+        }
     }
 
     @Nested
