@@ -1,0 +1,37 @@
+server:
+  port: 19005
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/todaktodag_db?currentSchema=care_plan_schema
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:password}
+
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+    properties:
+      hibernate:
+        format_sql: true
+        hbm2ddl:
+          create_namespaces: true
+
+    show-sql: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_SERVER_HOST:localhost}:8761/eureka/
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans

@@ -2,46 +2,13 @@ server:
   port: 19005
 
 spring:
-  config:
-    import:
-      - "optional:file:.env[.properties]"
-  #     - "optional:configserver:${CONFIG_SERVER_URL}"
-
   application:
     name: care-plan-service
 
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://${EUREKA_SERVER_HOST:localhost}:8761/eureka/
-
-management:
-  tracing:
-    sampling:
-      probability: 1.0
-    export:
-      zipkin:
-        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
-
----
-spring:
   config:
-    activate:
-      on-profile: local
-
-  datasource:
-    url: jdbc:postgresql://localhost:5432/todaktodag_db?currentSchema=care_plan_schema
-    username: postgres
-    password: password
-
-  jpa:
-    hibernate:
-      # TODO: DB 마이그레이션 방식 논의 후 validate로 변경
-      ddl-auto: update
-    properties:
-      hibernate:
-        hbm2ddl:
-          create_namespaces: true # 스키마가 없으면 생성 허용
+    import:
+      - "optional:file:.env[.properties]"
+      - "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
