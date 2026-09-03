@@ -3,14 +3,13 @@ package com.todak_todag.user_service.user.application.service.command;
 
 import java.time.LocalDateTime;
 
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.AuthCommand.AuthLoginCommand;
-import com.todak_todag.user_service.user.application.event.LoginSuccessEvent;
+import com.todak_todag.user_service.user.application.port.AccessTokenStorePort;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 import com.todak_todag.user_service.user.application.result.AuthResult.AuthLoginResult;
@@ -27,8 +26,8 @@ import lombok.RequiredArgsConstructor;
 @Transactional(rollbackFor = Exception.class)
 public class AuthCommandService {
 	
-	private final ApplicationEventPublisher eventPublisher;
-	
+	private final AccessTokenStorePort accessTokenStorePort;
+
 	private final TokenPort tokenPort;
 	
 	private final PasswordEncoderPort passwordEncoder;
@@ -81,15 +80,9 @@ public class AuthCommandService {
 						Auth.login(loginUser.getId(), refreshTokenHash, now.plusDays(7), now)
 				));
 
-		// 10. 로그인 이벤트 생성
-		LoginSuccessEvent loginEvent = new LoginSuccessEvent(
-				accessToken,
-				jwtAccessToken
-		);
-		
-		// 11. 로그인 이벤트 발행
-		eventPublisher.publishEvent(loginEvent);
-		
+		// 10. 발급한 AccessToken을 Redis에 저장 (실패 시 트랜잭션 전체 롤백)
+		accessTokenStorePort.storeAccessToken(accessToken, jwtAccessToken);
+
 		return new AuthLoginResult(loginSession.getUserId(), accessToken, refreshToken);
 	}
 	
