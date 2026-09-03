@@ -2,7 +2,7 @@ CREATE SCHEMA IF NOT EXISTS provider_schema;
 
 CREATE TABLE IF NOT EXISTS provider_schema.p_provide_services (
     provide_service_id UUID PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(50) NOT NULL,
     content VARCHAR(255) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     created_by UUID NOT NULL,
@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS provider_schema.p_provide_services (
     deleted_at TIMESTAMPTZ,
     deleted_by UUID
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_provide_services_name
+    ON provider_schema.p_provide_services (name)
+    WHERE deleted_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS provider_schema.p_provide_service_offerings (
     service_offering_id UUID PRIMARY KEY,

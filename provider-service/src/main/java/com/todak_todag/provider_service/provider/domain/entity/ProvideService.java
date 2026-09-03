@@ -26,9 +26,17 @@ public class ProvideService extends BaseAuditableEntity {
     @Column(name = "provide_service_id")
     private UUID id;
 
-    @Column(name = "name", nullable = false)
+    @Column(name = "name", nullable = false, length = 50)
     private String name;
 
     @Column(name = "content", nullable = false)
     private String content;
+
+    public static ProvideService of(String name, String content) {
+        ProvideService provideService = new ProvideService();
+        provideService.name = name;
+        provideService.content = content;
+
+        return provideService;
+    }
 }
