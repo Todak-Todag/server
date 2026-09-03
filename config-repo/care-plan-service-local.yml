@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}?currentSchema=care_plan_schema # yamllint disable-line rule:line-length
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}?currentSchema=care_plan_schema  # yamllint disable-line rule:line-length
     username: ${POSTGRES_USERNAME:postgres}
     password: ${POSTGRES_PASSWORD:password}
     hikari:
