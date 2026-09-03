@@ -29,4 +29,19 @@ public class CarePlanServicePreference extends BaseAuditEntity {
 
     @Column(name = "preferred_date", nullable = false)
     private LocalDate preferredDate;
+
+    public static CarePlanServicePreference create(
+            UUID planServiceId,
+            LocalDate preferredDate,
+            PreferredTimeSlot preferredTimeSlot
+    ) {
+        CarePlanServicePreference preference =
+                new CarePlanServicePreference();
+
+        preference.planServiceId = planServiceId;
+        preference.preferredDate = preferredDate;
+        preference.preferredTimeSlot = preferredTimeSlot;
+
+        return preference;
+    }
 }

@@ -8,5 +8,5 @@ spring:
     active: local
 
   config:
-    # Config Server에서 Eureka Server의 외부 설정을 조회하도록 지정.
-    import: "configserver:http://localhost:8888"
+    # 실행 환경에 따른 Config Server 주소 지정.
+    import: "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"

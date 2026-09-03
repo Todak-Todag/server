@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 package com.todak_todag.user_service.user.presentation.controller.api;
 
 import org.springframework.http.ResponseEntity;
@@ -37,4 +38,13 @@ public class UserApiController implements UserApiSpec {
 				status(201)
 				.body(ApiResponse.created("회원가입 신청이 완료되었습니다.", response));
 	}
+=======
+package com.todak_todag.user_service.user.presentation.api_controller;
+
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+public class UserApiController {
+
+>>>>>>> 84ad9c4e121592e3b7123bfd12a8915fa3dfd710
 }
