@@ -41,7 +41,12 @@ internal:
 authentication:
   access-token:
     redis-key-prefix: "test:access-token:"
-  
+
+master:
+  username: master1234
+  password: Master1234!
+  name: 테스트
+
 management:
   endpoints:
     web:
