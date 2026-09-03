@@ -2,9 +2,11 @@ package com.todak_todag.schedule_service.schedule.infrastructure.client.provider
 
 import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.schedule.infrastructure.client.dto.ProviderServiceOfferingInternalResponse;
+import com.todak_todag.schedule_service.schedule.infrastructure.client.dto.ServiceOfferingIdListInternalResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.UUID;
 
@@ -13,8 +15,15 @@ import java.util.UUID;
 @FeignClient(name = "provider-service")
 public interface ProviderServiceOfferingClient {
 
+    // serviceOfferingId를 담당하는 providerId 조회
     @GetMapping("/internal/v1/service-offerings/{serviceOfferingId}")
     ApiResponse<ProviderServiceOfferingInternalResponse> findServiceOffering(
             @PathVariable UUID serviceOfferingId
+    );
+
+    // providerId가 담당하는 모든 serviceOfferingId 목록 조회
+    @GetMapping("/internal/v1/service-offerings")
+    ApiResponse<ServiceOfferingIdListInternalResponse> findServiceOfferingIds(
+            @RequestParam UUID providerId
     );
 }

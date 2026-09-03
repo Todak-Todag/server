@@ -16,6 +16,7 @@ public enum ScheduleErrorCode implements ErrorCode {
     SERVICE_SCHEDULE_RESCHEDULE_TO_TODAY_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "당일 일정으로는 변경할 수 없습니다."),
     SERVICE_SCHEDULE_RESCHEDULE_EXCEEDS_CARE_PLAN_RANGE(HttpStatus.BAD_REQUEST, "Care Plan의 일정 범위를 초과하여 변경할 수 없습니다."),
     SERVICE_RESULTS_TIME_RANGE_INVALID(HttpStatus.BAD_REQUEST, "시작 일시는 종료 일시보다 이전이어야 합니다."),
+    SERVICE_SCHEDULE_INVALID_STATUS_FILTER(HttpStatus.BAD_REQUEST, "허용되지 않는 상태 필터 값입니다."),
 
     // 404
     SERVICE_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 서비스 일정입니다."),
