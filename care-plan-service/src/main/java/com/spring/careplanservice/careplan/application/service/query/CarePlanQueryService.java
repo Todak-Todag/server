@@ -5,10 +5,7 @@ import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatie
 import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
+import com.spring.careplanservice.careplan.application.result.*;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
@@ -102,6 +99,10 @@ public class CarePlanQueryService {
         return carePlanQueryRepository
                 .search(carePlanSearchQuery, pageable)
                 .map(CarePlanSearchResult::from);
+    }
+
+    public ServicePreferenceIdsResult findServicePreferenceIds() {
+        return null;
     }
 
     private BusinessException carePlanNotFound() {
