@@ -341,11 +341,11 @@ class CarePlanQueryServiceTest {
             given(servicePreferenceQueryRepository.findIdsByPatientId(patientId)).willReturn(List.of());
 
             ServicePreferenceIdsQuery servicePreferenceIdsQuery = new ServicePreferenceIdsQuery(patientId);
-            ServicePreferenceIdsResult result = carePlanQueryService.findServicePreferenceIds(
+            ServicePreferenceIdsResult servicePreferenceIdsResult = carePlanQueryService.findServicePreferenceIds(
                     servicePreferenceIdsQuery
             );
 
-            assertThat(result.servicePreferenceIds()).isEmpty();
+            assertThat(servicePreferenceIdsResult.servicePreferenceIds()).isEmpty();
             verify(servicePreferenceQueryRepository).findIdsByPatientId(patientId);
         }
     }
