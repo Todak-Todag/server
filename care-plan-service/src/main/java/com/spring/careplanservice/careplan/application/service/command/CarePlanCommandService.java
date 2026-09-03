@@ -74,6 +74,12 @@ public class CarePlanCommandService {
         );
     }
 
+    @Transactional
+    public void completeCarePlan(
+            UUID carePlanId
+    ) {
+    }
+
     // 동일한 퇴원 건에 이미 Care Plan이 존재하는지 검사
     private void validateDuplicateCarePlan(
             UUID dischargeId
