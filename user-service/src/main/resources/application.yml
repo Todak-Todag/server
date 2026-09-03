@@ -57,7 +57,6 @@ jwt:
   refresh:
     expiration: 7d
     max-age: 7d
-  http-only: true
   secure: true
 
 authentication:

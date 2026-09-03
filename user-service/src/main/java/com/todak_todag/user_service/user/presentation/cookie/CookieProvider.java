@@ -14,15 +14,13 @@ public class CookieProvider {
 	
 	private static final String SAME_SITE = "strict";
 	
-	private final boolean httpOnly;
+	private final boolean httpOnly = true;
 	
 	private final boolean secure;
 	
 	public CookieProvider(
-			@Value("${jwt.http-only}") boolean httpOnly,
 			@Value("${jwt.secure}") boolean secure
 	) {
-		this.httpOnly = httpOnly;
 		this.secure = secure;
 	}
 	
