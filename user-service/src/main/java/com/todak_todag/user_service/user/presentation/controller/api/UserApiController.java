@@ -59,7 +59,7 @@ public class UserApiController implements UserApiSpec {
 		
 		return ResponseEntity
 				.status(200)
-				.body(ApiResponse.created("운영자 등록 완료", response));
+				.body(ApiResponse.ok("운영자 등록 완료", response));
 	}
 	
 	

@@ -4,6 +4,7 @@ import com.spring.careplanservice.careplan.application.command.CarePlanCreateCom
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
 import com.spring.careplanservice.global.common.UserRole;
@@ -19,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -26,8 +28,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -37,6 +38,7 @@ class CarePlanCommandServiceTest {
     UUID provideServiceId = UUID.randomUUID();
     UUID dischargePatientId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
+    UUID carePlanId = UUID.randomUUID();
 
     @Mock
     private CarePlanCommandRepository carePlanCommandRepository;
@@ -269,6 +271,65 @@ class CarePlanCommandServiceTest {
             )).isInstanceOf(BusinessException.class);
 
             verify(carePlanCommandRepository, never()).save(any(CarePlan.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("Care Plan 완료 처리")
+    class CompleteCarePlan {
+        @Test
+        @DisplayName("성공")
+        void completeCarePlan_success() {
+            CarePlan carePlan = CarePlan.create(
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            carePlanCommandService.completeCarePlan(carePlanId);
+
+            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.COMPLETED);
+
+            verify(carePlanCommandRepository).findById(carePlanId);
+        }
+
+        @Test
+        @DisplayName("Care Plan이 존재하지 않으면 예외")
+        void completeCarePlan_carePlanNotFound() {
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> carePlanCommandService.completeCarePlan(carePlanId))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(carePlanCommandRepository).findById(carePlanId);
+        }
+
+        @Test
+        @DisplayName("이미 COMPLETED 상태이면 중복 처리하지 않는다")
+        void completeCarePlan_alreadyCompleted() {
+            CarePlan carePlan = spy(CarePlan.create(
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            ));
+
+            carePlan.complete();
+
+            // 최초 complete() 호출 기록 제거
+            clearInvocations(carePlan);
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            carePlanCommandService.completeCarePlan(carePlanId);
+
+            verify(carePlan, never()).complete();
+            verify(carePlanCommandRepository).findById(carePlanId);
         }
     }
 }

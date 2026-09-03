@@ -1,6 +1,9 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.global.response.PageResponse;
+import com.todak_todag.user_service.user.presentation.request.RegionFindAdminRequest;
+import com.todak_todag.user_service.user.presentation.response.RegionFindAdminResponse;
 import com.todak_todag.user_service.user.presentation.response.RegionFindAvailableListResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -25,4 +28,30 @@ public interface RegionApiSpec {
             )
     })
     ResponseEntity<ApiResponse<RegionFindAvailableListResponse>> findAvailableRegions();
+
+    @Operation(
+            summary = "관리자 지역 목록 조회",
+            description = "관리자가 지역 목록을 조건 검색하고 페이징하여 조회한다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "지역 목록 조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "조회 조건 검증 실패"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "지역 관리 권한 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "서버 내부 오류"
+            )
+    })
+    ResponseEntity<ApiResponse<PageResponse<RegionFindAdminResponse>>> findAdminRegions(
+            RegionFindAdminRequest request
+    );
 }

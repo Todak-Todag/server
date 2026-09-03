@@ -5,6 +5,7 @@ import com.todak_todag.schedule_service.schedule.infrastructure.client.provider.
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -16,5 +17,10 @@ public class ProviderOfferingAdapter implements ProviderOfferingPort {
     @Override
     public UUID findAssignedProviderId(UUID serviceOfferingId) {
         return providerServiceOfferingClient.findServiceOffering(serviceOfferingId).data().providerId();
+    }
+
+    @Override
+    public List<UUID> findServiceOfferingIds(UUID providerId) {
+        return providerServiceOfferingClient.findServiceOfferingIds(providerId).data().content();
     }
 }

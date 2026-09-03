@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.application.facade;
 
+import com.todak_todag.schedule_service.global.common.UserRole;
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
@@ -8,10 +9,14 @@ import com.todak_todag.schedule_service.schedule.application.command.ServiceSche
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderOfferingPort;
+import com.todak_todag.schedule_service.schedule.application.query.ServiceScheduleDetailQuery;
+import com.todak_todag.schedule_service.schedule.application.query.ServiceScheduleSearchQuery;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleDetailResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleResult;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleSearchResult;
 import com.todak_todag.schedule_service.schedule.application.service.command.ServiceScheduleCommandService;
 import com.todak_todag.schedule_service.schedule.application.service.query.ServiceScheduleQueryService;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
@@ -22,9 +27,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -195,6 +205,213 @@ class ServiceScheduleFacadeTest {
 
             verify(providerOfferingPort, never()).findAssignedProviderId(any());
             verify(serviceScheduleCommandService, never()).complete(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("서비스 일정 상세 조회")
+    class detailTest {
+
+        private ServiceScheduleDetailResult sampleDetail(UUID serviceScheduleId, UUID servicePreferenceId, UUID serviceOfferingId) {
+            return new ServiceScheduleDetailResult(
+                    serviceScheduleId,
+                    servicePreferenceId,
+                    serviceOfferingId,
+                    ScheduleStatus.SCHEDULED,
+                    LocalDate.now().plusDays(1),
+                    LocalDate.now().plusDays(1).atTime(9, 0),
+                    LocalDate.now().plusDays(1).atTime(10, 0),
+                    null,
+                    null
+            );
+        }
+
+        @Test
+        @DisplayName("퇴원 예정자가 본인 소유 일정을 조회하면 patientId를 비교해 상세 결과를 반환한다")
+        void detail_patient_owner_success() {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            UUID servicePreferenceId = UUID.randomUUID();
+            UUID serviceOfferingId = UUID.randomUUID();
+            UUID patientId = UUID.randomUUID();
+            ServiceScheduleDetailResult detail = sampleDetail(serviceScheduleId, servicePreferenceId, serviceOfferingId);
+            ServiceScheduleDetailQuery query = new ServiceScheduleDetailQuery(serviceScheduleId, patientId, UserRole.PATIENT);
+            CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), LocalDate.now().plusDays(10), patientId);
+
+            when(serviceScheduleQueryService.findDetailById(serviceScheduleId)).thenReturn(Optional.of(detail));
+            when(carePlanPort.findCarePlanRange(servicePreferenceId)).thenReturn(carePlanRange);
+
+            // when
+            ServiceScheduleDetailResult result = serviceScheduleFacade.detail(query);
+
+            // then
+            assertThat(result).isEqualTo(detail);
+            verify(providerOfferingPort, never()).findAssignedProviderId(any());
+        }
+
+        @Test
+        @DisplayName("서비스 제공자가 본인 담당 일정을 조회하면 providerId를 비교해 상세 결과를 반환한다")
+        void detail_serviceProvider_owner_success() {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            UUID servicePreferenceId = UUID.randomUUID();
+            UUID serviceOfferingId = UUID.randomUUID();
+            UUID providerId = UUID.randomUUID();
+            ServiceScheduleDetailResult detail = sampleDetail(serviceScheduleId, servicePreferenceId, serviceOfferingId);
+            ServiceScheduleDetailQuery query = new ServiceScheduleDetailQuery(serviceScheduleId, providerId, UserRole.SERVICE_PROVIDER);
+
+            when(serviceScheduleQueryService.findDetailById(serviceScheduleId)).thenReturn(Optional.of(detail));
+            when(providerOfferingPort.findAssignedProviderId(serviceOfferingId)).thenReturn(providerId);
+
+            // when
+            ServiceScheduleDetailResult result = serviceScheduleFacade.detail(query);
+
+            // then
+            assertThat(result).isEqualTo(detail);
+            verify(carePlanPort, never()).findCarePlanRange(any());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 일정이면 403을 던지고 Internal API를 호출하지 않는다 (리소스 존재 비노출, 03/04/05번과 동일 정책)")
+        void detail_notFound_forbiddenWithoutInternalApiCall() {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            ServiceScheduleDetailQuery query = new ServiceScheduleDetailQuery(serviceScheduleId, UUID.randomUUID(), UserRole.PATIENT);
+
+            when(serviceScheduleQueryService.findDetailById(serviceScheduleId)).thenReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> serviceScheduleFacade.detail(query))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+
+            verify(carePlanPort, never()).findCarePlanRange(any());
+            verify(providerOfferingPort, never()).findAssignedProviderId(any());
+        }
+
+        @Test
+        @DisplayName("퇴원 예정자의 patientId가 요청자와 다르면 403을 반환한다")
+        void detail_patient_notOwner_forbidden() {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            UUID servicePreferenceId = UUID.randomUUID();
+            ServiceScheduleDetailResult detail = sampleDetail(serviceScheduleId, servicePreferenceId, UUID.randomUUID());
+            ServiceScheduleDetailQuery query = new ServiceScheduleDetailQuery(serviceScheduleId, UUID.randomUUID(), UserRole.PATIENT);
+            CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), LocalDate.now().plusDays(10), UUID.randomUUID());
+
+            when(serviceScheduleQueryService.findDetailById(serviceScheduleId)).thenReturn(Optional.of(detail));
+            when(carePlanPort.findCarePlanRange(servicePreferenceId)).thenReturn(carePlanRange);
+
+            // when & then
+            assertThatThrownBy(() -> serviceScheduleFacade.detail(query))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+        }
+
+        @Test
+        @DisplayName("서비스 제공자의 providerId가 요청자와 다르면 403을 반환한다")
+        void detail_serviceProvider_notOwner_forbidden() {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            UUID serviceOfferingId = UUID.randomUUID();
+            ServiceScheduleDetailResult detail = sampleDetail(serviceScheduleId, UUID.randomUUID(), serviceOfferingId);
+            ServiceScheduleDetailQuery query = new ServiceScheduleDetailQuery(serviceScheduleId, UUID.randomUUID(), UserRole.SERVICE_PROVIDER);
+
+            when(serviceScheduleQueryService.findDetailById(serviceScheduleId)).thenReturn(Optional.of(detail));
+            when(providerOfferingPort.findAssignedProviderId(serviceOfferingId)).thenReturn(UUID.randomUUID());
+
+            // when & then
+            assertThatThrownBy(() -> serviceScheduleFacade.detail(query))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+        }
+    }
+
+    @Nested
+    @DisplayName("서비스 일정 목록 조회")
+    class searchTest {
+
+        private final Pageable pageable = PageRequest.of(0, 10);
+
+        @Test
+        @DisplayName("퇴원 예정자면 care-plan-service에서 servicePreferenceId 목록을 조회해 QueryService에 위임한다")
+        void search_patient_delegatesWithServicePreferenceIds() {
+            // given
+            UUID patientId = UUID.randomUUID();
+            List<UUID> servicePreferenceIds = List.of(UUID.randomUUID(), UUID.randomUUID());
+            ServiceScheduleSearchQuery query = new ServiceScheduleSearchQuery(patientId, UserRole.PATIENT, null, null, pageable);
+            Page<ServiceScheduleSearchResult> expected = new PageImpl<>(List.of());
+
+            when(carePlanPort.findServicePreferenceIds(patientId)).thenReturn(servicePreferenceIds);
+            when(serviceScheduleQueryService.search(servicePreferenceIds, null, null, null, pageable)).thenReturn(expected);
+
+            // when
+            Page<ServiceScheduleSearchResult> result = serviceScheduleFacade.search(query);
+
+            // then
+            assertThat(result).isEqualTo(expected);
+            verify(serviceScheduleQueryService).search(servicePreferenceIds, null, null, null, pageable);
+            verify(providerOfferingPort, never()).findServiceOfferingIds(any());
+        }
+
+        @Test
+        @DisplayName("서비스 제공자면 provider-service에서 serviceOfferingId 목록을 조회해 QueryService에 위임한다")
+        void search_serviceProvider_delegatesWithServiceOfferingIds() {
+            // given
+            UUID providerId = UUID.randomUUID();
+            List<UUID> serviceOfferingIds = List.of(UUID.randomUUID());
+            ServiceScheduleSearchQuery query = new ServiceScheduleSearchQuery(providerId, UserRole.SERVICE_PROVIDER, ScheduleStatus.SCHEDULED, null, pageable);
+            Page<ServiceScheduleSearchResult> expected = new PageImpl<>(List.of());
+
+            when(providerOfferingPort.findServiceOfferingIds(providerId)).thenReturn(serviceOfferingIds);
+            when(serviceScheduleQueryService.search(null, serviceOfferingIds, ScheduleStatus.SCHEDULED, null, pageable)).thenReturn(expected);
+
+            // when
+            Page<ServiceScheduleSearchResult> result = serviceScheduleFacade.search(query);
+
+            // then
+            assertThat(result).isEqualTo(expected);
+            verify(serviceScheduleQueryService).search(null, serviceOfferingIds, ScheduleStatus.SCHEDULED, null, pageable);
+            verify(carePlanPort, never()).findServicePreferenceIds(any());
+        }
+
+        @Test
+        @DisplayName("퇴원 예정자가 담당하는 servicePreferenceId가 하나도 없으면 DB 조회 없이 빈 페이지를 반환한다")
+        void search_patient_emptyIds_returnsEmptyPageWithoutQuery() {
+            // given
+            UUID patientId = UUID.randomUUID();
+            ServiceScheduleSearchQuery query = new ServiceScheduleSearchQuery(patientId, UserRole.PATIENT, null, null, pageable);
+
+            when(carePlanPort.findServicePreferenceIds(patientId)).thenReturn(List.of());
+
+            // when
+            Page<ServiceScheduleSearchResult> result = serviceScheduleFacade.search(query);
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            verify(serviceScheduleQueryService, never()).search(any(), any(), any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("서비스 제공자가 담당하는 serviceOfferingId가 하나도 없으면 DB 조회 없이 빈 페이지를 반환한다")
+        void search_serviceProvider_emptyIds_returnsEmptyPageWithoutQuery() {
+            // given
+            UUID providerId = UUID.randomUUID();
+            ServiceScheduleSearchQuery query = new ServiceScheduleSearchQuery(providerId, UserRole.SERVICE_PROVIDER, null, null, pageable);
+
+            when(providerOfferingPort.findServiceOfferingIds(providerId)).thenReturn(List.of());
+
+            // when
+            Page<ServiceScheduleSearchResult> result = serviceScheduleFacade.search(query);
+
+            // then
+            assertThat(result.getContent()).isEmpty();
+            assertThat(result.getTotalElements()).isZero();
+            verify(serviceScheduleQueryService, never()).search(any(), any(), any(), any(), any());
         }
     }
 }
