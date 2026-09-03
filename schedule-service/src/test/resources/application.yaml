@@ -3,6 +3,11 @@ spring:
     activate:
       on-profile: test
 
+  cloud:
+    config:
+      import-check:
+        enabled: false
+
   application:
     name: schedule-service
 
