@@ -9,6 +9,7 @@ import com.spring.careplanservice.careplan.application.result.CarePlanFindByPati
 import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
+import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -41,6 +42,7 @@ public class CarePlanQueryService {
     private final CarePlanQueryRepository carePlanQueryRepository;
     private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
     private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
+    private final CarePlanOwnerValidator carePlanOwnerValidator;
 
     public CarePlanFindByPatientResult findByPatient(
             CarePlanFindByPatientQuery carePlanFindByPatientQuery
@@ -89,6 +91,8 @@ public class CarePlanQueryService {
     public Page<CarePlanSearchResult> searchCarePlan(
             CarePlanSearchQuery carePlanSearchQuery
     ) {
+        validatePage(carePlanSearchQuery.page());
+
         Pageable pageable = PageableFactory.of(
                 carePlanSearchQuery.page(),
                 carePlanSearchQuery.size(),
@@ -128,6 +132,18 @@ public class CarePlanQueryService {
                         "carePlanId에 해당하는 Care Plan이 존재하지 않습니다."
                 )
         );
+    }
+
+    private void validatePage(Integer page) {
+        if (page != null && page < 0) {
+            throw new BusinessException(
+                    ErrorCode.CARE_PLAN_BAD_REQUEST,
+                    Map.of(
+                            "reason",
+                            "page는 0 이상이어야 합니다."
+                    )
+            );
+        }
     }
 
     // TODO : 추후 분리

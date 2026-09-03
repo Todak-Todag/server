@@ -33,8 +33,6 @@ import org.springframework.data.domain.Pageable;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -47,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.*;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -295,6 +294,25 @@ class CarePlanQueryServiceTest {
                 Pageable pageable = pageableCaptor.getValue();
 
                 assertThat(pageable.getPageSize()).isEqualTo(10);
+            }
+
+            @Test
+            @DisplayName("page가 음수이면 예외 발생")
+            void searchCarePlan_negativePage_throwsException() {
+                CarePlanSearchQuery carePlanSearchQuery = CarePlanSearchQuery.of(
+                        UUID.randomUUID(),
+                        null,
+                        null,
+                        null,
+                        -1,
+                        10
+                );
+
+                assertThatThrownBy(() -> carePlanQueryService.searchCarePlan(carePlanSearchQuery))
+                        .isInstanceOf(BusinessException.class);
+
+                verify(carePlanQueryRepository, never()).search(any(CarePlanSearchQuery.class), any(Pageable.class)
+                );
             }
         }
     }
