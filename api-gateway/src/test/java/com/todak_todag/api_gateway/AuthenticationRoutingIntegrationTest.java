@@ -294,7 +294,7 @@ class AuthenticationRoutingIntegrationTest {
 				.claim("role", "USER")
 				.issuedAt(Date.from(Instant.now().minus(Duration.ofHours(2))))
 				.expiration(Date.from(Instant.now().plus(expiresIn)))
-				.signWith(new SecretKeySpec(SECRET_BYTES, "HmacSHA256"), Jwts.SIG.HS256)
+				.signWith(new SecretKeySpec(SECRET_BYTES, "HmacSHA512"), Jwts.SIG.HS512)
 				.compact();
 	}
 

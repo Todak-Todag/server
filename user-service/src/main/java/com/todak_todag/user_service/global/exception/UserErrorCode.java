@@ -8,9 +8,19 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum UserErrorCode implements ErrorCode {
 	
+	USER_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 사용자입니다."),
+	
 	USER_INVALID_CREATE_ROLE(HttpStatus.CONFLICT, "유저 등록을 진행할 수 없는 유형입니다."),
 	
 	USER_DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 사용중인 로그인 아이디입니다."),
+	
+	USER_NOT_APPROVAL(HttpStatus.FORBIDDEN, "회원가입 승인 대기중인 계정입니다. 관리자 승인 후 로그인할 수 있습니다."),
+	
+	USER_SUSPENDED(HttpStatus.FORBIDDEN, "일시정지된 계정입니다."),
+	
+	USER_LOGIN_MISMATCHED(HttpStatus.CONFLICT, "아이디 또는 비밀번호가 일치하지 않습니다."),
+	
+	USER_LOGIN_WITHDRAWN(HttpStatus.FORBIDDEN, "동의 약관을 철회한 계정입니다. 서비스를 이용하시려면 다시 동의하여주세요."),
 	;
 	private final HttpStatus status;
   private final String message;

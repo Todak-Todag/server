@@ -9,5 +9,7 @@ public interface UserQueryRepository {
 
 	Optional<User> findById(UUID userId);
 	
+	Optional<User> findLoginByUsername(String username);
+	
 	boolean duplicateUsername(String username);
 }

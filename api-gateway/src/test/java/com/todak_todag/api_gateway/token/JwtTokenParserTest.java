@@ -79,22 +79,22 @@ class JwtTokenParserTest {
 	}
 
 	@Test
-	@DisplayName("HS256 이 아닌 알고리즘으로 서명된 토큰은 INVALID_ACCESS_TOKEN 이다")
+	@DisplayName("HS512 가 아닌 알고리즘으로 서명된 토큰은 INVALID_ACCESS_TOKEN 이다")
 	void rejectsTokenSignedWithUnexpectedAlgorithm() {
 		String token = Jwts.builder()
 				.subject("1")
 				.claim("role", "USER")
 				.expiration(from(Duration.ofMinutes(30)))
-				.signWith(new SecretKeySpec(SECRET_BYTES, "HmacSHA512"), Jwts.SIG.HS512)
+				.signWith(new SecretKeySpec(SECRET_BYTES, "HmacSHA256"), Jwts.SIG.HS256)
 				.compact();
 
 		assertThat(Jwts.parser()
-				.verifyWith(hmacKey("HmacSHA512"))
+				.verifyWith(hmacKey("HmacSHA256"))
 				.build()
 				.parseSignedClaims(token)
 				.getHeader()
 				.getAlgorithm())
-				.isEqualTo("HS512");
+				.isEqualTo("HS256");
 
 		assertThatTokenError(token, TokenErrorCode.INVALID_ACCESS_TOKEN);
 	}
@@ -155,7 +155,7 @@ class JwtTokenParserTest {
 
 	private static String signedToken(java.util.function.UnaryOperator<io.jsonwebtoken.JwtBuilder> customizer) {
 		return customizer.apply(Jwts.builder())
-				.signWith(hmacKey("HmacSHA256"), Jwts.SIG.HS256)
+				.signWith(hmacKey("HmacSHA512"), Jwts.SIG.HS512)
 				.compact();
 	}
 
