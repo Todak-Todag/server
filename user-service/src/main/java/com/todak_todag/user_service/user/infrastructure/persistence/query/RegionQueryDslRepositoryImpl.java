@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.infrastructure.persistence;
+package com.todak_todag.user_service.user.infrastructure.persistence.query;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQuery;

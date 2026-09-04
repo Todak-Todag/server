@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.infrastructure.persistence;
+package com.todak_todag.user_service.user.infrastructure.persistence.query;
 
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentCurrentView;
 
