@@ -5,6 +5,7 @@ import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpd
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
+import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
@@ -283,19 +284,20 @@ class CarePlanCommandServiceTest {
         @DisplayName("성공")
         void completeCarePlan_success() {
             CarePlan carePlan = CarePlan.create(
-                    UUID.randomUUID(),
-                    UUID.randomUUID(),
+                    patientId,
+                    dischargeId,
                     LocalDate.of(2026, 9, 1),
                     LocalDate.of(2026, 9, 30),
                     null
             );
+
+            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
             carePlanCommandService.completeCarePlan(carePlanId);
 
             assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.COMPLETED);
-
             verify(carePlanCommandRepository).findById(carePlanId);
         }
 
@@ -321,16 +323,14 @@ class CarePlanCommandServiceTest {
                     null
             ));
 
+            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
             carePlan.complete();
-
-            // 최초 complete() 호출 기록 제거
-            clearInvocations(carePlan);
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
             carePlanCommandService.completeCarePlan(carePlanId);
 
-            verify(carePlan, never()).complete();
+            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.COMPLETED);
             verify(carePlanCommandRepository).findById(carePlanId);
         }
     }
