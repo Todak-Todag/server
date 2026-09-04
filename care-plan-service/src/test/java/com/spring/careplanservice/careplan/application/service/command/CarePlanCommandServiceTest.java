@@ -1,7 +1,9 @@
 package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
+import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
@@ -331,5 +333,39 @@ class CarePlanCommandServiceTest {
             verify(carePlan, never()).complete();
             verify(carePlanCommandRepository).findById(carePlanId);
         }
+    }
+
+    @Nested
+    @DisplayName("Care plan 수정")
+    class CarePlan_update {
+        @Test
+        @DisplayName("UNDER_REVIEW 상태는 CONFIRMED 상태로 변경 가능")
+        void updateCarePlanStatus_underReviewToConfirmed_success() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
+                    userId,
+                    UserRole.PATIENT,
+                    carePlanId,
+                    CarePlanStatus.CONFIRMED
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand);
+
+            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.CONFIRMED);
+            assertThat(carePlanStatusUpdateResult.carePlanId()).isEqualTo(carePlan.getId());
+            assertThat(carePlanStatusUpdateResult.status()).isEqualTo(CarePlanStatus.CONFIRMED);
+
+            verify(carePlanCommandRepository).findById(carePlanId);
+        }
+
     }
 }
