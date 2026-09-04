@@ -115,6 +115,50 @@ services:
     networks:
       - todak-network
 
+  provider-service:
+    build:
+      context: ..
+      dockerfile: provider-service/Dockerfile
+      args:
+        JAR_FILE: provider-service/build/libs/*.jar
+
+    container_name: todak-provider-service
+    restart: unless-stopped
+
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+
+      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+      ZIPKIN_HOST: zipkin
+
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+    ports:
+      - "19003:19003"
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:19003/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - todak-network
 
   schedule-service:
     build:
