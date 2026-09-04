@@ -7,6 +7,12 @@ spring:
   application:
     name: provider-service
 
+  # 테스트에는 Config Server가 없으므로 configserver import 강제 검사를 끈다.
+  cloud:
+    config:
+      import-check:
+        enabled: false
+
   datasource:
     url: jdbc:postgresql://localhost:5432/todaktodag_db
     username: postgres
