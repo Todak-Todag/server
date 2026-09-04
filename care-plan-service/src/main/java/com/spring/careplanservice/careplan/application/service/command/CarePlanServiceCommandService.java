@@ -3,6 +3,7 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanServiceSelectCommand;
 import com.spring.careplanservice.careplan.application.result.CarePlanServiceSelectResult;
+import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
@@ -20,6 +21,7 @@ import java.util.UUID;
 public class CarePlanServiceCommandService {
     private final CarePlanCommandRepository carePlanCommandRepository;
     private final CarePlanServiceCommandRepository carePlanServiceCommandRepository;
+    private final CarePlanOwnerValidator carePlanOwnerValidator;
 
     @Transactional
     public CarePlanServiceSelectResult selectCarePlanService(
@@ -33,7 +35,7 @@ public class CarePlanServiceCommandService {
                         )
                 );
 
-        validateCarePlanOwner(
+        carePlanOwnerValidator.validate(
                 carePlanServiceSelectCommand.userId(),
                 carePlan.getPatientId()
         );

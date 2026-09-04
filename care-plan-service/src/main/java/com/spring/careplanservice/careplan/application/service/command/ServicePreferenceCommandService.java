@@ -47,9 +47,6 @@ public class ServicePreferenceCommandService {
                         )
                 );
 
-        // TODO: 기존 Care Plan 관련 PR merge 후
-        // CarePlanServiceCommandService의 소유자 검증도
-        // CarePlanOwnerValidator로 통일
         carePlanOwnerValidator.validate(
                 servicePreferenceCreateCommand.userId(),
                 carePlan.getPatientId()

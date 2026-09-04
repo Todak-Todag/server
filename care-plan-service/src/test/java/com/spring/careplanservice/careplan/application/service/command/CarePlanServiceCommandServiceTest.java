@@ -2,11 +2,13 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanServiceSelectCommand;
 import com.spring.careplanservice.careplan.application.result.CarePlanServiceSelectResult;
+import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
 import com.spring.careplanservice.global.exception.BusinessException;
+import com.spring.careplanservice.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,8 +25,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -40,6 +41,9 @@ class CarePlanServiceCommandServiceTest {
 
     @Mock
     private CarePlanServiceCommandRepository carePlanServiceCommandRepository;
+
+    @Mock
+    private CarePlanOwnerValidator carePlanOwnerValidator;
 
     @InjectMocks
     private CarePlanServiceCommandService carePlanServiceCommandService;
@@ -101,7 +105,7 @@ class CarePlanServiceCommandServiceTest {
         void selectCarePlanService_forbidden() {
             UUID otherPatientId = UUID.randomUUID();
 
-            CarePlanServiceSelectCommand carePlanServiceSelectCommand = new CarePlanServiceSelectCommand(
+            CarePlanServiceSelectCommand command = new CarePlanServiceSelectCommand(
                     patientId,
                     carePlanId,
                     provideServiceId
@@ -117,9 +121,12 @@ class CarePlanServiceCommandServiceTest {
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
-            assertThatThrownBy(() -> carePlanServiceCommandService.selectCarePlanService(carePlanServiceSelectCommand))
-                    .isInstanceOf(BusinessException.class);
+            doThrow(new BusinessException(ErrorCode.AUTH_FORBIDDEN))
+                    .when(carePlanOwnerValidator)
+                    .validate(patientId, otherPatientId);
 
+            assertThatThrownBy(() -> carePlanServiceCommandService.selectCarePlanService(command)).isInstanceOf(BusinessException.class);
+            verify(carePlanOwnerValidator).validate(patientId, otherPatientId);
             verify(carePlanServiceCommandRepository, never()).save(any(CarePlanService.class));
         }
 
