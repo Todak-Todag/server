@@ -6,11 +6,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import com.todak_todag.user_service.user.application.port.AccessTokenStorePort;
+import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 
 @Component
-public class AccessTokenStoreAdapter implements AccessTokenStorePort {
+public class AccessTokenStoreAdapter implements TokenStorePort {
 
 	private static final Duration ACCESS_TOKEN_TTL = Duration.ofDays(7);
 

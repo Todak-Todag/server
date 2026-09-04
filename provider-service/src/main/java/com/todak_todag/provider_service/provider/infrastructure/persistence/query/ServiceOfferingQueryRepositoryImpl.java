@@ -1,10 +1,13 @@
-package com.todak_todag.provider_service.provider.infrastructure.persistence;
+package com.todak_todag.provider_service.provider.infrastructure.persistence.query;
 
 import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
+import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingView;
+import com.todak_todag.provider_service.provider.infrastructure.persistence.JpaServiceOfferingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -14,6 +17,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static com.todak_todag.provider_service.provider.domain.entity.QProvideService.provideService;
@@ -21,10 +25,27 @@ import static com.todak_todag.provider_service.provider.domain.entity.QServiceOf
 
 @Repository
 @RequiredArgsConstructor
-public class ServiceOfferingQueryDslRepository {
+public class ServiceOfferingQueryRepositoryImpl implements ServiceOfferingQueryRepository {
 
+    private final JpaServiceOfferingRepository jpaServiceOfferingRepository;
     private final JPAQueryFactory queryFactory;
 
+    @Override
+    public Optional<ServiceOffering> findById(UUID serviceOfferingId) {
+        return jpaServiceOfferingRepository.findById(serviceOfferingId);
+    }
+
+    @Override
+    public boolean existsByProviderIdAndProvideServiceId(UUID providerId, UUID provideServiceId) {
+        return jpaServiceOfferingRepository.existsByProviderIdAndProvideServiceId(providerId, provideServiceId);
+    }
+
+    @Override
+    public List<UUID> findIdsByProviderId(UUID providerId) {
+        return jpaServiceOfferingRepository.findIdsByProviderId(providerId);
+    }
+
+    @Override
     public Page<ServiceOfferingView> searchByProviderId(UUID providerId, Pageable pageable) {
         List<ServiceOfferingView> content = queryFactory
                 .select(Projections.constructor(
