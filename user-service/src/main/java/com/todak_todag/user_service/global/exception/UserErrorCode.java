@@ -21,6 +21,14 @@ public enum UserErrorCode implements ErrorCode {
 	USER_LOGIN_MISMATCHED(HttpStatus.CONFLICT, "아이디 또는 비밀번호가 일치하지 않습니다."),
 	
 	USER_LOGIN_WITHDRAWN(HttpStatus.FORBIDDEN, "동의 약관을 철회한 계정입니다. 서비스를 이용하시려면 다시 동의하여주세요."),
+	
+	USER_APPROVAL_CONFLICT(HttpStatus.CONFLICT, "승인할 사용자에게는 거절 사유를 입력할 수 없습니다."),
+	
+	USER_REJECT_CONFLICT(HttpStatus.CONFLICT, "거절할 사용자에게는 거절 사유를 입력해야 합니다."),
+	
+	USER_MODIFY_STATE(HttpStatus.CONFLICT, "대상 사용자는 승인/거절이 불가능한 상태입니다."),
+	
+	
 	;
 	private final HttpStatus status;
   private final String message;
