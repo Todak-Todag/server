@@ -13,4 +13,8 @@ public interface JpaServicePreferenceRepository extends JpaRepository<CarePlanSe
     List<CarePlanServicePreference> findAllByPlanServiceIdAndDeletedAtIsNull(
             UUID planServiceId
     );
+
+    List<CarePlanServicePreference> findAllByPlanServiceIdInAndDeletedAtIsNull(
+            List<UUID> planServiceIds
+    );
 }

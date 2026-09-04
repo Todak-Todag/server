@@ -11,7 +11,7 @@ public interface ServicePreferenceQueryRepository {
 
     List<UUID> findIdsByPatientId(UUID patientId);
 
-    List<CarePlanServicePreference> findAllByPlanServiceId(
-            UUID planServiceId
+    List<CarePlanServicePreference> findAllByPlanServiceIds(
+            List<UUID> planServiceIds
     );
 }

@@ -12,6 +12,7 @@ import com.spring.careplanservice.careplan.application.result.DischargeFindResul
 import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
@@ -26,7 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -199,34 +202,56 @@ public class CarePlanCommandService {
             UUID carePlanId,
             UUID regionId
     ) {
-        List<CarePlanConfirmedEvent.Service> services = carePlanServiceQueryRepository
-                .findAllByCarePlanId(carePlanId)
-                .stream()
-                .map(carePlanService -> {
-                    List<CarePlanConfirmedEvent.Preference> preferences = servicePreferenceQueryRepository
-                            .findAllByPlanServiceId(carePlanService.getId())
-                            .stream()
-                            .map(preference ->
-                                    new CarePlanConfirmedEvent.Preference(
-                                            preference.getId(),
-                                            preference.getPreferredDate(),
-                                            preference.getPreferredTimeSlot()
-                                    )
-                            )
-                            .toList();
+        List<CarePlanService> carePlanServices = carePlanServiceQueryRepository.findAllByCarePlanId(
+                carePlanId
+        );
 
-                    return new CarePlanConfirmedEvent.Service(
-                            carePlanService.getId(),
-                            carePlanService.getProvideServiceId(),
-                            preferences
-                    );
-                })
+        List<UUID> planServiceIds = carePlanServices.stream()
+                .map(CarePlanService::getId)
                 .toList();
+
+        List<CarePlanServicePreference> preferences = servicePreferenceQueryRepository.findAllByPlanServiceIds(
+                planServiceIds
+        );
+
+        List<CarePlanConfirmedEvent.Service> services = createConfirmedServices(
+                carePlanServices,
+                preferences
+        );
 
         return new CarePlanConfirmedEvent(
                 carePlanId,
                 regionId,
                 services
         );
+    }
+
+    private List<CarePlanConfirmedEvent.Service> createConfirmedServices(
+            List<CarePlanService> carePlanServices,
+            List<CarePlanServicePreference> preferences
+    ) {
+        Map<UUID, List<CarePlanServicePreference>> preferencesByPlanServiceId = preferences.stream()
+                .collect(Collectors.groupingBy(CarePlanServicePreference::getPlanServiceId));
+
+        return carePlanServices.stream()
+                .map(carePlanService -> {
+                    List<CarePlanConfirmedEvent.Preference> eventPreferences = preferencesByPlanServiceId
+                            .getOrDefault(carePlanService.getId(), List.of())
+                            .stream()
+                            .map(preference ->
+                                    new CarePlanConfirmedEvent.Preference(
+                                            preference.getId(),
+                                            preference.getPreferredDate(),
+                                            preference.getPreferredTimeSlot()
+                                    ))
+                            .toList();
+
+                    return new CarePlanConfirmedEvent.Service(
+                            carePlanService.getId(),
+                            carePlanService.getProvideServiceId(),
+                            eventPreferences
+                    );
+                })
+                .toList();
     }
 }
