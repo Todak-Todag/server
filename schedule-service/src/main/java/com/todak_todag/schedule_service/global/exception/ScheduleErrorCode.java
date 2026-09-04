@@ -25,7 +25,9 @@ public enum ScheduleErrorCode implements ErrorCode {
     // 409
     SERVICE_SCHEDULE_INVALID_STATUS_FOR_CANCEL(HttpStatus.CONFLICT, "취소할 수 없는 상태의 서비스 일정입니다."),
     SERVICE_SCHEDULE_INVALID_STATUS_FOR_COMPLETED(HttpStatus.CONFLICT, "완료할 수 없는 상태의 서비스 일정입니다."),
-    SERVICE_SCHEDULE_CANCEL_DEADLINE_EXCEEDED(HttpStatus.CONFLICT, "일정 시작 24시간 전까지만 취소할 수 있습니다.");
+    SERVICE_SCHEDULE_CANCEL_DEADLINE_EXCEEDED(HttpStatus.CONFLICT, "일정 시작 24시간 전까지만 취소할 수 있습니다."),
+    SERVICE_RESULTS_INVALID_SCHEDULE_STATUS(HttpStatus.CONFLICT, "COMPLETED 또는 NO_SHOW 상태의 서비스 일정만 결과를 등록할 수 있습니다."),
+    SERVICE_RESULTS_ALREADY_EXISTS(HttpStatus.CONFLICT, "이미 결과가 등록된 서비스 일정입니다.");
 
     private final HttpStatus status;
     private final String message;
