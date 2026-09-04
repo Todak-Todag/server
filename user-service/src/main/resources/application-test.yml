@@ -1,4 +1,4 @@
-# eclipse 쓰면 build path 자동으로 연결을 안해준다...
+---
 
 spring:
   config:
@@ -19,8 +19,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://localhost:5432/todaktodag_db
-    username: postgres
-    password: postgres
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
     hikari:
       initialization-fail-timeout: -1
