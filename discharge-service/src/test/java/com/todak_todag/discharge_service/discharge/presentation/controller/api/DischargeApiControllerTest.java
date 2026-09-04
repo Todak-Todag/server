@@ -1,4 +1,4 @@
-package com.todak_todag.discharge_service.discharge.presentation.api_controller;
+package com.todak_todag.discharge_service.discharge.presentation.controller.api;
 
 import com.todak_todag.discharge_service.discharge.application.service.command.DischargeCommandService;
 import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;

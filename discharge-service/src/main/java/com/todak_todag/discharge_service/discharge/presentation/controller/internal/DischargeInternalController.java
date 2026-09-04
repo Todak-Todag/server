@@ -1,4 +1,4 @@
-package com.todak_todag.discharge_service.discharge.presentation.internal_controller;
+package com.todak_todag.discharge_service.discharge.presentation.controller.internal;
 
 import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeInternalFindResult;
