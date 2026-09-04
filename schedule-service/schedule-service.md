@@ -240,14 +240,14 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 | 03 | 서비스 일정 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | 03 |
 | 04 | 서비스 일정 취소 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/cancel` | 04 |
 | 05 | 서비스 수행 완료 상태 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/complete` | 05 |
-| 06 | [내부 API] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | 06 |
+| 06 | \[내부 API\] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | 06 |
 | 07 | 서비스 수행 결과 등록 | POST | `/api/v1/service-results/{serviceScheduleId}` | 07 |
 | 08 | 서비스 수행 결과 목록 조회 | GET | `/api/v1/service-results` | 08 |
 | 09 | 서비스 수행 결과 상세 조회 | GET | `/api/v1/service-results/{serviceResultId}` | 09 |
-| 10 | [이벤트 발행] CarePlanCompleted | - | RabbitMQ Publish | 10 |
-| 11 | [이벤트 발행] ProviderReMatched | - | RabbitMQ Publish | 11 |
-| 12 | [이벤트 수신] ProviderMatched | - | RabbitMQ Consume | 12 |
-| 13 | [이벤트 수신] ProviderMatchFailed | - | RabbitMQ Consume | 13 |
+| 10 | \[이벤트 발행\] CarePlanCompleted | - | RabbitMQ Publish | 10 |
+| 11 | \[이벤트 발행\] ProviderReMatched | - | RabbitMQ Publish | 11 |
+| 12 | \[이벤트 수신\] ProviderMatched | - | RabbitMQ Consume | 12 |
+| 13 | \[이벤트 수신\] ProviderMatchFailed | - | RabbitMQ Consume | 13 |
 
 > ⚠️ 참고: API 목록에는 Schedule-Service가 **호출하는** Care-Plan-Service Internal API(5.5절, `carePlanId`/`finishDate`/`patientId` 단건 조회), Provider-Service Internal API(5.6절, `providerId` 단건 조회), 그리고 목록 조회용 ID 목록 반환 API(5.7절)가 아직 별도 번호로 등록되어 있지 않다. 세 API 모두 상대 서비스 쪽 명세이므로 이 목록에는 포함하지 않되, 각각 03/04번, 05번, 01번 문서와 5.5/5.6/5.7절에서 연동 대상으로 참조만 한다.
 >
@@ -258,7 +258,6 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 
 - **인증(Authentication)**: API Gateway에서 수행 (JWT 검증). 인증된 요청자 정보는 `X-User-Id`, `X-User-Role` 헤더로 각 서비스에 전달된다.
   - Controller는 이 헤더를 직접 읽지 않고 **`@AuthenticationPrincipal UserContext user`*로 주입받는다 (Spring Security 기반, 06번 내부 API의 Interceptor 처리와 유사한 패턴). 헤더→`UserContext` 변환 로직(Filter/Resolver)은 아직 코드에 없음.
-  -
 - **인가(Authorization)**: 각 API를 처리하는 Schedule-Service 내부에서 수행한다 (예: 본인 소유 일정인지, 역할이 일치하는지 검증).
 - **내부 API**(`/internal/v1/*`)는 API Gateway를 거치지 않는 서비스 간 통신이며, `X-Internal-Api-Key` 헤더 기반으로 별도 인증한다. 5.5절의 Schedule-Service → Care-Plan-Service 호출도 동일한 인증 패턴을 따른다
 
@@ -293,6 +292,9 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 | **ID 목록 반환용 Internal API 스펙** | ✅ 확정 (2026-09-03): care-plan-service(`GET /internal/v1/service-preferences?patientId=`), provider-service(`GET /internal/v1/service-offerings?providerId=`) 엔드포인트/Request/Response 스펙 확정 (5.7절 참고) | ✅ 확정 |
 | **01번 API의 잘못된 status 필터 처리** | ✅ 확정 (2026-09-03): 허용되지 않는 `status` 값이 들어오면 `400`을 반환하는 것으로 확정 | ✅ 확정 |
 | **02번 API의 status 옵션 목록 CHANGED** | ✅ 확정 (2026-09-03): `02_서비스일정상세조회.md`의 Response `status` 옵션 목록에 `CHANGED` 포함 확정 (표에는 이미 있었으나 주석 표기 실수 정정) | ✅ 확정 |
+| **07번 API와 05번 API의 순서 관계** | ✅ 확정 (2026-09-04): 결과 등록 시 서비스 일정의 `status`가 `COMPLETED`/`NO_SHOW`가 아니면 `409` 실패. 05번이 먼저 처리되어 상태가 확정된 이후에만 07번 진행 가능 | ✅ 확정 |
+| **07번 API의 중복 등록 처리** | ✅ 확정 (2026-09-04): 동일 `serviceScheduleId`에 대한 중복 등록 불허, 이미 등록된 경우 재등록 시도는 `409` | ✅ 확정 |
+| **07번 문서 설명의 is_performed 잔존** | ✅ 해소 (2026-09-04): Notion 원본 설명이 갱신되어 `is_performed` 언급 제거됨. `07_서비스수행결과등록.md`와 이미 일치 | ✅ 해소 |
 
 ---
 
@@ -311,3 +313,6 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 | 2026-09-03 | ✅ 확정: 5.7절의 ID 목록 반환 Internal API 엔드포인트 스펙 확정 — care-plan-service `GET /internal/v1/service-preferences?patientId=`, provider-service `GET /internal/v1/service-offerings?providerId=`. 마지막 블로커 해소, 8장 해당 항목 확정으로 전환 |
 | 2026-09-03 | `02_서비스일정상세조회.md` 최신화 반영 — JSON 예시 문법 오류 수정, 비즈니스 규칙 구조화, 03/04/05번의 기존 Internal API(점검증)를 재사용하는 방식임을 명시. `status` 옵션 목록의 `CHANGED` 누락을 8장에 신규 확인 필요로 추가 |
 | 2026-09-03 | ✅ 확정: `02_서비스일정상세조회.md`의 `status` 옵션에 `CHANGED` 포함 확정 (표기 실수 정정). 8장 해당 항목 확정으로 전환 |
+| 2026-09-04 | `07_서비스수행결과등록.md` 최신화 반영 — JSON 예시 문법 오류 수정, 비즈니스 규칙 구조화, 05번의 확정된 provider-service Internal API 메커니즘 재사용 명시. 8장에 신규 확인 필요 항목 2건(05번과의 순서 관계, 중복 등록 처리) 및 참고 항목 1건(is_performed 잔존 언급) 추가 |
+| 2026-09-04 | `07_서비스수행결과등록.md` 2차 최신화 — Notion 원본 설명 갱신 반영(`is_performed` 언급 제거), 8장 해당 항목 해소로 전환. 05번과의 순서 관계, 중복 등록 처리 항목은 미해소 상태로 유지 |
+| 2026-09-04 | ✅ 확정: `07_서비스수행결과등록.md`에 05번과의 순서 관계(상태가 `COMPLETED`/`NO_SHOW`가 아니면 `409`) 및 중복 등록 금지(`409`) 반영. 8장 해당 항목 확정으로 전환 |
