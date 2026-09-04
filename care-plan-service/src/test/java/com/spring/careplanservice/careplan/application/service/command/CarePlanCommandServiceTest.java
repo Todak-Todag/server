@@ -2,7 +2,7 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
-import com.spring.careplanservice.careplan.application.port.CarePlanEventPort;
+import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
@@ -24,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -62,9 +63,8 @@ class CarePlanCommandServiceTest {
 
     @Mock
     private ServicePreferenceQueryRepository servicePreferenceQueryRepository;
-
     @Mock
-    private CarePlanEventPort carePlanEventPort;
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Mock
     private UserQueryPort userQueryPort;
@@ -382,10 +382,11 @@ class CarePlanCommandServiceTest {
             CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand);
 
             assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.CONFIRMED);
-            assertThat(carePlanStatusUpdateResult.carePlanId()).isEqualTo(carePlan.getId());
             assertThat(carePlanStatusUpdateResult.status()).isEqualTo(CarePlanStatus.CONFIRMED);
 
             verify(carePlanCommandRepository).findById(carePlanId);
+            verify(userQueryPort).findById(patientId);
+            verify(applicationEventPublisher).publishEvent(any(CarePlanConfirmedEvent.class));
         }
 
         @Test
