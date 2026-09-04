@@ -4,7 +4,6 @@ package com.spring.careplanservice.careplan.application.service.command;
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
-import com.spring.careplanservice.careplan.application.port.CarePlanEventPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
@@ -22,6 +21,7 @@ import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,7 +41,7 @@ public class CarePlanCommandService {
 
     private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
     private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
-    private final CarePlanEventPort carePlanEventPort;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final UserQueryPort userQueryPort;
 
     @Transactional
@@ -119,7 +119,7 @@ public class CarePlanCommandService {
                     userFindResult.regionId()
             );
 
-            carePlanEventPort.publishCarePlanConfirmed(
+            applicationEventPublisher.publishEvent(
                     carePlanConfirmedEvent
             );
         }
