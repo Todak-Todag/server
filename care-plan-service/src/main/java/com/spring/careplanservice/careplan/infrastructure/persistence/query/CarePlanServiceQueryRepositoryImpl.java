@@ -6,16 +6,26 @@ import com.spring.careplanservice.careplan.infrastructure.persistence.repository
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
-public class CarePlanServiceQueryRepositoryImpl implements CarePlanServiceQueryRepository  {
+public class CarePlanServiceQueryRepositoryImpl implements CarePlanServiceQueryRepository {
     private final JpaCarePlanServiceRepository jpaCarePlanServiceRepository;
 
     @Override
     public Optional<CarePlanService> findById(UUID id) {
         return jpaCarePlanServiceRepository.findByIdAndDeletedAtIsNull(id);
+    }
+
+    @Override
+    public List<CarePlanService> findAllByCarePlanId(
+            UUID carePlanId
+    ) {
+        return jpaCarePlanServiceRepository.findAllByCarePlanIdAndDeletedAtIsNull(
+                carePlanId
+        );
     }
 }

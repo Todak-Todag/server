@@ -3,6 +3,7 @@ package com.spring.careplanservice.careplan.infrastructure.persistence.repositor
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,5 +14,9 @@ public interface JpaCarePlanServiceRepository extends JpaRepository<CarePlanServ
             UUID carePlanId,
             UUID provideServiceId,
             UUID createdBy
+    );
+
+    List<CarePlanService> findAllByCarePlanIdAndDeletedAtIsNull(
+            UUID carePlanId
     );
 }

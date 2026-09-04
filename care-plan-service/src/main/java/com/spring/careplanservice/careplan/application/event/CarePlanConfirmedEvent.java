@@ -8,6 +8,7 @@ import java.util.UUID;
 
 public record CarePlanConfirmedEvent(
         UUID carePlanId,
+        UUID regionId,
         List<Service> services
 ) {
 

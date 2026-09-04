@@ -3,6 +3,8 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
+import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.port.CarePlanEventPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
@@ -11,6 +13,8 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
 import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
@@ -29,6 +33,10 @@ public class CarePlanCommandService {
 
     private final CarePlanCommandRepository carePlanCommandRepository;
     private final CarePlanServiceCommandRepository carePlanServiceCommandRepository;
+
+    private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
+    private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
+    private final CarePlanEventPort carePlanEventPort;
 
     @Transactional
     public CarePlanCreateResult createCarePlan(
@@ -93,6 +101,17 @@ public class CarePlanCommandService {
         carePlan.updateStatus(
                 carePlanStatusUpdateCommand.status()
         );
+
+        if (carePlan.getStatus() == CarePlanStatus.CONFIRMED) {
+            CarePlanConfirmedEvent event =
+                    createCarePlanConfirmedEvent(
+                            carePlan.getId()
+                    );
+
+            carePlanEventPort.publishCarePlanConfirmed(
+                    event
+            );
+        }
 
         return CarePlanStatusUpdateResult.from(
                 carePlan
@@ -166,5 +185,38 @@ public class CarePlanCommandService {
                     ErrorCode.CARE_PLAN_INVALID_STATUS_TRANSITION
             );
         }
+    }
+
+    private CarePlanConfirmedEvent createCarePlanConfirmedEvent(
+            UUID carePlanId
+    ) {
+        List<CarePlanConfirmedEvent.Service> services = carePlanServiceQueryRepository
+                .findAllByCarePlanId(carePlanId)
+                .stream()
+                .map(carePlanService -> {
+                    List<CarePlanConfirmedEvent.Preference> preferences = servicePreferenceQueryRepository
+                            .findAllByPlanServiceId(carePlanService.getId())
+                            .stream()
+                            .map(preference ->
+                                    new CarePlanConfirmedEvent.Preference(
+                                            preference.getId(),
+                                            preference.getPreferredDate(),
+                                            preference.getPreferredTimeSlot()
+                                    )
+                            )
+                            .toList();
+
+                    return new CarePlanConfirmedEvent.Service(
+                            carePlanService.getId(),
+                            carePlanService.getProvideServiceId(),
+                            preferences
+                    );
+                })
+                .toList();
+
+        return new CarePlanConfirmedEvent(
+                carePlanId,
+                services
+        );
     }
 }

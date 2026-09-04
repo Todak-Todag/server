@@ -43,4 +43,13 @@ public class ServicePreferenceQueryRepositoryImpl implements ServicePreferenceQu
                 )
                 .fetch();
     }
+
+    @Override
+    public List<CarePlanServicePreference> findAllByPlanServiceId(
+            UUID planServiceId
+    ) {
+        return jpaCarePlanPreferenceRepository.findAllByPlanServiceIdAndDeletedAtIsNull(
+                planServiceId
+        );
+    }
 }
