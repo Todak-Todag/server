@@ -424,5 +424,35 @@ class CarePlanCommandServiceTest {
 
             verify(carePlanCommandRepository).findById(carePlanId);
         }
+
+        @Test
+        @DisplayName("CONFIRMED 상태에서 COMPLETED로 변경하면 예외")
+        void updateCarePlanStatus_confirmedToCompleted_throwsException() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            carePlan.updateStatus(
+                    CarePlanStatus.CONFIRMED
+            );
+
+            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
+                    userId,
+                    UserRole.SERVICE_PROVIDER,
+                    carePlanId,
+                    CarePlanStatus.COMPLETED
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand))
+                    .isInstanceOf(BusinessException.class);
+            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.CONFIRMED);
+            verify(carePlanCommandRepository).findById(carePlanId);
+        }
     }
 }
