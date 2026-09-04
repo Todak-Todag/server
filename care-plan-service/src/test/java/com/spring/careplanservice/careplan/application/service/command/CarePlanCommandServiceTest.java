@@ -2,14 +2,18 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
+import com.spring.careplanservice.careplan.application.port.CarePlanEventPort;
+import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
-import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
+import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
 import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +46,7 @@ class CarePlanCommandServiceTest {
     UUID dischargePatientId = UUID.randomUUID();
     UUID userId = UUID.randomUUID();
     UUID carePlanId = UUID.randomUUID();
+    UUID regionId = UUID.randomUUID();
 
     @Mock
     private CarePlanCommandRepository carePlanCommandRepository;
@@ -51,6 +56,18 @@ class CarePlanCommandServiceTest {
 
     @InjectMocks
     private CarePlanCommandService carePlanCommandService;
+
+    @Mock
+    private CarePlanServiceQueryRepository carePlanServiceQueryRepository;
+
+    @Mock
+    private ServicePreferenceQueryRepository servicePreferenceQueryRepository;
+
+    @Mock
+    private CarePlanEventPort carePlanEventPort;
+
+    @Mock
+    private UserQueryPort userQueryPort;
 
     @Nested
     @DisplayName("Care Plan 생성")
@@ -355,7 +372,11 @@ class CarePlanCommandServiceTest {
                     carePlanId,
                     CarePlanStatus.CONFIRMED
             );
-
+            given(userQueryPort.findById(patientId)).willReturn(new UserFindResult(
+                    patientId,
+                    UserRole.PATIENT,
+                    regionId
+            ));
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
             CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand);
