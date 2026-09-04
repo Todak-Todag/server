@@ -20,7 +20,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
-// TODO: X-Internal-Api-Key 검증은 Interceptor 책임
+// X-Internal-Api-Key 검증은 InternalApiKeyInterceptor(global/security)가 수행 — Controller는 헤더를 직접 처리하지 않음
 @RestController
 @RequestMapping("/internal/v1/service-schedules")
 @RequiredArgsConstructor
