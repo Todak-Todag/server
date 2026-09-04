@@ -1,18 +1,20 @@
 package com.todak_todag.user_service.user.infrastructure.persistence;
 
+import static com.todak_todag.user_service.user.domain.entity.QRegion.region;
+
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.todak_todag.user_service.user.application.query.RegionFindAdminQuery;
 import com.todak_todag.user_service.user.domain.entity.Region;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-
-import java.util.List;
-
-import static com.todak_todag.user_service.user.domain.entity.QRegion.region;
 
 @RequiredArgsConstructor
 public class RegionQueryDslRepositoryImpl implements RegionQueryDslRepository {
@@ -43,7 +45,7 @@ public class RegionQueryDslRepositoryImpl implements RegionQueryDslRepository {
 
         Long total = countQuery.fetchOne();
 
-        return new PageImpl<>(
+        return new PageImpl<Region>(
                 content,
                 pageable,
                 total != null ? total : 0L

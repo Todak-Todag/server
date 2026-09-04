@@ -28,10 +28,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
-import com.todak_todag.user_service.user.application.command.AuthCommand.AuthLoginCommand;
-import com.todak_todag.user_service.user.application.port.AccessTokenStorePort;
+import com.todak_todag.user_service.user.application.command.AuthLoginCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
+import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.AuthResult.AuthLoginResult;
 import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
@@ -62,7 +62,7 @@ class AuthCommandServiceTest {
 	private static final UserRole ROLE = UserRole.PATIENT;
 
 	@Mock
-	private AccessTokenStorePort accessTokenStorePort;
+	private TokenStorePort accessTokenStorePort;
 
 	@Mock
 	private TokenPort tokenPort;

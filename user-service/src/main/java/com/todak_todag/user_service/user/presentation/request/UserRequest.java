@@ -4,10 +4,10 @@ import java.util.List;
 import java.util.UUID;
 
 import com.todak_todag.user_service.global.common.UserRole;
-import com.todak_todag.user_service.user.application.command.AuthCommand.AuthLoginCommand;
-import com.todak_todag.user_service.user.application.command.UserCommand.UserAdminCreateCommand;
-import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCommand;
-import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCommand.AgreementCommand;
+import com.todak_todag.user_service.user.application.command.AuthLoginCommand;
+import com.todak_todag.user_service.user.application.command.UserAdminCreateCommand;
+import com.todak_todag.user_service.user.application.command.UserSignupCommand;
+import com.todak_todag.user_service.user.application.command.UserSignupCommand.AgreementCommand;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
