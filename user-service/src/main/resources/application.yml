@@ -8,4 +8,4 @@ spring:
   config:
     import:
       - optional:file:.env[.properties]
-      - "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+      - "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
