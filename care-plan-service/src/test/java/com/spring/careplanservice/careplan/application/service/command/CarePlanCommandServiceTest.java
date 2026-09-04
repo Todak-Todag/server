@@ -482,5 +482,22 @@ class CarePlanCommandServiceTest {
             assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.IN_PROGRESS);
             verify(carePlanCommandRepository).findById(carePlanId);
         }
+
+        @Test
+        @DisplayName("Care Plan이 존재하지 않으면 예외")
+        void updateCarePlanStatus_carePlanNotFound() {
+            CarePlanStatusUpdateCommand command = new CarePlanStatusUpdateCommand(
+                    userId,
+                    UserRole.SERVICE_PROVIDER,
+                    carePlanId,
+                    CarePlanStatus.CONFIRMED
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(command))
+                    .isInstanceOf(BusinessException.class);
+            verify(carePlanCommandRepository).findById(carePlanId);
+        }
     }
 }
