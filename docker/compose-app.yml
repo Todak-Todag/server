@@ -102,6 +102,8 @@ services:
       # Docker 내부 Zipkin 주소
       ZIPKIN_HOST: zipkin
 
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
     ports:
       - "19005:19005"
 
@@ -166,71 +168,7 @@ services:
 
     networks:
       - todak-network
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
-      
+
   user-service:
       build:
         context: ..
