@@ -4,10 +4,8 @@ import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.response.PageResponse;
 import com.todak_todag.user_service.user.presentation.request.RegionCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.RegionFindAdminRequest;
-import com.todak_todag.user_service.user.presentation.response.RegionCreateResponse;
-import com.todak_todag.user_service.user.presentation.response.RegionFindAdminResponse;
-import com.todak_todag.user_service.user.presentation.response.RegionFindAvailableListResponse;
-import com.todak_todag.user_service.user.presentation.response.RegionFindDetailResponse;
+import com.todak_todag.user_service.user.presentation.request.RegionUpdateActiveRequest;
+import com.todak_todag.user_service.user.presentation.response.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -106,5 +104,32 @@ public interface RegionApiSpec {
     })
     ResponseEntity<ApiResponse<RegionCreateResponse>> createRegion(
             RegionCreateRequest request
+    );
+
+    @Operation(
+            summary = "지역 활성/비활성 상태 변경",
+            description = "지역의 서비스 활성/비활성 상태를 변경합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "지역 상태 변경 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Request Validation 실패"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "요청 권한 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "지역을 찾을 수 없음"
+            )
+    })
+    ResponseEntity<ApiResponse<RegionUpdateActiveResponse>> updateActive(
+            UUID regionId,
+            RegionUpdateActiveRequest request
     );
 }
