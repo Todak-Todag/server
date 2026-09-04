@@ -3,7 +3,6 @@ package com.todak_todag.provider_service.provider.application.service.query;
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
-import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingIdsResult;
@@ -48,16 +47,12 @@ class ServiceOfferingQueryServiceTest {
     private final UUID otherProviderId = UUID.randomUUID();
     private final UUID adminId = UUID.randomUUID();
     private final UUID regionId = UUID.randomUUID();
-    private final UUID otherRegionId = UUID.randomUUID();
     private final UUID serviceOfferingId = UUID.randomUUID();
 
     private final Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
 
     @Mock
     private ServiceOfferingQueryRepository serviceOfferingQueryRepository;
-
-    @Mock
-    private UserPort userPort;
 
     @InjectMocks
     private ServiceOfferingQueryService serviceOfferingQueryService;
@@ -246,9 +241,8 @@ class ServiceOfferingQueryServiceTest {
         }
 
         @Test
-        @DisplayName("담당 지역이면 해당 지역의 제공 서비스 목록을 조회한다")
+        @DisplayName("요청한 지역의 제공 서비스 목록을 조회한다")
         void searchByRegion_success() {
-            given(userPort.findRegionIdByUserId(adminId)).willReturn(regionId);
             given(serviceOfferingQueryRepository.searchByRegionId(regionId, pageable))
                     .willReturn(page());
 
@@ -260,26 +254,12 @@ class ServiceOfferingQueryServiceTest {
         }
 
         @Test
-        @DisplayName("MASTER는 담당 지역과 무관하게 조회할 수 있다")
-        void searchByRegion_master() {
-            given(serviceOfferingQueryRepository.searchByRegionId(regionId, pageable))
-                    .willReturn(page());
-
-            Page<ServiceOfferingRegionSearchResult> results =
-                    serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.MASTER));
-
-            assertThat(results.getContent()).hasSize(1);
-            verify(userPort, never()).findRegionIdByUserId(any());
-        }
-
-        @Test
         @DisplayName("View의 providerId가 결과에 그대로 매핑된다")
         void searchByRegion_mapsProviderId() {
             UUID viewServiceOfferingId = UUID.randomUUID();
             UUID viewProviderId = UUID.randomUUID();
             UUID viewProvideServiceId = UUID.randomUUID();
 
-            given(userPort.findRegionIdByUserId(adminId)).willReturn(regionId);
             given(serviceOfferingQueryRepository.searchByRegionId(regionId, pageable))
                     .willReturn(new PageImpl<>(
                             List.of(new ServiceOfferingView(
@@ -301,32 +281,6 @@ class ServiceOfferingQueryServiceTest {
             assertThat(result.providerId()).isEqualTo(viewProviderId);
             assertThat(result.provideServiceId()).isEqualTo(viewProvideServiceId);
             assertThat(result.provideServiceName()).isEqualTo("방문간호");
-        }
-
-        @Test
-        @DisplayName("담당 지역이 아니면 AUTH_FORBIDDEN")
-        void searchByRegion_otherRegion() {
-            given(userPort.findRegionIdByUserId(adminId)).willReturn(otherRegionId);
-
-            assertThatThrownBy(() -> serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.ADMIN)))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
-
-            verify(serviceOfferingQueryRepository, never()).searchByRegionId(any(), any());
-        }
-
-        @Test
-        @DisplayName("담당 지역이 지정되지 않은 운영자면 AUTH_FORBIDDEN")
-        void searchByRegion_nullRegion() {
-            given(userPort.findRegionIdByUserId(adminId)).willReturn(null);
-
-            assertThatThrownBy(() -> serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.ADMIN)))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
-
-            verify(serviceOfferingQueryRepository, never()).searchByRegionId(any(), any());
         }
     }
 }
