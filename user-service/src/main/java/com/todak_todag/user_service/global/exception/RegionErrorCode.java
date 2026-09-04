@@ -8,11 +8,14 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum RegionErrorCode implements ErrorCode {
 
-    REGION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 지역입니다.");
+    REGION_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 지역입니다."),
+    REGION_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 행정구역 코드입니다.");
+
 
     private final HttpStatus status;
     private final String message;
 
     @Override
     public String getCode() {return name();}
+
 }

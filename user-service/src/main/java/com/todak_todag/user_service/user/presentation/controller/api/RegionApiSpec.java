@@ -2,7 +2,9 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.response.PageResponse;
+import com.todak_todag.user_service.user.presentation.request.RegionCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.RegionFindAdminRequest;
+import com.todak_todag.user_service.user.presentation.response.RegionCreateResponse;
 import com.todak_todag.user_service.user.presentation.response.RegionFindAdminResponse;
 import com.todak_todag.user_service.user.presentation.response.RegionFindAvailableListResponse;
 import com.todak_todag.user_service.user.presentation.response.RegionFindDetailResponse;
@@ -78,5 +80,27 @@ public interface RegionApiSpec {
     })
     ResponseEntity<ApiResponse<RegionFindDetailResponse>> findRegion(
             UUID regionId
+    );
+
+    @Operation(
+            summary = "지역 등록",
+            description = "새로운 지역을 등록합니다. 등록된 지역은 기본적으로 비활성 상태로 생성됩니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "201",
+                    description = "지역 등록 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Request Body Validation 실패"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "요청 권한 없음"
+            )
+    })
+    ResponseEntity<ApiResponse<RegionCreateResponse>> createRegion(
+            RegionCreateRequest request
     );
 }

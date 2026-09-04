@@ -25,4 +25,7 @@ public interface RegionQueryRepository {
 
     // 지역 단건 조회
     Optional<Region> findById(UUID regionId);
+
+    // 지역 중복 검증을 위한 조회
+    boolean existsByRegionCode(String regionCode);
 }
