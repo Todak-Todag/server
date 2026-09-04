@@ -39,7 +39,7 @@ public class ServiceOfferingQueryService {
     }
 
     public Page<ServiceOfferingRegionSearchResult> searchByRegion(ServiceOfferingRegionSearchQuery query) {
-        validateAdminRegion(query.userId(), query.regionId());
+        validateRegionAccess(query.userId(), query.userRole(), query.regionId());
 
         return serviceOfferingQueryRepository
                 .searchByRegionId(query.regionId(), query.pageable())
@@ -78,9 +78,13 @@ public class ServiceOfferingQueryService {
         return query.userId();
     }
 
-    // 운영자는 자신의 담당 지역 내 데이터만 조회 가능
-    // 담당 지역이 지정되지 않은 운영자도 조회할 수 없다
-    private void validateAdminRegion(UUID userId, UUID regionId) {
+    // MASTER는 지역 제한 없이 전체 조회 가능
+    // ADMIN은 자신의 담당 지역만 조회 가능하며, 담당 지역이 지정되지 않았다면 조회할 수 없다
+    private void validateRegionAccess(UUID userId, UserRole userRole, UUID regionId) {
+        if (userRole == UserRole.MASTER) {
+            return;
+        }
+
         UUID adminRegionId = userPort.findRegionIdByUserId(userId);
 
         if (adminRegionId == null || !adminRegionId.equals(regionId)) {

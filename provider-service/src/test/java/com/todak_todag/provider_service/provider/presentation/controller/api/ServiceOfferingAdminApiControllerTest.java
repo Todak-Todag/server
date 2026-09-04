@@ -115,12 +115,16 @@ class ServiceOfferingAdminApiControllerTest {
     }
 
     @Test
-    @DisplayName("MASTER가 요청하면 403을 반환한다")
+    @DisplayName("MASTER가 조회하면 200을 반환한다")
     void searchByRegion_master() throws Exception {
+        given(serviceOfferingQueryService.searchByRegion(any()))
+                .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
+
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)
                         .header("X-User-Id", UUID.randomUUID().toString())
                         .header("X-User-Role", "MASTER"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(0)));
     }
 
     @Test

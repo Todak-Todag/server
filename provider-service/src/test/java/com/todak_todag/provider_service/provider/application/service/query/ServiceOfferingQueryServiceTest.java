@@ -241,8 +241,8 @@ class ServiceOfferingQueryServiceTest {
     @DisplayName("지역별 조회")
     class RegionSearch {
 
-        private ServiceOfferingRegionSearchQuery query(UUID requestedRegionId) {
-            return new ServiceOfferingRegionSearchQuery(requestedRegionId, adminId, pageable);
+        private ServiceOfferingRegionSearchQuery query(UUID requestedRegionId, UserRole userRole) {
+            return new ServiceOfferingRegionSearchQuery(requestedRegionId, adminId, userRole, pageable);
         }
 
         @Test
@@ -253,10 +253,23 @@ class ServiceOfferingQueryServiceTest {
                     .willReturn(page());
 
             Page<ServiceOfferingRegionSearchResult> results =
-                    serviceOfferingQueryService.searchByRegion(query(regionId));
+                    serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.ADMIN));
 
             assertThat(results.getContent()).hasSize(1);
             verify(serviceOfferingQueryRepository).searchByRegionId(regionId, pageable);
+        }
+
+        @Test
+        @DisplayName("MASTER는 담당 지역과 무관하게 조회할 수 있다")
+        void searchByRegion_master() {
+            given(serviceOfferingQueryRepository.searchByRegionId(regionId, pageable))
+                    .willReturn(page());
+
+            Page<ServiceOfferingRegionSearchResult> results =
+                    serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.MASTER));
+
+            assertThat(results.getContent()).hasSize(1);
+            verify(userPort, never()).findRegionIdByUserId(any());
         }
 
         @Test
@@ -280,7 +293,7 @@ class ServiceOfferingQueryServiceTest {
                     ));
 
             ServiceOfferingRegionSearchResult result =
-                    serviceOfferingQueryService.searchByRegion(query(regionId))
+                    serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.ADMIN))
                             .getContent()
                             .getFirst();
 
@@ -295,7 +308,7 @@ class ServiceOfferingQueryServiceTest {
         void searchByRegion_otherRegion() {
             given(userPort.findRegionIdByUserId(adminId)).willReturn(otherRegionId);
 
-            assertThatThrownBy(() -> serviceOfferingQueryService.searchByRegion(query(regionId)))
+            assertThatThrownBy(() -> serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.ADMIN)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
@@ -308,7 +321,7 @@ class ServiceOfferingQueryServiceTest {
         void searchByRegion_nullRegion() {
             given(userPort.findRegionIdByUserId(adminId)).willReturn(null);
 
-            assertThatThrownBy(() -> serviceOfferingQueryService.searchByRegion(query(regionId)))
+            assertThatThrownBy(() -> serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.ADMIN)))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);

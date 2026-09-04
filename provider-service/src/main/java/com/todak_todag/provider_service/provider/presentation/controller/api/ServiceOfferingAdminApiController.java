@@ -24,7 +24,7 @@ public class ServiceOfferingAdminApiController {
     private final ServiceOfferingQueryService serviceOfferingQueryService;
 
     @GetMapping("/regions/{regionId}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MASTER')")
     public ApiResponse<PageResponse<ServiceOfferingRegionSearchResponse>> searchByRegion(
             @AuthenticationPrincipal UserContext user,
             @PathVariable("regionId") UUID regionId,
@@ -36,6 +36,7 @@ public class ServiceOfferingAdminApiController {
                 new ServiceOfferingRegionSearchQuery(
                         regionId,
                         user.getUserId(),
+                        user.getRole(),
                         PageableFactory.of(page, size, sort)
                 )
         );
