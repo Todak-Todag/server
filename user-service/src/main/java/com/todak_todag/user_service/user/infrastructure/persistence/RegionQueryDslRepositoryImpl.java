@@ -43,7 +43,7 @@ public class RegionQueryDslRepositoryImpl implements RegionQueryDslRepository {
 
         Long total = countQuery.fetchOne();
 
-        return new PageImpl<>(
+        return new PageImpl<Region>(
                 content,
                 pageable,
                 total != null ? total : 0L

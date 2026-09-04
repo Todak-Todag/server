@@ -1,0 +1,58 @@
+jwt:
+  secret: dG9kYWstdG9kYWctYXBpLWdhdGV3YXktdGVzdC1qd3Qtc2VjcmV0LWtleS1oczI1Ni0wMTIzNDU2Nzg5YWJjZA==
+
+internal:
+  key: test-internal-key
+
+authentication:
+  access-token:
+    cookie-name: AccessToken
+    redis-key-prefix: "test:access-token:"
+    user-id-claim: sub
+    role-claim: role
+
+spring:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false
+              lower-case-service-id: true
+
+          routes:
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/v1/users/**,/api/v1/admin/users/**,/api/v1/auth/**,/api/v1/regions/**,/api/v1/admin/regions/**,/api/v1/consent-documents/**,/api/v1/admin/consent-documents/**,/api/v1/consents/**
+
+            - id: discharge-service
+              uri: lb://discharge-service
+              predicates:
+                - Path=/api/v1/discharges/**
+
+            - id: social-worker-service
+              uri: lb://social-worker-service
+              predicates:
+                - Path=/api/v1/social-worker-matchings/**
+
+            - id: schedule-service
+              uri: lb://schedule-service
+              predicates:
+                - Path=/api/v1/service-schedules/**,/api/v1/service-results/**
+
+            - id: provider-service
+              uri: lb://provider-service
+              predicates:
+                - Path=/api/v1/provide-services/**,/api/v1/service-offerings/**,/api/v1/provide-works/**,/api/v1/admin/service-offerings/**
+
+            - id: care-plan-service
+              uri: lb://care-plan-service
+              predicates:
+                - Path=/api/v1/care-plans/**,/api/v1/admin/care-plans/**,/api/v1/care-plan-services/**,/api/v1/service-preferences/**

@@ -112,5 +112,18 @@ public class UserCreateService {
 	public void createUserPatient() {
 		// TODO: 퇴원 예정자 등록 API
 	}
+
+	// 서버 최초 구동 시 마스터 계정이 없으면 생성한다 (있으면 아무 것도 하지 않음)
+	public void createUserMaster(String username, String rawPassword, String name, String phone) {
+		if(userQueryRepo.duplicateUsername(username)) {
+			return;
+		}
+
+		String passwordHash = passwordEncoder.encode(rawPassword);
+
+		User master = User.createMaster(username, passwordHash, name, phone);
+
+		userCommandRepo.save(master);
+	}
 	
 }

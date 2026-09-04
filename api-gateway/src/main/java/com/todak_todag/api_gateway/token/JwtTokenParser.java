@@ -25,7 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class JwtTokenParser {
 
-	private static final String EXPECTED_ALGORITHM = "HS256";
+	private static final String EXPECTED_ALGORITHM = "HS512"; // 토큰 만들때 명시하지않으면 기본 HS512
 	
 	private final JwtParser jwtParser;
 	

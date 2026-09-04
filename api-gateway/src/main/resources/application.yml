@@ -4,7 +4,20 @@ server:
 spring:
   application:
     name: api-gateway
-    
+
+  profiles:
+    active: local
+
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
   cloud:
     gateway:
       server:
@@ -13,33 +26,33 @@ spring:
             locator:
               enabled: false
               lower-case-service-id: true
-              
+
           routes:
             - id: user-service
               uri: lb://user-service
               predicates:
                 - Path=/api/v1/users/**,/api/v1/admin/users/**,/api/v1/auth/**,/api/v1/regions/**,/api/v1/admin/regions/**,/api/v1/consent-documents/**,/api/v1/admin/consent-documents/**,/api/v1/consents/**
-                    
+
             - id: discharge-service
               uri: lb://discharge-service
               predicates:
                 - Path=/api/v1/discharges/**
-                
+
             - id: social-worker-service
               uri: lb://social-worker-service
               predicates:
                 - Path=/api/v1/social-worker-matchings/**
-                
+
             - id: schedule-service
               uri: lb://schedule-service
               predicates:
                 - Path=/api/v1/service-schedules/**,/api/v1/service-results/**
-                
+
             - id: provider-service
               uri: lb://provider-service
               predicates:
                 - Path=/api/v1/provide-services/**,/api/v1/service-offerings/**,/api/v1/provide-works/**,/api/v1/admin/service-offerings/**
-                
+
             - id: care-plan-service
               uri: lb://care-plan-service
               predicates:
@@ -52,42 +65,42 @@ spring:
                 - Path=/v3/api-docs/user-service
               filters:
                 - SetPath=/v3/api-docs
-                
+
             - id: discharge-service-docs
               uri: lb://discharge-service
               predicates:
                 - Path=/v3/api-docs/discharge-service
               filters:
                 - SetPath=/v3/api-docs
-                
+
             - id: social-worker-service-docs
               uri: lb://social-worker-service
               predicates:
                 - Path=/v3/api-docs/social-worker-service
               filters:
                 - SetPath=/v3/api-docs
-                
+
             - id: schedule-service-docs
               uri: lb://schedule-service
               predicates:
                 - Path=/v3/api-docs/schedule-service
               filters:
                 - SetPath=/v3/api-docs
-                
+
             - id: provider-service-docs
               uri: lb://provider-service
               predicates:
                 - Path=/v3/api-docs/provider-service
               filters:
                 - SetPath=/v3/api-docs
-                
+
             - id: care-plan-service-docs
               uri: lb://care-plan-service
               predicates:
                 - Path=/v3/api-docs/care-plan-service
               filters:
                 - SetPath=/v3/api-docs
-                
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
@@ -98,64 +111,58 @@ springdoc:
       - { name: schedule-service, url: /v3/api-docs/schedule-service }
       - { name: provider-service, url: /v3/api-docs/provider-service }
       - { name: care-plan-service, url: /v3/api-docs/care-plan-service }
-      
+
 management:
   endpoints:
     web:
       exposure:
         include: health
-        
+
   endpoint:
     health:
       show-details: never
 
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
+
 internal:
-  key: ${INTERNAL_API_KEY:01234567890123456789012345678901}
-  
+  key: ${INTERNAL_API_KEY}
+
 jwt:
-  secret: ${JWT_SECRET:bG9jYWwtand0LXNlY3JldC1rZXktZm9yLWRldmVsb3BtZW50LXRlc3Qtb25seS0zMmJ5dGVz}
+  secret: ${JWT_SECRET}
 
 authentication:
   access-token:
     cookie-name: AccessToken
     redis-key-prefix: ${ACCESS_KEY_PREFIX}
     user-id-claim: sub
-    role-claim: role  
-  
+    role-claim: role
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_SERVER_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    com.todak_todag.api_gateway: info
+
 ---
 spring:
   config:
     activate:
       on-profile: local
-    import:
-      # Config Server 생성 후 변경
-      - optional:file:.env[.properties]
-      - optional:file:../.env[.properties]
-      
-  data:
-    redis:
-      host: localhost
-      port: 6379
-            
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
-      
-management:
-  tracing:
-    sampling:
-      probability: 1.0
-    export:
-      zipkin:
-        endpoint: http://localhost:9411/api/v2/spans
-      
+
 logging:
   level:
-    com.todak_todag.api-gateway: debug
-    
+    com.todak_todag.api_gateway: debug
+
 ---
 spring:
   config:
@@ -163,33 +170,7 @@ spring:
       on-profile: prod
     import:
       - configserver:http://${CONFIG_SERVER_HOST}:8888
-      
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-      
-eureka:
-  client:
-    service-url:
-      defaultZone: http://${EUREKA_SERVER_HOST}:8761/eureka/
-  instance:
-    prefer-ip-address: true
 
-internal:
-  key: ${INTERNAL_API_KEY}
-    
-jwt:
-  secret: ${JWT_SECRET}
-    
-management:
-  tracing:
-    sampling:
-      probability: 1.0
-    export:
-      zipkin:
-        endpoint: http://${ZIPKIN_HOST}:9411/api/v2/spans
-        
 logging:
   level:
-    com.todak_todag.api-gateway: info
+    com.todak_todag.api_gateway: info

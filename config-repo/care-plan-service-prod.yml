@@ -42,3 +42,6 @@ management:
   endpoint:
     health:
       show-details: never
+
+internal:
+  key: ${INTERNAL_API_KEY}

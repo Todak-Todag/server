@@ -1,14 +1,8 @@
 package com.spring.careplanservice.careplan.application.service.query;
 
 
-import com.spring.careplanservice.careplan.application.query.CarePlanFindByPatientQuery;
-import com.spring.careplanservice.careplan.application.query.CarePlanFindByPreferenceQuery;
-import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
-import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindByPatientResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindByPreferenceResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
+import com.spring.careplanservice.careplan.application.query.*;
+import com.spring.careplanservice.careplan.application.result.*;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
@@ -26,6 +20,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -102,6 +97,16 @@ public class CarePlanQueryService {
         return carePlanQueryRepository
                 .search(carePlanSearchQuery, pageable)
                 .map(CarePlanSearchResult::from);
+    }
+
+    public ServicePreferenceIdsResult findServicePreferenceIds(
+            ServicePreferenceIdsQuery servicePreferenceIdsQuery
+    ) {
+        List<UUID> servicePreferenceIds = servicePreferenceQueryRepository.findIdsByPatientId(
+                servicePreferenceIdsQuery.patientId()
+        );
+
+        return new ServicePreferenceIdsResult(servicePreferenceIds);
     }
 
     private BusinessException carePlanNotFound() {
