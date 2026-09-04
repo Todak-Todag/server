@@ -1,9 +1,13 @@
 package com.todak_todag.user_service.user.application.service.query;
 
 import com.todak_todag.user_service.global.common.PageableFactory;
+import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.user.application.query.RegionFindAdminQuery;
 import com.todak_todag.user_service.user.application.result.RegionFindAdminResult;
 import com.todak_todag.user_service.user.application.result.RegionFindAvailableResult;
+import com.todak_todag.user_service.user.application.result.RegionFindDetailResult;
+import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -48,5 +52,15 @@ public class RegionQueryService {
     // 회원가입시 지역 검증 조회
     public boolean existsAvailableRegion(UUID regionId) {
         return regionQueryRepository.existsAvailableRegion(regionId);
+    }
+
+    // 지역 단건 조회
+    public RegionFindDetailResult findRegion(UUID regionId) {
+        Region region = regionQueryRepository.findById(regionId)
+                .orElseThrow(() ->
+                        new BusinessException(RegionErrorCode.REGION_NOT_FOUND)
+                );
+
+        return RegionFindDetailResult.from(region);
     }
 }
