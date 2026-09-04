@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface RegionQueryRepository {
 
@@ -17,4 +18,7 @@ public interface RegionQueryRepository {
             RegionFindAdminQuery query,
             Pageable pageable
     );
+
+    // 회원가입시 지역 검증을 위한 조회
+    boolean existsAvailableRegion(UUID regionId);
 }

@@ -57,4 +57,8 @@ public class CarePlan extends BaseAuditEntity {
 
         return carePlan;
     }
+
+    public void complete() {
+        this.status = CarePlanStatus.COMPLETED;
+    }
 }

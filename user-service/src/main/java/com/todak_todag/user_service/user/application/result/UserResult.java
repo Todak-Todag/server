@@ -6,5 +6,10 @@ public final class UserResult {
 
 	public record UserSignupCreatedResult(UUID userId, String name) {}
 	
-	public record UserAdminCreatedResult() {}
+	public record UserAdminCreatedResult(
+			UUID userId,
+			String name,
+			String province,
+			String district
+	) {}
 }

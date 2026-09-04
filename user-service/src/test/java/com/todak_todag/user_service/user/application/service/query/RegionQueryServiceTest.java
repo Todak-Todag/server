@@ -191,4 +191,41 @@ class RegionQueryServiceTest {
             assertThat(results.getTotalElements()).isZero();
         }
     }
+
+    @Nested
+    @DisplayName("서비스 가능 지역 존재 여부 확인")
+    class ExistsAvailableRegion {
+
+        @Test
+        @DisplayName("활성화되어 있고 삭제되지 않은 지역이면 true를 반환한다")
+        void existsAvailableRegion_success() {
+            // given
+            UUID regionId = UUID.randomUUID();
+
+            given(regionQueryRepository.existsAvailableRegion(regionId))
+                    .willReturn(true);
+
+            // when
+            boolean result = regionQueryService.existsAvailableRegion(regionId);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("서비스 가능한 지역이 아니면 false를 반환한다")
+        void existsAvailableRegion_notAvailable() {
+            // given
+            UUID regionId = UUID.randomUUID();
+
+            given(regionQueryRepository.existsAvailableRegion(regionId))
+                    .willReturn(false);
+
+            // when
+            boolean result = regionQueryService.existsAvailableRegion(regionId);
+
+            // then
+            assertThat(result).isFalse();
+        }
+    }
 }

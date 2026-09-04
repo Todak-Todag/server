@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,5 +41,10 @@ public class ServiceOfferingPersistenceAdapter
     @Override
     public Page<ServiceOfferingView> searchByProviderId(UUID providerId, Pageable pageable) {
         return serviceOfferingQueryDslRepository.searchByProviderId(providerId, pageable);
+    }
+
+    @Override
+    public List<UUID> findIdsByProviderId(UUID providerId) {
+        return jpaServiceOfferingRepository.findIdsByProviderId(providerId);
     }
 }

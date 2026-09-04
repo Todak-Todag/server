@@ -82,14 +82,52 @@ public class User extends BaseAuditableEntity {
 		return user;
 	}
 	
-	public static User createAdmin() {
-		// TODO: 운영자 등록 API
-		return null;
+	public static User createAdmin(
+			UUID regionId,
+			String username,
+			String passwordHash,
+			String name,
+			String phone,
+			UserRole role
+	) {
+		validateAdmin(role);
+		
+		User user = new User();
+		
+		user.regionId = regionId;
+		user.username = username;
+		user.passwordHash = passwordHash;
+		user.name = name;
+		user.phone = phone;
+		user.role = role;
+		user.status = UserStatus.APPROVED;
+		
+		return user;
 	}
 	
-	public static User createPatient() {
-		// TODO: 퇴원 예정자 등록 API
-		return null;
+	public static User createPatient(
+			UUID regionId,
+			String username,
+			String passwordHash,
+			String name,
+			String phone,
+			String address,
+			UserRole role
+	) {
+		validatePatient(role);
+		
+		User user = new User();
+		
+		user.regionId = regionId;
+		user.username = username;
+		user.passwordHash = passwordHash;
+		user.name = name;
+		user.phone = phone;
+		user.role = role;
+		user.address = address;
+		user.status = UserStatus.PENDING;
+		
+		return user;
 	}
 	
 	private static void validateSignup(UserRole role) {

@@ -25,6 +25,12 @@ public final class UserCommand {
 		}
 	}
 	
-	public record UserAdminCreateCommand() {}
+	public record UserAdminCreateCommand(
+			String username,
+			String password,
+			String name,
+			String phone,
+			UUID regionId
+	) {}
 	
 }
