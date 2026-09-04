@@ -6,10 +6,10 @@ import com.todak_todag.provider_service.global.response.PageResponse;
 import com.todak_todag.provider_service.global.security.UserContext;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
+import com.todak_todag.provider_service.provider.application.facade.ServiceOfferingFacade;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
-import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
-import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
 import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
 import com.todak_todag.provider_service.provider.presentation.request.ServiceOfferingCreateRequest;
 import com.todak_todag.provider_service.provider.presentation.response.ServiceOfferingCreateResponse;
@@ -29,7 +29,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ServiceOfferingApiController {
 
-    private final ServiceOfferingCommandService serviceOfferingCommandService;
+    private final ServiceOfferingFacade serviceOfferingFacade;
     private final ServiceOfferingQueryService serviceOfferingQueryService;
 
     @PostMapping
@@ -39,7 +39,7 @@ public class ServiceOfferingApiController {
             @AuthenticationPrincipal UserContext user,
             @Valid @RequestBody ServiceOfferingCreateRequest request
     ) {
-        ServiceOfferingCreateResult result = serviceOfferingCommandService.create(
+        ServiceOfferingCreateResult result = serviceOfferingFacade.create(
                 new ServiceOfferingCreateCommand(user.getUserId(), request.provideServiceId())
         );
 
@@ -53,7 +53,7 @@ public class ServiceOfferingApiController {
             @AuthenticationPrincipal UserContext user,
             @PathVariable("serviceOfferingId") UUID serviceOfferingId
     ) {
-        serviceOfferingCommandService.delete(
+        serviceOfferingFacade.delete(
                 new ServiceOfferingDeleteCommand(serviceOfferingId, user.getUserId(), user.getRole())
         );
     }
