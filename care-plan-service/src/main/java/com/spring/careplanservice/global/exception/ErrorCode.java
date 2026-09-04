@@ -94,7 +94,7 @@ public enum ErrorCode {
     CARE_PLAN_INVALID_STATUS_TRANSITION(
             HttpStatus.BAD_REQUEST,
             "허용되지 않는 Care Plan 상태 전이입니다."
-    ),
+    )
     ;
 
 

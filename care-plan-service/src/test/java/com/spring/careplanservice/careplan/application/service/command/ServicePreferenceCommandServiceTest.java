@@ -10,6 +10,7 @@ import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCom
 import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
 import com.spring.careplanservice.global.exception.BusinessException;
+import com.spring.careplanservice.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -459,6 +460,34 @@ class ServicePreferenceCommandServiceTest {
 
             assertThatThrownBy(() -> servicePreferenceCommandService.updateServicePreference(command))
                     .isInstanceOf(BusinessException.class);
+        }
+
+        @Test
+        @DisplayName("Care Plan 서비스가 존재하지 않으면 예외")
+        void updateServicePreference_planServiceNotFound() {
+            ServicePreferenceUpdateCommand servicePreferenceUpdateCommand = new ServicePreferenceUpdateCommand(
+                    patientId,
+                    servicePreferenceId,
+                    LocalDate.of(2026, 9, 15),
+                    PreferredTimeSlot.AFTERNOON
+            );
+
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            given(servicePreferenceCommandRepository.findById(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.updateServicePreference(servicePreferenceUpdateCommand))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue(
+                            "errorCode",
+                            ErrorCode.CARE_PLAN_SERVICE_NOT_FOUND
+                    );
+            verify(carePlanCommandRepository, never()).findById(any(UUID.class));
         }
     }
 }
