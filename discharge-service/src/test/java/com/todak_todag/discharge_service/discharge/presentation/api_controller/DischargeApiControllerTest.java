@@ -1,7 +1,7 @@
 package com.todak_todag.discharge_service.discharge.presentation.api_controller;
 
-import com.todak_todag.discharge_service.discharge.application.command_service.DischargeCommandService;
-import com.todak_todag.discharge_service.discharge.application.query_service.DischargeQueryService;
+import com.todak_todag.discharge_service.discharge.application.service.command.DischargeCommandService;
+import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeFindResult;
 import com.todak_todag.discharge_service.discharge.domain.entity.DischargeStatus;

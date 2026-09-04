@@ -1,4 +1,4 @@
-package com.todak_todag.discharge_service.discharge.application.command_service;
+package com.todak_todag.discharge_service.discharge.application.service.command;
 
 import com.todak_todag.discharge_service.discharge.application.command.DischargeCreateCommand;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;

@@ -1,6 +1,6 @@
 package com.todak_todag.discharge_service.discharge.presentation.internal_controller;
 
-import com.todak_todag.discharge_service.discharge.application.query_service.DischargeQueryService;
+import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeInternalFindResult;
 import com.todak_todag.discharge_service.discharge.presentation.response.DischargeInternalFindResponse;
 import com.todak_todag.discharge_service.global.response.ApiResponse;
