@@ -486,7 +486,7 @@ class CarePlanCommandServiceTest {
         @Test
         @DisplayName("Care Plan이 존재하지 않으면 예외")
         void updateCarePlanStatus_carePlanNotFound() {
-            CarePlanStatusUpdateCommand command = new CarePlanStatusUpdateCommand(
+            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
                     userId,
                     UserRole.SERVICE_PROVIDER,
                     carePlanId,
@@ -495,7 +495,7 @@ class CarePlanCommandServiceTest {
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(command))
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand))
                     .isInstanceOf(BusinessException.class);
             verify(carePlanCommandRepository).findById(carePlanId);
         }
