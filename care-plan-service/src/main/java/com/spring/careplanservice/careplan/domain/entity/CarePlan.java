@@ -58,6 +58,26 @@ public class CarePlan extends BaseAuditEntity {
         return carePlan;
     }
 
+    public boolean canTransitionTo(
+            CarePlanStatus nextStatus
+    ) {
+        return switch (
+                this.status
+                ) {
+            case UNDER_REVIEW -> nextStatus == CarePlanStatus.CONFIRMED;
+
+            case CONFIRMED -> nextStatus == CarePlanStatus.IN_PROGRESS;
+
+            case IN_PROGRESS, COMPLETED -> false;
+        };
+    }
+
+    public void updateStatus(
+            CarePlanStatus status
+    ) {
+        this.status = status;
+    }
+
     public void complete() {
         this.status = CarePlanStatus.COMPLETED;
     }
