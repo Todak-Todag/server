@@ -105,6 +105,7 @@ public class CarePlanCommandService {
                 carePlanStatusUpdateCommand.status()
         );
 
+        // TODO: User-Service의 구현/머지 후 실제 연동 확인
         if (carePlan.getStatus() == CarePlanStatus.CONFIRMED) {
             UserFindResult userFindResult = userQueryPort.findById(
                     carePlan.getPatientId()
