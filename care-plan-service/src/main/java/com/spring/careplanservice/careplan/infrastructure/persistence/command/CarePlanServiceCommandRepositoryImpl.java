@@ -39,4 +39,9 @@ public class CarePlanServiceCommandRepositoryImpl implements CarePlanServiceComm
     ) {
         return jpaCarePlanServiceRepository.saveAll(carePlanServices);
     }
+
+    @Override
+    public List<CarePlanService> findAllByCarePlanId(UUID carePlanId) {
+        return jpaCarePlanServiceRepository.findAllByCarePlanIdAndDeletedAtIsNull(carePlanId);
+    }
 }

@@ -2,6 +2,7 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
+import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
@@ -15,6 +16,7 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreferen
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
+import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
 import com.spring.careplanservice.global.common.UserRole;
@@ -41,6 +43,7 @@ public class CarePlanCommandService {
 
     private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
     private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
+    private final ServicePreferenceCommandRepository servicePreferenceCommandRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UserQueryPort userQueryPort;
 
@@ -130,6 +133,35 @@ public class CarePlanCommandService {
     }
 
     @Transactional
+    public void deleteCarePlan(
+            CarePlanDeleteCommand carePlanDeleteCommand
+    ) {
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanDeleteCommand.carePlanId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
+
+        validateDeletable(carePlan);
+
+        List<CarePlanService> carePlanServices = carePlanServiceCommandRepository.findAllByCarePlanId(
+                carePlan.getId()
+        );
+
+        List<UUID> planServiceIds = carePlanServices.stream()
+                .map(CarePlanService::getId)
+                .toList();
+
+        List<CarePlanServicePreference> preferences = servicePreferenceCommandRepository.findAllByPlanServiceIds(
+                planServiceIds
+        );
+
+        UUID deletedBy = carePlanDeleteCommand.userId();
+
+        preferences.forEach(preference -> preference.delete(deletedBy));
+        carePlanServices.forEach(carePlanService -> carePlanService.delete(deletedBy));
+        carePlan.delete(deletedBy);
+    }
+
+    @Transactional
     public void completeCarePlan(UUID carePlanId) {
         CarePlan carePlan = carePlanCommandRepository
                 .findById(carePlanId)
@@ -194,6 +226,17 @@ public class CarePlanCommandService {
         if (!carePlan.canTransitionTo(nextStatus)) {
             throw new BusinessException(
                     ErrorCode.CARE_PLAN_INVALID_STATUS_TRANSITION
+            );
+        }
+    }
+
+    // 삭제 가능한 상태(UNDER_REVIEW)인지 검사
+    private void validateDeletable(
+            CarePlan carePlan
+    ) {
+        if (!carePlan.isUnderReview()) {
+            throw new BusinessException(
+                    ErrorCode.CARE_PLAN_DELETE_NOT_ALLOWED
             );
         }
     }
