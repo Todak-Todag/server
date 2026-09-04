@@ -79,6 +79,10 @@ public class CarePlan extends BaseAuditEntity {
     }
 
     public void complete() {
+        if (this.status != CarePlanStatus.IN_PROGRESS) {
+            return;
+        }
+
         this.status = CarePlanStatus.COMPLETED;
     }
 }

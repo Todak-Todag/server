@@ -2,7 +2,9 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
+import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
@@ -76,14 +78,32 @@ public class CarePlanCommandService {
     }
 
     @Transactional
-    public void completeCarePlan(UUID carePlanId) {
-        CarePlan carePlan = carePlanCommandRepository.findById(carePlanId)
+    public CarePlanStatusUpdateResult updateCarePlanStatus(
+            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand
+    ) {
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanStatusUpdateCommand.carePlanId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
 
-        // TODO: IN_PROGRESS 상태에서만 COMPLETED로 전환할 수 있도록 상태 검증 추가
-        if (carePlan.getStatus() == CarePlanStatus.COMPLETED) {
-            return;
-        }
+        validateStatusTransition(
+                carePlan,
+                carePlanStatusUpdateCommand.status()
+        );
+
+        carePlan.updateStatus(
+                carePlanStatusUpdateCommand.status()
+        );
+
+        return CarePlanStatusUpdateResult.from(
+                carePlan
+        );
+    }
+
+    @Transactional
+    public void completeCarePlan(UUID carePlanId) {
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
 
         carePlan.complete();
     }
@@ -131,6 +151,19 @@ public class CarePlanCommandService {
 
             throw new BusinessException(
                     ErrorCode.AUTH_FORBIDDEN
+            );
+        }
+    }
+
+    // 현재 Care Plan 상태에서 요청한 다음 상태로의 전이가 허용되는지 검증
+    // 허용되지 않는 상태 전이라면 비즈니스 예외 발생
+    private void validateStatusTransition(
+            CarePlan carePlan,
+            CarePlanStatus nextStatus
+    ) {
+        if (!carePlan.canTransitionTo(nextStatus)) {
+            throw new BusinessException(
+                    ErrorCode.CARE_PLAN_INVALID_STATUS_TRANSITION
             );
         }
     }
