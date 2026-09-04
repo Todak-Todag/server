@@ -12,8 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
-import com.todak_todag.user_service.user.application.result.UserResult.UserAdminCreatedResult;
-import com.todak_todag.user_service.user.application.result.UserResult.UserSignupCreatedResult;
+import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
+import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;

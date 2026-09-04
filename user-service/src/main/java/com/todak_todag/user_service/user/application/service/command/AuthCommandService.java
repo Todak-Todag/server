@@ -14,7 +14,7 @@ import com.todak_todag.user_service.user.application.command.AuthLoginCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 import com.todak_todag.user_service.user.application.port.TokenStorePort;
-import com.todak_todag.user_service.user.application.result.AuthResult.AuthLoginResult;
+import com.todak_todag.user_service.user.application.result.AuthLoginResult;
 import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.AuthCommandRepository;

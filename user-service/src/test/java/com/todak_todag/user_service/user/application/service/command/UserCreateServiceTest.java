@@ -34,8 +34,8 @@ import com.todak_todag.user_service.user.application.command.UserAdminCreateComm
 import com.todak_todag.user_service.user.application.command.UserSignupCommand;
 import com.todak_todag.user_service.user.application.command.UserSignupCommand.AgreementCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
-import com.todak_todag.user_service.user.application.result.UserResult.UserAdminCreatedResult;
-import com.todak_todag.user_service.user.application.result.UserResult.UserSignupCreatedResult;
+import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
+import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
