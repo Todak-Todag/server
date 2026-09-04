@@ -13,8 +13,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
+import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
+import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
@@ -32,6 +34,8 @@ import lombok.RequiredArgsConstructor;
 public class UserApiController implements UserApiSpec {
 
 	private final UserCreateService userCreateService;
+	
+	private final UserUpdateService userUpdateService;
 	
 	@Override
 	@PostMapping("/users/signup")
@@ -75,7 +79,23 @@ public class UserApiController implements UserApiSpec {
 			@AuthenticationPrincipal UserContext user
 	) {
 		
-		return null;
+		UserApprovalResult result = userUpdateService.approval(
+				userApprovalRequest.toCommand(user)
+		);
+		
+		UserApprovalResponse response = new UserApprovalResponse(
+				result.userId(),
+				result.role().getKoreaName(),
+				result.rejectReason()
+		);
+		
+		String responseMessage = result.isAccept()
+				? "회원가입 요청 승인 완료"		// true
+				: "회원가입 요청 거절 완료";	// false
+		
+		return ResponseEntity
+				.status(200)
+				.body(ApiResponse.ok(responseMessage, response));
 	}
 	
 	

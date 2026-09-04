@@ -31,17 +31,17 @@ public class UserUpdateService {
 		UserRole requesterRole = command.requesterRole();
 		
 		// 2. 요청자가 운영자면 승인/거절 대상의 지역과 같은지 확인한다.
-		User target = null;
+		
+		// 2-1. 대상자 조회
+		User target = userQueryRepo.findById(command.userId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
 		if(Objects.equals(requesterRole, UserRole.ADMIN)) {
 			
 			// 2-1. 관리자를 조회한다. 없으면 권한이 없는 것이다.
 			User admin = userQueryRepo.findAdminById(command.requesterId())
 					.orElseThrow(() -> new BusinessException(CommonErrorCode.FORBIDDEN));
-			
-			// 2-2. 승인/거절 대상자를 조회한다. 없으면 User Not Found
-			target = userQueryRepo.findById(command.userId())
-					.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
-			
+
 			// 2-3. 지역이 다르면 권한이 없다.
 			if(!Objects.equals(admin.getRegionId(), target.getRegionId())) {
 				throw new BusinessException(CommonErrorCode.FORBIDDEN);
@@ -54,7 +54,8 @@ public class UserUpdateService {
 		return new UserApprovalResult(
 				target.getId(),
 				target.getRole(),
-				target.getStatusChangeReason()
+				target.getStatusChangeReason(),
+				command.accept()
 		);
 	}
 	

@@ -7,7 +7,8 @@ import com.todak_todag.user_service.global.common.UserRole;
 public record UserApprovalResult(
 		UUID userId,
 		UserRole role,
-		String rejectReason
+		String rejectReason,
+		boolean isAccept
 ) {
 
 }

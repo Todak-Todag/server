@@ -7,5 +7,5 @@ public record UserApprovalResponse(
 		String role,
 		String rejectReason
 ) {
-
+	
 }
