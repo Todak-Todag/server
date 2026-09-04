@@ -15,7 +15,7 @@ public class ServicePreferenceDateValidator {
     ) {
         LocalDate today = LocalDate.now();
 
-        if (preferredDate.isBefore(today)
+        if (!preferredDate.isAfter(today)
                 || preferredDate.isBefore(startDate)
                 || preferredDate.isAfter(finishDate)) {
 
