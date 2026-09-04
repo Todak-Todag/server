@@ -1,0 +1,79 @@
+server:
+  port: 19000
+
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      timeout: 3s
+
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_schema: user_schema
+        default_batch_fetch_size: 100
+
+internal:
+  key: ${INTERNAL_API_KEY}
+
+jwt:
+  secret: ${JWT_SECRET}
+  access:
+    expiration: ${ACCESS_EXPIRATION:30m}
+    max-age: ${REFRESH_EXPIRATION:7d} # 지금 토큰 인증 구조에선 RefreshToken 과 똑같이
+  refresh:
+    expiration: ${REFRESH_EXPIRATION:7d}
+    max-age: ${REFRESH_EXPIRATION:7d}
+  http-only: true
+  secure: true
+
+authentication:
+  access-token:
+    redis-key-prefix: ${ACCESS_KEY_PREFIX}
+
+master:
+  username: ${MASTER_USERNAME}
+  password: ${MASTER_PASSWORD}
+  name: ${MASTER_NAME}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: never
+
+  tracing:
+    sampling:
+      probability: 1.0
+
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
+logging:
+  level:
+    com.todak_todag.user_service: info

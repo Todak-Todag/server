@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
-import com.todak_todag.user_service.user.application.result.AuthResult.AuthLoginResult;
+import com.todak_todag.user_service.user.application.result.AuthLoginResult;
 import com.todak_todag.user_service.user.application.service.command.AuthCommandService;
 import com.todak_todag.user_service.user.presentation.cookie.CookieProvider;
-import com.todak_todag.user_service.user.presentation.request.UserRequest.UserLoginRequest;
+import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;

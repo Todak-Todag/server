@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Repository;
 
+import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
@@ -38,6 +39,11 @@ public class UserPersistenceAdapter implements UserCommandRepository , UserQuery
 	@Override
 	public Optional<User> findLoginByUsername(String username) {
 		return jpaRepository.findByUsernameAndStatusIn(username, List.of(UserStatus.APPROVED, UserStatus.WITHDRAWN, UserStatus.PENDING));
+	}
+
+	@Override
+	public Optional<User> findAdminById(UUID userId) {
+		return jpaRepository.findByIdAndRole(userId, UserRole.ADMIN);
 	}
 	
 }
