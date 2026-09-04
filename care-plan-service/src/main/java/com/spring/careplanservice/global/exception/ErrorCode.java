@@ -66,6 +66,11 @@ public enum ErrorCode {
             "Care Plan 서비스를 찾을 수 없습니다."
     ),
 
+    SERVICE_PREFERENCE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "존재하지 않는 서비스 희망 일정입니다."
+    ),
+
     SERVICE_PREFERENCE_DATE_OUT_OF_RANGE(
             HttpStatus.BAD_REQUEST,
             "희망 날짜는 Care Plan 제공 기간 내에서만 선택할 수 있습니다."
@@ -89,7 +94,7 @@ public enum ErrorCode {
     CARE_PLAN_INVALID_STATUS_TRANSITION(
             HttpStatus.BAD_REQUEST,
             "허용되지 않는 Care Plan 상태 전이입니다."
-    ),
+    )
     ;
 
 

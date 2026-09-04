@@ -2,7 +2,9 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceCreateCommand;
+import com.spring.careplanservice.careplan.application.command.ServicePreferenceUpdateCommand;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
+import com.spring.careplanservice.careplan.application.result.ServicePreferenceUpdateResult;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
@@ -72,6 +74,57 @@ public class ServicePreferenceCommandService {
 
         return ServicePreferenceCreateResult.from(
                 savedPreference
+        );
+    }
+
+    @Transactional
+    public ServicePreferenceUpdateResult updateServicePreference(
+            ServicePreferenceUpdateCommand servicePreferenceUpdateCommand
+    ) {
+        CarePlanServicePreference carePlanServicePreference = servicePreferenceCommandRepository
+                .findById(servicePreferenceUpdateCommand.servicePreferenceId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.SERVICE_PREFERENCE_NOT_FOUND
+                        )
+                );
+
+        CarePlanService carePlanService = carePlanServiceQueryRepository
+                .findById(carePlanServicePreference.getPlanServiceId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_SERVICE_NOT_FOUND
+                        )
+                );
+
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanService.getCarePlanId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_NOT_FOUND
+                        )
+                );
+
+        carePlanOwnerValidator.validate(
+                servicePreferenceUpdateCommand.userId(),
+                carePlan.getPatientId()
+        );
+
+        validateCarePlanStatus(carePlan);
+
+        validatePreferredDate(
+                servicePreferenceUpdateCommand.preferredDate(),
+                carePlan.getStartDate(),
+                carePlan.getFinishDate()
+        );
+
+        carePlanServicePreference.updatePreference(
+                servicePreferenceUpdateCommand.preferredDate(),
+                servicePreferenceUpdateCommand.preferredTimeSlot()
+        );
+
+        return ServicePreferenceUpdateResult.from(
+                carePlanServicePreference
         );
     }
 
