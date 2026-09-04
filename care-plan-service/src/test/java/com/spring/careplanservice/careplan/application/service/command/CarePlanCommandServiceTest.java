@@ -336,7 +336,7 @@ class CarePlanCommandServiceTest {
     }
 
     @Nested
-    @DisplayName("Care plan 수정")
+    @DisplayName("Care plan 상태 수정")
     class CarePlan_update {
         @Test
         @DisplayName("UNDER_REVIEW 상태는 CONFIRMED 상태로 변경 가능")
@@ -367,5 +367,62 @@ class CarePlanCommandServiceTest {
             verify(carePlanCommandRepository).findById(carePlanId);
         }
 
+        @Test
+        @DisplayName("CONFIRMED 상태는 IN_PROGRESS 상태로 변경 가능")
+        void updateCarePlanStatus_confirmedToInProgress_success() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+            carePlan.updateStatus(
+                    CarePlanStatus.CONFIRMED
+            );
+
+            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
+                    userId,
+                    UserRole.SERVICE_PROVIDER,
+                    carePlanId,
+                    CarePlanStatus.IN_PROGRESS
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand);
+
+            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.IN_PROGRESS);
+            assertThat(carePlanStatusUpdateResult.status()).isEqualTo(CarePlanStatus.IN_PROGRESS);
+
+            verify(carePlanCommandRepository).findById(carePlanId);
+        }
+
+        @Test
+        @DisplayName("UNDER_REVIEW 상태에서 IN_PROGRESS로 변경하면 예외")
+        void updateCarePlanStatus_underReviewToInProgress_throwsException() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
+                    userId,
+                    UserRole.SERVICE_PROVIDER,
+                    carePlanId,
+                    CarePlanStatus.IN_PROGRESS
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand))
+                    .isInstanceOf(BusinessException.class);
+            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.UNDER_REVIEW);
+
+            verify(carePlanCommandRepository).findById(carePlanId);
+        }
     }
 }
