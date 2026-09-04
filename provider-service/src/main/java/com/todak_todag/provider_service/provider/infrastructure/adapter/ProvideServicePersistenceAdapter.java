@@ -5,6 +5,8 @@ import com.todak_todag.provider_service.provider.domain.repository.command.Provi
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideServiceQueryRepository;
 import com.todak_todag.provider_service.provider.infrastructure.persistence.JpaProvideServiceRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.UUID;
@@ -29,5 +31,10 @@ public class ProvideServicePersistenceAdapter
     @Override
     public boolean existsByName(String name) {
         return jpaProvideServiceRepository.existsByName(name);
+    }
+
+    @Override
+    public Page<ProvideService> findAll(Pageable pageable) {
+        return jpaProvideServiceRepository.findAll(pageable);
     }
 }
