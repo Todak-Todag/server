@@ -40,5 +40,23 @@ CREATE TABLE IF NOT EXISTS schedule_schema.p_care_plan_service_results (
     updated_by UUID NOT NULL,
     deleted_at TIMESTAMPTZ,
     deleted_by UUID
+);
 
+CREATE TYPE schedule_schema.schedule_outbox_event_status AS ENUM (
+    'PENDING', 'SENT', 'FAILED'
+);
+
+CREATE TABLE IF NOT EXISTS schedule_schema.p_schedule_outbox_events (
+    outbox_event_id UUID PRIMARY KEY,
+    event_type VARCHAR(255) NOT NULL,
+    aggregate_id UUID NOT NULL,
+    payload TEXT NOT NULL,
+    status schedule_schema.schedule_outbox_event_status NOT NULL DEFAULT 'PENDING',
+    retry_count INTEGER NOT NULL,
+    last_error_message TEXT,
+    published_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL,
+    created_by UUID NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    updated_by UUID NOT NULL
 );
