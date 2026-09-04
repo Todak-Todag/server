@@ -98,3 +98,7 @@ CREATE TABLE IF NOT EXISTS user_schema.p_consents (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_p_users_username_active
     ON user_schema.p_users (username)
     WHERE deleted_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_p_auths_user_active
+    ON user_schema.p_auths (user_id)
+    WHERE logout_at IS NULL;

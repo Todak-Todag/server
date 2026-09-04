@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.domain.entity;
+package com.todak_todag.user_service.user.domain.entity.auth;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -33,7 +33,7 @@ public class Auth {
 	@Column(name = "expires_at", nullable = false)
 	private LocalDateTime expiresAt;
 	
-	@Column(name = "login_at", nullable = false)
+	@Column(name = "login_at", nullable = false, updatable = false)
 	private LocalDateTime loginAt;
 	
 	@Column(name = "logout_at")
@@ -53,7 +53,12 @@ public class Auth {
 	
 	public void logout() {
 		if(this.logoutAt != null) return;
-		
+
 		this.logoutAt = LocalDateTime.now();
+	}
+
+	public void renew(String refreshTokenHash, LocalDateTime expiresAt) {
+		this.refreshTokenHash = refreshTokenHash;
+		this.expiresAt = expiresAt;
 	}
 }

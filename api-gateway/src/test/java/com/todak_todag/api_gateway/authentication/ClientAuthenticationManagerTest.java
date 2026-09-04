@@ -79,8 +79,8 @@ class ClientAuthenticationManagerTest {
 	}
 
 	@Test
-	@DisplayName("저장된 토큰이 Cookie 토큰과 일치하고 JWT 가 정상이면 인증 완료 객체를 반환한다")
-	void returnsAuthenticatedTokenWhenStoredTokenMatchesAndJwtIsValid() {
+	@DisplayName("저장소에서 조회한 토큰의 JWT 가 정상이면 인증 완료 객체를 반환한다")
+	void returnsAuthenticatedTokenWhenJwtIsValid() {
 		when(accessTokenStore.findByHash(EXPECTED_TOKEN_HASH)).thenReturn(Mono.just(COOKIE_TOKEN));
 		when(jwtTokenParser.parse(COOKIE_TOKEN)).thenReturn(new AccessTokenClaims(USER_ID, ROLE));
 
@@ -111,19 +111,6 @@ class ClientAuthenticationManagerTest {
 	@DisplayName("저장소에 토큰이 없으면 INVALID_ACCESS_TOKEN 이다")
 	void failsWithInvalidAccessTokenWhenStoreIsEmpty() {
 		when(accessTokenStore.findByHash(EXPECTED_TOKEN_HASH)).thenReturn(Mono.empty());
-
-		StepVerifier.create(clientAuthenticationManager.authenticate(unauthenticatedToken()))
-				.expectErrorSatisfies(tokenErrorOf(TokenErrorCode.INVALID_ACCESS_TOKEN))
-				.verify();
-
-		verify(jwtTokenParser, never()).parse(anyString());
-	}
-
-	@Test
-	@DisplayName("저장된 토큰이 Cookie 토큰과 다르면 INVALID_ACCESS_TOKEN 이고 JWT 를 파싱하지 않는다")
-	void failsWithInvalidAccessTokenWhenStoredTokenDiffers() {
-		when(accessTokenStore.findByHash(EXPECTED_TOKEN_HASH))
-				.thenReturn(Mono.just("another-access-token"));
 
 		StepVerifier.create(clientAuthenticationManager.authenticate(unauthenticatedToken()))
 				.expectErrorSatisfies(tokenErrorOf(TokenErrorCode.INVALID_ACCESS_TOKEN))
