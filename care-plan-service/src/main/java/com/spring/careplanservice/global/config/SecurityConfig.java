@@ -41,7 +41,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/internal/**",
-                                "/actuator/health/**"
+                                "/actuator/health/**",
+                                "/v3/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );
