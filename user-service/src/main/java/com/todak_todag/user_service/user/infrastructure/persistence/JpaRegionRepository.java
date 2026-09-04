@@ -1,6 +1,7 @@
 package com.todak_todag.user_service.user.infrastructure.persistence;
 
 import com.todak_todag.user_service.user.domain.entity.Region;
+import com.todak_todag.user_service.user.infrastructure.persistence.query.RegionQueryDslRepository;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

@@ -1,18 +1,23 @@
 package com.spring.careplanservice.careplan.presentation.controller.api;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
+import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.facade.CarePlanFacade;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
+import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
 import com.spring.careplanservice.careplan.application.service.query.CarePlanQueryService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanCreateRequest;
+import com.spring.careplanservice.careplan.presentation.request.CarePlanStatusUpdateRequest;
 import com.spring.careplanservice.careplan.presentation.response.CarePlanCreateResponse;
 import com.spring.careplanservice.careplan.presentation.response.CarePlanFindResponse;
 import com.spring.careplanservice.careplan.presentation.response.CarePlanSearchResponse;
+import com.spring.careplanservice.careplan.presentation.response.CarePlanStatusUpdateResponse;
 import com.spring.careplanservice.global.response.ApiResponse;
 import com.spring.careplanservice.global.response.PageResponse;
 import com.spring.careplanservice.global.security.UserContext;
@@ -34,6 +39,7 @@ import java.util.UUID;
 public class CarePlanController {
     private final CarePlanFacade carePlanFacade;
     private final CarePlanQueryService carePlanQueryService;
+    private final CarePlanCommandService carePlanCommandService;
 
     @PreAuthorize("hasAnyRole('HOSPITAL_STAFF', 'PATIENT')")
     @PostMapping
@@ -112,6 +118,30 @@ public class CarePlanController {
                         HttpStatus.OK.value(),
                         "Care Plan 목록 조회 성공",
                         PageResponse.of(resultPage, CarePlanSearchResponse::from)
+                )
+        );
+    }
+
+    @PatchMapping("/{carePlanId}/status")
+    @PreAuthorize("hasAnyRole('SERVICE_PROVIDER', 'SOCIAL_WORKER', 'ADMIN', 'MASTER')")
+    public ResponseEntity<ApiResponse<CarePlanStatusUpdateResponse>> updateCarePlanStatus(
+            @AuthenticationPrincipal UserContext user,
+            @PathVariable UUID carePlanId,
+            @Valid @RequestBody CarePlanStatusUpdateRequest carePlanStatusUpdateRequest
+    ) {
+        CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = carePlanStatusUpdateRequest.toCommand(
+                user.userId(),
+                user.role(),
+                carePlanId
+        );
+
+        CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        HttpStatus.OK.value(),
+                        "Care Plan 수정 성공",
+                        CarePlanStatusUpdateResponse.from(carePlanStatusUpdateResult)
                 )
         );
     }

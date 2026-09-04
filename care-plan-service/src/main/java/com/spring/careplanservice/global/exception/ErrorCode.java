@@ -85,6 +85,11 @@ public enum ErrorCode {
             HttpStatus.CONFLICT,
             "page는 0 이상이어야 합니다."
     ),
+
+    CARE_PLAN_INVALID_STATUS_TRANSITION(
+            HttpStatus.BAD_REQUEST,
+            "허용되지 않는 Care Plan 상태 전이입니다."
+    ),
     ;
 
 

@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.infrastructure.persistence;
+package com.todak_todag.user_service.user.infrastructure.persistence.query;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQuery;
@@ -43,7 +43,7 @@ public class RegionQueryDslRepositoryImpl implements RegionQueryDslRepository {
 
         Long total = countQuery.fetchOne();
 
-        return new PageImpl<>(
+        return new PageImpl<Region>(
                 content,
                 pageable,
                 total != null ? total : 0L

@@ -2,23 +2,34 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
+import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
+import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
+import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
 import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +38,11 @@ public class CarePlanCommandService {
 
     private final CarePlanCommandRepository carePlanCommandRepository;
     private final CarePlanServiceCommandRepository carePlanServiceCommandRepository;
+
+    private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
+    private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
+    private final UserQueryPort userQueryPort;
 
     @Transactional
     public CarePlanCreateResult createCarePlan(
@@ -76,14 +92,48 @@ public class CarePlanCommandService {
     }
 
     @Transactional
-    public void completeCarePlan(UUID carePlanId) {
-        CarePlan carePlan = carePlanCommandRepository.findById(carePlanId)
+    public CarePlanStatusUpdateResult updateCarePlanStatus(
+            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand
+    ) {
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanStatusUpdateCommand.carePlanId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
 
-        // TODO: IN_PROGRESS 상태에서만 COMPLETED로 전환할 수 있도록 상태 검증 추가
-        if (carePlan.getStatus() == CarePlanStatus.COMPLETED) {
-            return;
+        validateStatusTransition(
+                carePlan,
+                carePlanStatusUpdateCommand.status()
+        );
+
+        carePlan.updateStatus(
+                carePlanStatusUpdateCommand.status()
+        );
+
+        // TODO: User-Service의 구현/머지 후 실제 연동 확인
+        if (carePlan.getStatus() == CarePlanStatus.CONFIRMED) {
+            UserFindResult userFindResult = userQueryPort.findById(
+                    carePlan.getPatientId()
+            );
+
+            CarePlanConfirmedEvent carePlanConfirmedEvent = createCarePlanConfirmedEvent(
+                    carePlan.getId(),
+                    userFindResult.regionId()
+            );
+
+            applicationEventPublisher.publishEvent(
+                    carePlanConfirmedEvent
+            );
         }
+
+        return CarePlanStatusUpdateResult.from(
+                carePlan
+        );
+    }
+
+    @Transactional
+    public void completeCarePlan(UUID carePlanId) {
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
 
         carePlan.complete();
     }
@@ -133,5 +183,75 @@ public class CarePlanCommandService {
                     ErrorCode.AUTH_FORBIDDEN
             );
         }
+    }
+
+    // 현재 Care Plan 상태에서 요청한 다음 상태로의 전이가 허용되는지 검증
+    // 허용되지 않는 상태 전이라면 비즈니스 예외 발생
+    private void validateStatusTransition(
+            CarePlan carePlan,
+            CarePlanStatus nextStatus
+    ) {
+        if (!carePlan.canTransitionTo(nextStatus)) {
+            throw new BusinessException(
+                    ErrorCode.CARE_PLAN_INVALID_STATUS_TRANSITION
+            );
+        }
+    }
+
+    private CarePlanConfirmedEvent createCarePlanConfirmedEvent(
+            UUID carePlanId,
+            UUID regionId
+    ) {
+        List<CarePlanService> carePlanServices = carePlanServiceQueryRepository.findAllByCarePlanId(
+                carePlanId
+        );
+
+        List<UUID> planServiceIds = carePlanServices.stream()
+                .map(CarePlanService::getId)
+                .toList();
+
+        List<CarePlanServicePreference> preferences = servicePreferenceQueryRepository.findAllByPlanServiceIds(
+                planServiceIds
+        );
+
+        List<CarePlanConfirmedEvent.Service> services = createConfirmedServices(
+                carePlanServices,
+                preferences
+        );
+
+        return new CarePlanConfirmedEvent(
+                carePlanId,
+                regionId,
+                services
+        );
+    }
+
+    private List<CarePlanConfirmedEvent.Service> createConfirmedServices(
+            List<CarePlanService> carePlanServices,
+            List<CarePlanServicePreference> preferences
+    ) {
+        Map<UUID, List<CarePlanServicePreference>> preferencesByPlanServiceId = preferences.stream()
+                .collect(Collectors.groupingBy(CarePlanServicePreference::getPlanServiceId));
+
+        return carePlanServices.stream()
+                .map(carePlanService -> {
+                    List<CarePlanConfirmedEvent.Preference> eventPreferences = preferencesByPlanServiceId
+                            .getOrDefault(carePlanService.getId(), List.of())
+                            .stream()
+                            .map(preference ->
+                                    new CarePlanConfirmedEvent.Preference(
+                                            preference.getId(),
+                                            preference.getPreferredDate(),
+                                            preference.getPreferredTimeSlot()
+                                    ))
+                            .toList();
+
+                    return new CarePlanConfirmedEvent.Service(
+                            carePlanService.getId(),
+                            carePlanService.getProvideServiceId(),
+                            eventPreferences
+                    );
+                })
+                .toList();
     }
 }

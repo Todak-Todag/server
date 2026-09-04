@@ -8,5 +8,10 @@ import java.util.UUID;
 
 public interface ServicePreferenceQueryRepository {
     Optional<CarePlanServicePreference> findById(UUID id);
+
     List<UUID> findIdsByPatientId(UUID patientId);
+
+    List<CarePlanServicePreference> findAllByPlanServiceIds(
+            List<UUID> planServiceIds
+    );
 }
