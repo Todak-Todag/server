@@ -1,6 +1,7 @@
 package com.todak_todag.user_service.user.presentation.controller.internal;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.user.presentation.response.UserInternalReadResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,7 +20,7 @@ public interface UserInternalSpec {
                     APPROVED 상태의 회원만 조회됩니다.
             """
     )
-    ResponseEntity<ApiResponse<Void>> readUser(
+    ResponseEntity<ApiResponse<UserInternalReadResponse>> readUser(
             @Parameter(description = "조회할 사용자 ID", required = true)
             UUID userId
     );

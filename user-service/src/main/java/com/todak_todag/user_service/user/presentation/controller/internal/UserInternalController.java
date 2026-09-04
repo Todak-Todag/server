@@ -1,7 +1,9 @@
 package com.todak_todag.user_service.user.presentation.controller.internal;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
+import com.todak_todag.user_service.user.presentation.response.UserInternalReadResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,10 +22,18 @@ public class UserInternalController implements UserInternalSpec {
 
     @Override
     @GetMapping("/{userId}")
-    public ResponseEntity<ApiResponse<Void>> readUser(
+    public ResponseEntity<ApiResponse<UserInternalReadResponse>> readUser(
             @PathVariable("userId") UUID userId
     ) {
 
-        return null;
+        UserInternalReadResult result = userQueryService.getUser(userId);
+
+        UserInternalReadResponse response = new UserInternalReadResponse(
+                result.userId(),
+                result.role(),
+                result.regionId()
+        );
+
+        return ResponseEntity.status(200).body(ApiResponse.ok("사용자 정보 조회 완료", response));
     }
 }

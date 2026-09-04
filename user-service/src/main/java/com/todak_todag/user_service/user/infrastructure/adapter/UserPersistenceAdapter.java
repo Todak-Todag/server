@@ -39,5 +39,10 @@ public class UserPersistenceAdapter implements UserCommandRepository , UserQuery
 	public Optional<User> findLoginByUsername(String username) {
 		return jpaRepository.findByUsernameAndStatusIn(username, List.of(UserStatus.APPROVED, UserStatus.WITHDRAWN, UserStatus.PENDING));
 	}
-	
+
+	@Override
+	public Optional<User> findActiveById(UUID userId) {
+		return jpaRepository.findByIdAndStatus(userId, UserStatus.APPROVED);
+	}
+
 }
