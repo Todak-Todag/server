@@ -5,9 +5,11 @@ import com.spring.careplanservice.careplan.application.command.CarePlanCreateCom
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
 import com.spring.careplanservice.careplan.application.port.CarePlanEventPort;
+import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
+import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
@@ -37,6 +39,7 @@ public class CarePlanCommandService {
     private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
     private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
     private final CarePlanEventPort carePlanEventPort;
+    private final UserQueryPort userQueryPort;
 
     @Transactional
     public CarePlanCreateResult createCarePlan(
@@ -103,13 +106,17 @@ public class CarePlanCommandService {
         );
 
         if (carePlan.getStatus() == CarePlanStatus.CONFIRMED) {
-            CarePlanConfirmedEvent event =
-                    createCarePlanConfirmedEvent(
-                            carePlan.getId()
-                    );
+            UserFindResult userFindResult = userQueryPort.findById(
+                    carePlan.getPatientId()
+            );
+
+            CarePlanConfirmedEvent carePlanConfirmedEvent = createCarePlanConfirmedEvent(
+                    carePlan.getId(),
+                    userFindResult.regionId()
+            );
 
             carePlanEventPort.publishCarePlanConfirmed(
-                    event
+                    carePlanConfirmedEvent
             );
         }
 
@@ -188,7 +195,8 @@ public class CarePlanCommandService {
     }
 
     private CarePlanConfirmedEvent createCarePlanConfirmedEvent(
-            UUID carePlanId
+            UUID carePlanId,
+            UUID regionId
     ) {
         List<CarePlanConfirmedEvent.Service> services = carePlanServiceQueryRepository
                 .findAllByCarePlanId(carePlanId)
@@ -216,6 +224,7 @@ public class CarePlanCommandService {
 
         return new CarePlanConfirmedEvent(
                 carePlanId,
+                regionId,
                 services
         );
     }

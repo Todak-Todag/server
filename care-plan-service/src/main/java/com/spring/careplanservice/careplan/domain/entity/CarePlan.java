@@ -78,6 +78,7 @@ public class CarePlan extends BaseAuditEntity {
         this.status = status;
     }
 
+    // TODO : 이벤트 계약 이후 수정
     public void complete() {
         if (this.status != CarePlanStatus.IN_PROGRESS) {
             return;
