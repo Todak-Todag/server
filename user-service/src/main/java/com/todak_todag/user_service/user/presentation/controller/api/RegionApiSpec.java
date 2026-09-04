@@ -98,6 +98,10 @@ public interface RegionApiSpec {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
                     description = "요청 권한 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "409",
+                    description = "이미 등록된 행정 구역 코드"
             )
     })
     ResponseEntity<ApiResponse<RegionCreateResponse>> createRegion(
