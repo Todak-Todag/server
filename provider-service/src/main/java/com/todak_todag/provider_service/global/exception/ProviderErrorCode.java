@@ -11,6 +11,7 @@ public enum ProviderErrorCode implements ErrorCode {
     // 400
     PROVIDE_WORK_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "종료 시각은 시작 시각보다 이후여야 합니다."),
     PROVIDE_WORK_INVALID_DAY(HttpStatus.BAD_REQUEST, "제공 요일은 1(월)~7(일) 사이의 값이어야 합니다."),
+    PROVIDER_REGION_NOT_ASSIGNED(HttpStatus.BAD_REQUEST, "담당 지역이 지정되지 않아 제공 서비스를 등록할 수 없습니다."),
 
     // 403
     AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "요청 권한이 없습니다."),
@@ -25,7 +26,10 @@ public enum ProviderErrorCode implements ErrorCode {
     SERVICE_OFFERING_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 제공 서비스입니다."),
     SERVICE_OFFERING_SCHEDULE_EXISTS(HttpStatus.CONFLICT, "이미 확정된 서비스 일정이 존재해 삭제할 수 없습니다."),
     PROVIDE_WORK_TIME_OVERLAP(HttpStatus.CONFLICT, "같은 요일에 시간이 겹치는 제공 가능 일정이 이미 존재합니다."),
-    PROVIDE_WORK_SCHEDULE_EXISTS(HttpStatus.CONFLICT, "이미 확정된 서비스 일정이 존재해 변경할 수 없습니다.");
+    PROVIDE_WORK_SCHEDULE_EXISTS(HttpStatus.CONFLICT, "이미 확정된 서비스 일정이 존재해 변경할 수 없습니다."),
+
+    // 503
+    EXTERNAL_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "일시적으로 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해주세요.");
 
     private final HttpStatus status;
     private final String message;
