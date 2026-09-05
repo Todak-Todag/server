@@ -22,24 +22,17 @@ Care Plan에 포함된 서비스(`CarePlanService`)는 유지한 채, 퇴원 예
 - 삭제 대상은 희망 일정(`CarePlanServicePreference`) 하나이며, 상위 `CarePlanService`/`CarePlan`은 삭제되지 않는다.
 - 요청자의 `userId`와 `role`은 `X-User-Id`/`X-User-Role` 헤더(Gateway가 인증 후 주입)로 확인한다.
 
-> ⚠️ 확인 필요: 요청자 역할 — 원본 스펙 Request 표의 `X-User-Role` 예시값이 `SERVICE_PROVIDER`로 되어 있으나, 설명("퇴원예정자가 등록한 희망
-> 일정")과 `01_서비스 희망 일정 수정.md`(동일 자원, 요청자 `PATIENT`로 확정)를 볼 때 `01` 문서와 동일하게 원본 스펙의 오기로 보인다.
-> `PATIENT`로 확정하는 것을 제안하며, 팀 확인 후 반영한다.
->
-> ⚠️ 확인 필요: Care Plan 상태(`UNDER_REVIEW`) 제약 여부 — 원본 스펙의 Status 표에는 "Care Plan이 `UNDER_REVIEW`가 아닌 경우"에 대한 케이스가
-> 없다. 그러나 `01_서비스 희망 일정 수정.md`(수정), `03_CarePlanService신청취소.md`(취소)는 모두 동일 계열 API로서 Care Plan이
-> `UNDER_REVIEW`일 때만 허용되도록 확정되어 있고, `care-plan-service.md` 3장에도 "희망 일정 등록/수정은 `UNDER_REVIEW`일 때만 가능"으로
-> 명시되어 있다. 삭제 API만 이 제약에서 예외인지, 아니면 원본 스펙 작성 시 누락된 것인지 팀 확인이 필요하다.
->
-> ⚠️ 확인 필요: **404(`CARE_PLAN_SERVICE_NOT_FOUND`) 에러 코드** — 원본 스펙 Example의 실패 응답이 `CARE_PLAN_SERVICE_NOT_FOUND`를
-> 사용하고 있으나, 조회 대상은 `servicePreferenceId`(희망 일정)이지 `planServiceId`(Care Plan 서비스)가 아니다. `01_서비스 희망 일정
-> 수정.md`에서 동일한 사유로 `CARE_PLAN_SERVICE_NOT_FOUND` 재사용을 명시적으로 배제하고 `SERVICE_PREFERENCE_NOT_FOUND`를 신규 등록했던
-> 전례가 있어, 이번에도 기존에 등록된 `SERVICE_PREFERENCE_NOT_FOUND`(404)를 재사용하는 것을 제안한다. 원본 스펙의 코드명은 `03` 문서의
-> 내용을 잘못 옮겨온 것으로 추정된다.
->
-> ⚠️ 확인 필요: **409(`이미 삭제 됨`) 에러 코드명** — 현재 `ErrorCode`에 "이미 논리삭제된 희망 일정을 다시 삭제 시도"에 대응하는 코드가 없어 신규
-> 등록이 필요하다. `SERVICE_PREFERENCE_ALREADY_DELETED`(409)로 제안하며(기존 네이밍 컨벤션상 `{도메인}_{상태}` 형태를 따름, `03` 문서의
-> `CARE_PLAN_SERVICE_ALREADY_DELETED` 제안과 동일한 방식), 확정 시 반영 예정이다.
+> ✅ 확정 (2026-09-05, 팀 확인 완료):
+> - 요청자는 퇴원 예정자(`PATIENT`)만 가능하다 (`X-User-Role` 예시값 `SERVICE_PROVIDER`는 원본 스펙의 오기였음).
+> - Care Plan이 `UNDER_REVIEW` 상태일 때만 삭제 가능하다 (`01`/`03` 문서와 동일 기준).
+> - 404 에러 코드는 `CARE_PLAN_SERVICE_NOT_FOUND`를 재사용하지 않고 기존에 등록된 `SERVICE_PREFERENCE_NOT_FOUND`를 재사용한다
+>   (조회 대상이 `servicePreferenceId`이기 때문 — 원본 스펙 Example의 `CARE_PLAN_SERVICE_NOT_FOUND`는 `03` 문서 내용이 잘못 옮겨진 것으로
+>   확인됨).
+> - 이미 논리삭제된 희망 일정을 다시 삭제 시도하면 409(`SERVICE_PREFERENCE_ALREADY_DELETED`, 신규 등록)를 반환한다. 삭제 여부와 무관하게
+>   조회 가능한 별도 리포지토리 메서드(`findByIdIncludingDeleted`)를 추가해 404와 409를 구분한다.
+> - Care Plan이 `UNDER_REVIEW`가 아닐 때는 기존 `SERVICE_PREFERENCE_NOT_ALLOWED`를 재사용하지 않고, 삭제 전용 신규 코드
+>   `SERVICE_PREFERENCE_DELETE_NOT_ALLOWED`(409)를 등록해 사용한다 (`SERVICE_PREFERENCE_NOT_ALLOWED`의 고정 메시지가 "등록할 수
+>   없습니다"로 되어 있어 삭제 상황과 맞지 않음).
 
 ## Request
 
@@ -81,6 +74,28 @@ Care Plan에 포함된 서비스(`CarePlanService`)는 유지한 채, 퇴원 예
 :
     "2026-08-28T03:30:00Z"
 }
+
+// 실패 (409, 이미 삭제됨)
+{
+  "success": false,
+  "code": "SERVICE_PREFERENCE_ALREADY_DELETED",
+  "message": "Care Plan 희망 일정 삭제 실패",
+  "details": {
+    "reason": "이미 삭제된 희망 일정입니다."
+  },
+  "timestamp": "2026-08-28T03:30:00Z"
+}
+
+// 실패 (409, Care Plan이 UNDER_REVIEW 아님)
+{
+  "success": false,
+  "code": "SERVICE_PREFERENCE_DELETE_NOT_ALLOWED",
+  "message": "Care Plan 희망 일정 삭제 실패",
+  "details": {
+    "reason": "현재 Care Plan 상태에서는 희망 일정을 삭제할 수 없습니다."
+  },
+  "timestamp": "2026-08-28T03:30:00Z"
+}
 ```
 
 ## Status
@@ -90,10 +105,11 @@ Care Plan에 포함된 서비스(`CarePlanService`)는 유지한 채, 퇴원 예
 | `204`  | 희망 일정 삭제 성공                   |
 | `403`  | 권한 없음                         |
 | `404`  | 존재하지 않는 `servicePreferenceId` |
-| `409`  | 이미 삭제 됨                       |
+| `409`  | 이미 삭제 됨 또는 Care Plan이 `UNDER_REVIEW` 상태가 아님 |
 
 ## 변경 이력
 
 | 날짜         | 변경 내용                                                                                                                                                                                                                                |
 |------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 2026-09-05 | 최초 작성 — Notion 원본 스펙 반영. 요청자 역할(`X-User-Role` 예시값), Care Plan `UNDER_REVIEW` 상태 제약 여부, 404 에러 코드(`CARE_PLAN_SERVICE_NOT_FOUND` vs `SERVICE_PREFERENCE_NOT_FOUND`), 409 에러 코드 신설 여부가 원본 스펙에 명확히 명시되어 있지 않거나 다른 문서와 불일치하여 ⚠️ 확인 필요로 표시 |
+| 2026-09-05 | ✅ 확정 및 구현 완료 — 요청자는 `PATIENT`만 허용, Care Plan `UNDER_REVIEW`일 때만 삭제 가능. 404는 기존 `SERVICE_PREFERENCE_NOT_FOUND` 재사용, 409는 신규 등록한 `SERVICE_PREFERENCE_ALREADY_DELETED`(이미 삭제됨)/`SERVICE_PREFERENCE_DELETE_NOT_ALLOWED`(UNDER_REVIEW 아님) 두 코드로 구분(`SERVICE_PREFERENCE_NOT_ALLOWED`는 메시지가 "등록할 수 없습니다"로 고정돼 있어 재사용하지 않음). 삭제 여부와 무관하게 조회하는 `ServicePreferenceCommandRepository.findByIdIncludingDeleted()` 신설, `ServicePreferenceCommandService.deleteServicePreference()`, `DELETE /api/v1/service-preferences/{servicePreferenceId}` 엔드포인트 추가 |

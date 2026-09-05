@@ -2,6 +2,7 @@ package com.spring.careplanservice.careplan.presentation.controller.api;
 
 
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceCreateCommand;
+import com.spring.careplanservice.careplan.application.command.ServicePreferenceDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceUpdateCommand;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceUpdateResult;
@@ -90,5 +91,23 @@ public class ServicePreferenceController {
                         )
                 )
         );
+    }
+
+    @PreAuthorize("hasRole('PATIENT')")
+    @DeleteMapping(
+            "/service-preferences/{servicePreferenceId}"
+    )
+    public ResponseEntity<Void> deleteServicePreference(
+            @AuthenticationPrincipal UserContext user,
+            @PathVariable("servicePreferenceId") UUID servicePreferenceId
+    ) {
+        servicePreferenceCommandService.deleteServicePreference(
+                new ServicePreferenceDeleteCommand(
+                        user.userId(),
+                        servicePreferenceId
+                )
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }

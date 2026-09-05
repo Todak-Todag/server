@@ -1,6 +1,7 @@
 package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceCreateCommand;
+import com.spring.careplanservice.careplan.application.command.ServicePreferenceDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceUpdateCommand;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceUpdateResult;
@@ -491,6 +492,202 @@ class ServicePreferenceCommandServiceTest {
                             "errorCode",
                             ErrorCode.CARE_PLAN_SERVICE_NOT_FOUND
                     );
+            verify(carePlanCommandRepository, never()).findById(any(UUID.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("서비스 희망 일정 삭제")
+    class DeleteServicePreference {
+        UUID servicePreferenceId = UUID.randomUUID();
+
+        @Test
+        @DisplayName("성공")
+        void deleteServicePreference_success() {
+            ServicePreferenceDeleteCommand command = new ServicePreferenceDeleteCommand(
+                    patientId,
+                    servicePreferenceId
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            given(servicePreferenceCommandRepository.findByIdIncludingDeleted(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            servicePreferenceCommandService.deleteServicePreference(command);
+
+            assertThat(preference.getDeletedAt()).isNotNull();
+            assertThat(preference.getDeletedBy()).isEqualTo(patientId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 servicePreferenceId면 예외")
+        void deleteServicePreference_notFound() {
+            ServicePreferenceDeleteCommand command = new ServicePreferenceDeleteCommand(
+                    patientId,
+                    servicePreferenceId
+            );
+
+            given(servicePreferenceCommandRepository.findByIdIncludingDeleted(servicePreferenceId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.deleteServicePreference(command))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue(
+                            "errorCode",
+                            ErrorCode.SERVICE_PREFERENCE_NOT_FOUND
+                    );
+
+            verify(carePlanServiceQueryRepository, never()).findById(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("이미 삭제된 희망 일정이면 예외")
+        void deleteServicePreference_alreadyDeleted() {
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+            preference.delete(patientId);
+
+            ServicePreferenceDeleteCommand command = new ServicePreferenceDeleteCommand(
+                    patientId,
+                    servicePreferenceId
+            );
+
+            given(servicePreferenceCommandRepository.findByIdIncludingDeleted(servicePreferenceId)).willReturn(Optional.of(preference));
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.deleteServicePreference(command))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue(
+                            "errorCode",
+                            ErrorCode.SERVICE_PREFERENCE_ALREADY_DELETED
+                    );
+
+            verify(carePlanServiceQueryRepository, never()).findById(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("요청자가 Care Plan의 환자가 아니면 예외")
+        void deleteServicePreference_forbidden() {
+            UUID otherPatientId = UUID.randomUUID();
+
+            ServicePreferenceDeleteCommand command = new ServicePreferenceDeleteCommand(
+                    patientId,
+                    servicePreferenceId
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+            CarePlan carePlan = CarePlan.create(
+                    otherPatientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            given(servicePreferenceCommandRepository.findByIdIncludingDeleted(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.deleteServicePreference(command))
+                    .isInstanceOf(BusinessException.class);
+
+            assertThat(preference.getDeletedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("Care Plan이 검토 중 상태가 아니면 예외")
+        void deleteServicePreference_invalidCarePlanStatus() {
+            ServicePreferenceDeleteCommand command = new ServicePreferenceDeleteCommand(
+                    patientId,
+                    servicePreferenceId
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+            ReflectionTestUtils.setField(
+                    carePlan,
+                    "status",
+                    CarePlanStatus.CONFIRMED
+            );
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            given(servicePreferenceCommandRepository.findByIdIncludingDeleted(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.deleteServicePreference(command))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue(
+                            "errorCode",
+                            ErrorCode.SERVICE_PREFERENCE_DELETE_NOT_ALLOWED
+                    );
+
+            assertThat(preference.getDeletedAt()).isNull();
+        }
+
+        @Test
+        @DisplayName("Care Plan 서비스가 존재하지 않으면 예외")
+        void deleteServicePreference_planServiceNotFound() {
+            ServicePreferenceDeleteCommand command = new ServicePreferenceDeleteCommand(
+                    patientId,
+                    servicePreferenceId
+            );
+
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            given(servicePreferenceCommandRepository.findByIdIncludingDeleted(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.deleteServicePreference(command))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue(
+                            "errorCode",
+                            ErrorCode.CARE_PLAN_SERVICE_NOT_FOUND
+                    );
+
             verify(carePlanCommandRepository, never()).findById(any(UUID.class));
         }
     }

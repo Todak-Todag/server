@@ -13,6 +13,8 @@ public interface ServicePreferenceCommandRepository {
 
     Optional<CarePlanServicePreference> findById(UUID id);
 
+    Optional<CarePlanServicePreference> findByIdIncludingDeleted(UUID id);
+
     List<CarePlanServicePreference> findAllByPlanServiceIds(
             List<UUID> planServiceIds
     );
