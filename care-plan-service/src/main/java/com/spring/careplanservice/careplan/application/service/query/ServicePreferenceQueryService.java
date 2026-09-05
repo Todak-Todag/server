@@ -11,7 +11,6 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreferen
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
-import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceView;
 import com.spring.careplanservice.global.common.PageableFactory;
 import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
@@ -67,19 +66,7 @@ public class ServicePreferenceQueryService {
                 servicePreferenceSearchQuery.carePlanId(),
                 servicePreferenceSearchQuery.preferredDate(),
                 pageable
-        ).map(this::toResult);
-    }
-
-    private ServicePreferenceSearchResult toResult(
-            ServicePreferenceView view
-    ) {
-        return new ServicePreferenceSearchResult(
-                view.servicePreferenceId(),
-                view.provideServiceId(),
-                view.preferredDate(),
-                view.preferredTimeSlot(),
-                view.createdAt()
-        );
+        ).map(ServicePreferenceSearchResult::from);
     }
 
     public ServicePreferenceFindResult findServicePreference(
