@@ -3,6 +3,7 @@ package com.todak_todag.user_service.user.infrastructure.persistence.query;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.todak_todag.user_service.user.domain.entity.ConsentDocument;
 import com.todak_todag.user_service.user.domain.entity.QConsentDocumentVersion;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentCurrentView;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentDetailView;
@@ -154,5 +155,14 @@ public class ConsentDocumentQueryRepositoryImpl
                 .fetchOne();
 
         return Optional.ofNullable(detail);
+    }
+
+    @Override
+    public Optional<ConsentDocument> findById(
+            UUID consentDocumentId
+    ) {
+        return jpaRepo.findByIdAndDeletedAtIsNull(
+                consentDocumentId
+        );
     }
 }
