@@ -2,37 +2,26 @@ server:
   port: 19001
 
 spring:
-  config:
-    activate:
-      on-profile: local
-
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
     username: ${POSTGRES_USERNAME:postgres}
     password: ${POSTGRES_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
-  rabbitmq:
-    host: ${RABBITMQ_HOST:rabbitmq}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
-
   jpa:
     open-in-view: false
     show-sql: true
+
     hibernate:
       ddl-auto: update
+
     properties:
       hibernate:
-        format_sql: true
         default_schema: discharge_schema
         default_batch_fetch_size: 100
+        format_sql: true
         hbm2ddl:
           create_namespaces: true
-
-internal:
-  key: ${INTERNAL_API_KEY}
 
 management:
   endpoints:
