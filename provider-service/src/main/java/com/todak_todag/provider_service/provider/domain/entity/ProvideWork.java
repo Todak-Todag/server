@@ -1,6 +1,8 @@
 package com.todak_todag.provider_service.provider.domain.entity;
 
 import com.todak_todag.provider_service.global.common.BaseAuditableEntity;
+import com.todak_todag.provider_service.global.exception.BusinessException;
+import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -47,6 +49,10 @@ public class ProvideWork extends BaseAuditableEntity {
     }
 
     public static ProvideWork of(UUID serviceOfferingId, Integer day, LocalTime startedAt, LocalTime finishedAt) {
+        if (!finishedAt.isAfter(startedAt)) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_INVALID_TIME_RANGE);
+        }
+
         return new ProvideWork(serviceOfferingId, day, startedAt, finishedAt);
     }
 
