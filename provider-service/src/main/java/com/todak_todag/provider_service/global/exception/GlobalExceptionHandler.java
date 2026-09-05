@@ -1,6 +1,7 @@
 package com.todak_todag.provider_service.global.exception;
 
 import com.todak_todag.provider_service.global.response.ErrorResponse;
+import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -54,6 +55,13 @@ public class GlobalExceptionHandler {
         log.warn("[Provider] 데이터 무결성 위반 message={}", e.getMessage());
         return ResponseEntity.status(ProviderErrorCode.PROVIDE_SERVICE_DUPLICATE.getStatus())
                 .body(ErrorResponse.of(ProviderErrorCode.PROVIDE_SERVICE_DUPLICATE));
+    }
+
+    @ExceptionHandler(FeignException.class)
+    public ResponseEntity<ErrorResponse> handleFeignException(FeignException e) {
+        log.error("[Provider] 외부 서비스 호출 실패 status={}", e.status(), e);
+        return ResponseEntity.status(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE.getStatus())
+                .body(ErrorResponse.of(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE));
     }
 
     @ExceptionHandler(Exception.class)

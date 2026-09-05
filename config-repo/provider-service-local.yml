@@ -30,6 +30,9 @@ spring:
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
+internal:
+  key: ${INTERNAL_API_KEY}
+
 eureka:
   client:
     service-url:
