@@ -1,6 +1,7 @@
 package com.todak_todag.user_service.user.application.service.query;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
@@ -14,21 +15,28 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
 import com.todak_todag.user_service.user.domain.entity.user.User;
+import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class UserQueryServiceTest {
 
     @Mock
     private UserQueryRepository userQueryRepository;
+
+    @Mock
+    private RegionQueryRepository regionQueryRepository;
 
     @InjectMocks
     private UserQueryService userQueryService;
@@ -90,6 +98,153 @@ class UserQueryServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(exception -> ((BusinessException) exception).getErrorCode())
                     .isEqualTo(UserErrorCode.USER_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("매칭 가능한 사회복지사 조회")
+    class GetMatchableSocialWorkers {
+
+        @Test
+        @DisplayName("지역이 유효하면 매칭 가능한 사회복지사 식별자 목록을 반환한다")
+        void getMatchableSocialWorkers_success() {
+            UUID patientId = UUID.randomUUID();
+            UUID regionId = UUID.randomUUID();
+            UUID socialWorkerId = UUID.randomUUID();
+            User patient = Mockito.mock(User.class);
+
+            given(patient.isPatient()).willReturn(true);
+            given(patient.getRegionId()).willReturn(regionId);
+            given(patient.getAddress()).willReturn("전라남도 고흥군 도양읍");
+            given(userQueryRepository.findById(patientId))
+                    .willReturn(Optional.of(patient));
+            given(regionQueryRepository.existsAvailableRegion(regionId))
+                    .willReturn(true);
+            given(userQueryRepository.findMatchableSocialWorkerIds(regionId))
+                    .willReturn(Set.of(socialWorkerId));
+
+            Set<UUID> result = userQueryService.getMatchableSocialWorkers(patientId);
+
+            assertThat(result).containsExactly(socialWorkerId);
+
+            then(userQueryRepository).should().findMatchableSocialWorkerIds(regionId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 환자를 조회하면 예외가 발생하고 이후 검증을 수행하지 않는다")
+        void getMatchableSocialWorkers_patientNotFound() {
+            UUID patientId = UUID.randomUUID();
+
+            given(userQueryRepository.findById(patientId))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userQueryService.getMatchableSocialWorkers(patientId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                    .isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+            then(regionQueryRepository).should(never()).existsAvailableRegion(any(UUID.class));
+            then(userQueryRepository).should(never()).findMatchableSocialWorkerIds(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("대상이 퇴원 예정자(PATIENT)가 아니면 USER_APPROVAL_CONFLICT 예외가 발생하고 이후 검증을 수행하지 않는다")
+        void getMatchableSocialWorkers_notPatient() {
+            UUID patientId = UUID.randomUUID();
+            User patient = Mockito.mock(User.class);
+
+            given(patient.isPatient()).willReturn(false);
+            given(userQueryRepository.findById(patientId))
+                    .willReturn(Optional.of(patient));
+
+            assertThatThrownBy(() -> userQueryService.getMatchableSocialWorkers(patientId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                    .isEqualTo(UserErrorCode.USER_APPROVAL_CONFLICT);
+
+            then(regionQueryRepository).should(never()).existsAvailableRegion(any(UUID.class));
+            then(userQueryRepository).should(never()).findMatchableSocialWorkerIds(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("환자의 지역 ID가 없으면 USER_PATIENT_INVALID_REGION 예외가 발생한다")
+        void getMatchableSocialWorkers_noRegionId() {
+            UUID patientId = UUID.randomUUID();
+            User patient = Mockito.mock(User.class);
+
+            given(patient.isPatient()).willReturn(true);
+            given(patient.getRegionId()).willReturn(null);
+            given(userQueryRepository.findById(patientId))
+                    .willReturn(Optional.of(patient));
+
+            assertThatThrownBy(() -> userQueryService.getMatchableSocialWorkers(patientId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                    .isEqualTo(UserErrorCode.USER_PATIENT_INVALID_REGION);
+        }
+
+        @Test
+        @DisplayName("환자의 주소가 없으면 USER_PATIENT_INVALID_REGION 예외가 발생한다")
+        void getMatchableSocialWorkers_noAddress() {
+            UUID patientId = UUID.randomUUID();
+            UUID regionId = UUID.randomUUID();
+            User patient = Mockito.mock(User.class);
+
+            given(patient.isPatient()).willReturn(true);
+            given(patient.getRegionId()).willReturn(regionId);
+            given(patient.getAddress()).willReturn(null);
+            given(userQueryRepository.findById(patientId))
+                    .willReturn(Optional.of(patient));
+
+            assertThatThrownBy(() -> userQueryService.getMatchableSocialWorkers(patientId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                    .isEqualTo(UserErrorCode.USER_PATIENT_INVALID_REGION);
+        }
+
+        @Test
+        @DisplayName("서비스 지원 지역이 아니면 REGION_NOT_SUPPORTED 예외가 발생하고 매칭 조회를 수행하지 않는다")
+        void getMatchableSocialWorkers_regionNotSupported() {
+            UUID patientId = UUID.randomUUID();
+            UUID regionId = UUID.randomUUID();
+            User patient = Mockito.mock(User.class);
+
+            given(patient.isPatient()).willReturn(true);
+            given(patient.getRegionId()).willReturn(regionId);
+            given(patient.getAddress()).willReturn("전라남도 고흥군 도양읍");
+            given(userQueryRepository.findById(patientId))
+                    .willReturn(Optional.of(patient));
+            given(regionQueryRepository.existsAvailableRegion(regionId))
+                    .willReturn(false);
+
+            assertThatThrownBy(() -> userQueryService.getMatchableSocialWorkers(patientId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                    .isEqualTo(CommonErrorCode.REGION_NOT_SUPPORTED);
+
+            then(userQueryRepository).should(never()).findMatchableSocialWorkerIds(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("매칭되는 사회복지사가 없으면 빈 목록을 반환한다")
+        void getMatchableSocialWorkers_empty() {
+            UUID patientId = UUID.randomUUID();
+            UUID regionId = UUID.randomUUID();
+            User patient = Mockito.mock(User.class);
+
+            given(patient.isPatient()).willReturn(true);
+            given(patient.getRegionId()).willReturn(regionId);
+            given(patient.getAddress()).willReturn("전라남도 고흥군 도양읍");
+            given(userQueryRepository.findById(patientId))
+                    .willReturn(Optional.of(patient));
+            given(regionQueryRepository.existsAvailableRegion(regionId))
+                    .willReturn(true);
+            given(userQueryRepository.findMatchableSocialWorkerIds(regionId))
+                    .willReturn(Set.of());
+
+            Set<UUID> result = userQueryService.getMatchableSocialWorkers(patientId);
+
+            assertThat(result).isEmpty();
         }
     }
 }

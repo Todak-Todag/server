@@ -2,6 +2,7 @@ package com.todak_todag.user_service.user.infrastructure.persistence.query;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Repository;
@@ -43,5 +44,10 @@ public class UserQueryRepositoryImpl implements UserQueryRepository {
 	@Override
 	public Optional<User> findAdminById(UUID userId) {
 		return jpaRepo.findByIdAndRole(userId, UserRole.ADMIN);
+	}
+
+	@Override
+	public Set<UUID> findMatchableSocialWorkerIds(UUID regionId) {
+		return jpaRepo.findByRegionIdAndRoleAndStatus(regionId, UserRole.SOCIAL_WORKER, UserStatus.APPROVED);
 	}
 }

@@ -223,4 +223,21 @@ public class User extends BaseAuditableEntity {
 		throw new BusinessException(UserErrorCode.USER_MODIFY_STATE);
 	}
 	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	public boolean isPatient() {
+		return this.role == UserRole.PATIENT;
+	}
 }
