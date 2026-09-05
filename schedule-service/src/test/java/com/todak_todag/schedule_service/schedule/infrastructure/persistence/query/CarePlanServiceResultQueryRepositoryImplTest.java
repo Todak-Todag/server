@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.infrastructure.persistence.query;
 
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.todak_todag.schedule_service.schedule.domain.entity.CarePlanServiceResult;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataCarePlanServiceResultRepository;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CarePlanServiceResultQueryRepositoryImplTest {
+
+    @Mock
+    private JPAQueryFactory jpaQueryFactory;
 
     @Mock
     private SpringDataCarePlanServiceResultRepository springDataCarePlanServiceResultRepository;
