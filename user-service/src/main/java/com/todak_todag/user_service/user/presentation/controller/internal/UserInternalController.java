@@ -18,7 +18,7 @@ import java.util.UUID;
 @RequestMapping("/internal/v1/users")
 public class UserInternalController implements UserInternalSpec {
 
-    private UserQueryService userQueryService;
+    private final UserQueryService userQueryService;
 
     @Override
     @GetMapping("/{userId}")

@@ -13,7 +13,7 @@ import java.util.UUID;
 public interface UserInternalSpec {
 
     @Operation(
-            summary = "로그인",
+            summary = "내부 사용자 조회",
             description = """
                 내부 서비스가 호출하는 사용자 조회입니다.
                 
