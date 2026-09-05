@@ -42,7 +42,9 @@ public class UserCreateService {
 		
 		// 요청에 지역ID 존재하면 regionId 검증
 		if(signup.regionId() != null) {
-			// TODO: regionId 존재 검증
+			if(regionQueryRepo.existsAvailableRegion(signup.regionId())) {
+				throw new BusinessException(RegionErrorCode.REGION_NOT_FOUND);
+			}
 		}
 		
 		// Username 중복 검증 : 가벼운 작업 위로
@@ -82,6 +84,10 @@ public class UserCreateService {
 	public UserAdminCreatedResult createUserAdmin(UserAdminCreateCommand createAdmin) {
 		Region region = regionQueryRepo.findById(createAdmin.regionId())
         .orElseThrow(() -> new BusinessException(RegionErrorCode.REGION_NOT_FOUND));
+		
+		if(!region.isActive()) {
+			throw new BusinessException(RegionErrorCode.REGION_NOT_FOUND);
+		}
 		
 		// Username 중복 검증
 		if(userQueryRepo.duplicateUsername(createAdmin.username())) {
