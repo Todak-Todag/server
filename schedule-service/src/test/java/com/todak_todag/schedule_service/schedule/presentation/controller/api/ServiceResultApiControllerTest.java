@@ -5,7 +5,9 @@ import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
 import com.todak_todag.schedule_service.schedule.application.facade.ServiceResultFacade;
+import com.todak_todag.schedule_service.schedule.application.query.ServiceResultDetailQuery;
 import com.todak_todag.schedule_service.schedule.application.query.ServiceResultSearchQuery;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceResultDetailResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceResultRegisterResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceResultSearchResult;
 import org.junit.jupiter.api.DisplayName;
@@ -43,6 +45,7 @@ class ServiceResultApiControllerTest {
 
     private static final String REGISTER_URI = "/api/v1/service-results/%s";
     private static final String SEARCH_URI = "/api/v1/service-results";
+    private static final String DETAIL_URI = "/api/v1/service-results/%s";
 
     @Autowired
     private MockMvc mockMvc;
@@ -181,11 +184,11 @@ class ServiceResultApiControllerTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 serviceScheduleId면 404를 반환한다 (07번 문서는 05번과 달리 404를 명시적으로 요구)")
-        void register_notFound_notFound() throws Exception {
+        @DisplayName("존재하지 않는 serviceScheduleId면 403을 반환한다 (404를 쓰면 일정 존재 여부가 외부에 드러나므로 AUTH_FORBIDDEN으로 통일)")
+        void register_notFound_forbidden() throws Exception {
             // given
             given(serviceResultFacade.register(any()))
-                    .willThrow(new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_NOT_FOUND));
+                    .willThrow(new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
 
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(UUID.randomUUID()))
@@ -193,9 +196,9 @@ class ServiceResultApiControllerTest {
                             .header("X-User-Role", "SERVICE_PROVIDER")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body("2026-09-01T09:00:00", "2026-09-01T10:00:00", null)))
-                    .andExpect(status().isNotFound())
+                    .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.code").value("SERVICE_SCHEDULE_NOT_FOUND"));
+                    .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
         }
 
         @Test
@@ -432,6 +435,169 @@ class ServiceResultApiControllerTest {
             Sort.Order order = captor.getValue().pageable().getSort().getOrderFor("createdAt");
             assertThat(order).isNotNull();
             assertThat(order.isAscending()).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("서비스 수행 결과 상세 조회 API")
+    class detailTest {
+
+        private ServiceResultDetailResult sampleDetail(UUID serviceResultId, UUID serviceScheduleId, String note) {
+            return new ServiceResultDetailResult(
+                    serviceResultId,
+                    serviceScheduleId,
+                    LocalDateTime.of(2026, 9, 1, 9, 0),
+                    LocalDateTime.of(2026, 9, 1, 10, 0),
+                    note
+            );
+        }
+
+        @Test
+        @DisplayName("퇴원 예정자가 본인 소유 결과를 조회하면 200과 09번 문서 Response 표의 5개 필드를 반환한다")
+        void detail_patient_ownResult_success() throws Exception {
+            // given
+            UUID serviceResultId = UUID.randomUUID();
+            UUID serviceScheduleId = UUID.randomUUID();
+
+            given(serviceResultFacade.detail(any()))
+                    .willReturn(sampleDetail(serviceResultId, serviceScheduleId, "정상적으로 서비스 제공 완료"));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(serviceResultId))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.message").value("서비스 수행 결과 상세 조회 성공"))
+                    .andExpect(jsonPath("$.data.serviceResultId").value(serviceResultId.toString()))
+                    .andExpect(jsonPath("$.data.serviceScheduleId").value(serviceScheduleId.toString()))
+                    .andExpect(jsonPath("$.data.startedAt").value("2026-09-01T09:00:00"))
+                    .andExpect(jsonPath("$.data.finishedAt").value("2026-09-01T10:00:00"))
+                    .andExpect(jsonPath("$.data.note").value("정상적으로 서비스 제공 완료"));
+        }
+
+        @Test
+        @DisplayName("서비스 제공자가 본인 담당 결과를 조회하면 200을 반환한다")
+        void detail_serviceProvider_ownResult_success() throws Exception {
+            // given
+            UUID serviceResultId = UUID.randomUUID();
+            UUID serviceScheduleId = UUID.randomUUID();
+
+            given(serviceResultFacade.detail(any()))
+                    .willReturn(sampleDetail(serviceResultId, serviceScheduleId, "정상적으로 서비스 제공 완료"));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(serviceResultId))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.serviceResultId").value(serviceResultId.toString()))
+                    .andExpect(jsonPath("$.data.serviceScheduleId").value(serviceScheduleId.toString()));
+        }
+
+        @Test
+        @DisplayName("UserContext의 userId/role과 Path Variable이 그대로 Facade에 전달된다")
+        void detail_passesUserContextAndPathVariableToFacade() throws Exception {
+            // given
+            UUID serviceResultId = UUID.randomUUID();
+            UUID providerId = UUID.randomUUID();
+
+            given(serviceResultFacade.detail(any()))
+                    .willReturn(sampleDetail(serviceResultId, UUID.randomUUID(), null));
+            ArgumentCaptor<ServiceResultDetailQuery> captor = ArgumentCaptor.forClass(ServiceResultDetailQuery.class);
+
+            // when
+            mockMvc.perform(get(DETAIL_URI.formatted(serviceResultId))
+                            .header("X-User-Id", providerId.toString())
+                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                    .andExpect(status().isOk());
+
+            // then
+            verify(serviceResultFacade).detail(captor.capture());
+            assertThat(captor.getValue().serviceResultId()).isEqualTo(serviceResultId);
+            assertThat(captor.getValue().userId()).isEqualTo(providerId);
+            assertThat(captor.getValue().role().name()).isEqualTo("SERVICE_PROVIDER");
+        }
+
+        @Test
+        @DisplayName("note가 null인 결과도 200과 함께 note를 null로 반환한다")
+        void detail_nullNote_returnsNull() throws Exception {
+            // given
+            UUID serviceResultId = UUID.randomUUID();
+
+            given(serviceResultFacade.detail(any()))
+                    .willReturn(sampleDetail(serviceResultId, UUID.randomUUID(), null));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(serviceResultId))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.serviceResultId").value(serviceResultId.toString()))
+                    .andExpect(jsonPath("$.data.note").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 serviceResultId면 403과 AUTH_FORBIDDEN을 반환한다 (404를 쓰면 결과 존재 여부가 외부에 드러나므로)")
+        void detail_notFound_forbidden() throws Exception {
+            // given
+            given(serviceResultFacade.detail(any()))
+                    .willThrow(new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"))
+                    .andExpect(jsonPath("$.details.reason").value("요청 권한이 없습니다."));
+        }
+
+        @Test
+        @DisplayName("퇴원 예정자가 본인 소유가 아닌 결과를 조회하면 403을 반환한다 (patientId 불일치, Internal API는 Facade에서 Mock 처리)")
+        void detail_patient_notOwner_forbidden() throws Exception {
+            // given
+            given(serviceResultFacade.detail(any()))
+                    .willThrow(new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"))
+                    .andExpect(jsonPath("$.details.reason").value("요청 권한이 없습니다."));
+        }
+
+        @Test
+        @DisplayName("서비스 제공자가 본인 담당이 아닌 결과를 조회하면 403을 반환한다")
+        void detail_serviceProvider_notOwner_forbidden() throws Exception {
+            // given
+            given(serviceResultFacade.detail(any()))
+                    .willThrow(new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+        }
+
+        @Test
+        @DisplayName("serviceResultId가 UUID 형식이 아니면 400을 반환한다")
+        void detail_invalidUuid_badRequest() throws Exception {
+            // when & then
+            mockMvc.perform(get("/api/v1/service-results/not-a-uuid")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
         }
     }
 }

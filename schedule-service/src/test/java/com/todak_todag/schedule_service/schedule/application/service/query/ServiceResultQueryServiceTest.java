@@ -1,9 +1,11 @@
 package com.todak_todag.schedule_service.schedule.application.service.query;
 
+import com.todak_todag.schedule_service.schedule.application.result.ServiceResultDetailResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceResultSearchResult;
 import com.todak_todag.schedule_service.schedule.domain.entity.CarePlanServiceResult;
 import com.todak_todag.schedule_service.schedule.domain.repository.query.CarePlanServiceResultQueryRepository;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -16,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,7 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("서비스 수행 결과 목록 조회 - QueryService")
+@DisplayName("서비스 수행 결과 조회 - QueryService")
 class ServiceResultQueryServiceTest {
 
     @Mock
@@ -35,7 +38,7 @@ class ServiceResultQueryServiceTest {
     private final Pageable pageable = PageRequest.of(0, 10);
 
     @Test
-    @DisplayName("Repository 조회 결과를 08번 문서 Response 필드(serviceResultId/startedAt/finishedAt)로 변환한다")
+    @DisplayName("Repository 조회 결과를 Response 필드(serviceResultId/startedAt/finishedAt)로 변환한다")
     void search_mapsEntityToResult() {
         // given
         LocalDateTime startedAt = LocalDateTime.of(2026, 9, 1, 9, 0);
@@ -90,5 +93,76 @@ class ServiceResultQueryServiceTest {
         // then
         assertThat(result.getContent()).isEmpty();
         assertThat(result.getTotalElements()).isZero();
+    }
+
+    @Nested
+    @DisplayName("서비스 수행 결과 상세 조회")
+    class findDetailByIdTest {
+
+        @Test
+        @DisplayName("Repository 조회 결과를 Response 필드 5개(serviceResultId/serviceScheduleId/startedAt/finishedAt/note)로 변환한다")
+        void findDetailById_mapsEntityToResult() {
+            // given
+            UUID serviceResultId = UUID.randomUUID();
+            UUID serviceScheduleId = UUID.randomUUID();
+            LocalDateTime startedAt = LocalDateTime.of(2026, 9, 1, 9, 0);
+            LocalDateTime finishedAt = LocalDateTime.of(2026, 9, 1, 10, 0);
+
+            CarePlanServiceResult entity = CarePlanServiceResult.record(
+                    serviceScheduleId, startedAt, finishedAt, "정상 수행"
+            );
+
+            when(carePlanServiceResultQueryRepository.findById(serviceResultId))
+                    .thenReturn(Optional.of(entity));
+
+            // when
+            Optional<ServiceResultDetailResult> result = serviceResultQueryService.findDetailById(serviceResultId);
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().serviceScheduleId()).isEqualTo(serviceScheduleId);
+            assertThat(result.get().startedAt()).isEqualTo(startedAt);
+            assertThat(result.get().finishedAt()).isEqualTo(finishedAt);
+            assertThat(result.get().note()).isEqualTo("정상 수행");
+        }
+
+        @Test
+        @DisplayName("note가 null인 결과도 그대로 변환한다")
+        void findDetailById_nullNote_mappedAsNull() {
+            // given
+            UUID serviceResultId = UUID.randomUUID();
+            CarePlanServiceResult entity = CarePlanServiceResult.record(
+                    UUID.randomUUID(),
+                    LocalDateTime.of(2026, 9, 1, 9, 0),
+                    LocalDateTime.of(2026, 9, 1, 10, 0),
+                    null
+            );
+
+            when(carePlanServiceResultQueryRepository.findById(serviceResultId))
+                    .thenReturn(Optional.of(entity));
+
+            // when
+            Optional<ServiceResultDetailResult> result = serviceResultQueryService.findDetailById(serviceResultId);
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().note()).isNull();
+        }
+
+        @Test
+        @DisplayName("존재하지 않으면 빈 Optional을 그대로 반환한다")
+        void findDetailById_notFound_returnsEmptyOptional() {
+            // given
+            UUID serviceResultId = UUID.randomUUID();
+            when(carePlanServiceResultQueryRepository.findById(serviceResultId))
+                    .thenReturn(Optional.empty());
+
+            // when
+            Optional<ServiceResultDetailResult> result = serviceResultQueryService.findDetailById(serviceResultId);
+
+            // then
+            assertThat(result).isEmpty();
+            verify(carePlanServiceResultQueryRepository).findById(serviceResultId);
+        }
     }
 }

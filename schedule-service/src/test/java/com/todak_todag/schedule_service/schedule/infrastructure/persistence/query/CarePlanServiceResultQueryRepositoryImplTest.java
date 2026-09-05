@@ -48,6 +48,24 @@ class CarePlanServiceResultQueryRepositoryImplTest {
     }
 
     @Test
+    void note가_null인_결과도_그대로_반환한다() {
+        // given
+        UUID serviceResultId = UUID.randomUUID();
+        CarePlanServiceResult result = CarePlanServiceResult.record(
+                UUID.randomUUID(), LocalDateTime.now().minusHours(2), LocalDateTime.now().minusHours(1), null
+        );
+        when(springDataCarePlanServiceResultRepository.findByServiceResultIdAndDeletedAtIsNull(serviceResultId))
+                .thenReturn(Optional.of(result));
+
+        // when
+        Optional<CarePlanServiceResult> found = carePlanServiceResultQueryRepositoryImpl.findById(serviceResultId);
+
+        // then
+        assertThat(found).isPresent();
+        assertThat(found.get().getNote()).isNull();
+    }
+
+    @Test
     void 존재하지_않으면_빈_Optional을_반환한다() {
         // given
         UUID serviceResultId = UUID.randomUUID();
