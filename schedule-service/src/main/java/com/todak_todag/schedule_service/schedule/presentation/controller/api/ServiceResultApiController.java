@@ -5,10 +5,13 @@ import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.global.response.PageResponse;
 import com.todak_todag.schedule_service.global.security.UserContext;
 import com.todak_todag.schedule_service.schedule.application.facade.ServiceResultFacade;
+import com.todak_todag.schedule_service.schedule.application.query.ServiceResultDetailQuery;
 import com.todak_todag.schedule_service.schedule.application.query.ServiceResultSearchQuery;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceResultDetailResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceResultRegisterResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceResultSearchResult;
 import com.todak_todag.schedule_service.schedule.presentation.request.ServiceResultRegisterRequest;
+import com.todak_todag.schedule_service.schedule.presentation.response.ServiceResultDetailResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceResultRegisterResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.ServiceResultSearchResponse;
 import jakarta.validation.Valid;
@@ -89,6 +92,30 @@ public class ServiceResultApiController implements ServiceResultApiSpec {
                         ApiResponse.ok(
                                 "서비스 수행 결과 목록 조회 성공",
                                 PageResponse.of(result, ServiceResultSearchResponse::from)
+                        )
+                );
+    }
+
+    // [외부 API] 서비스 수행 결과 상세 조회 — 퇴원 예정자/서비스 제공자 공용
+    @Override
+    @GetMapping("/{serviceResultId}")
+    @PreAuthorize("hasAnyRole('PATIENT', 'SERVICE_PROVIDER')")
+    public ResponseEntity<ApiResponse<ServiceResultDetailResponse>> detail(
+            @PathVariable UUID serviceResultId,
+            @AuthenticationPrincipal UserContext user
+    ) {
+        ServiceResultDetailQuery detailQuery = new ServiceResultDetailQuery(
+                serviceResultId, user.getUserId(), user.getRole()
+        );
+
+        ServiceResultDetailResult result = serviceResultFacade.detail(detailQuery);
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(
+                        ApiResponse.ok(
+                                "서비스 수행 결과 상세 조회 성공",
+                                ServiceResultDetailResponse.from(result)
                         )
                 );
     }
