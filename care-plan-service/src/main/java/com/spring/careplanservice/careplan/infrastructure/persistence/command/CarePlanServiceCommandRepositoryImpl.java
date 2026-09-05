@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -43,5 +44,10 @@ public class CarePlanServiceCommandRepositoryImpl implements CarePlanServiceComm
     @Override
     public List<CarePlanService> findAllByCarePlanId(UUID carePlanId) {
         return jpaCarePlanServiceRepository.findAllByCarePlanIdAndDeletedAtIsNull(carePlanId);
+    }
+
+    @Override
+    public Optional<CarePlanService> findById(UUID id) {
+        return jpaCarePlanServiceRepository.findById(id);
     }
 }

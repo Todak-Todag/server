@@ -3,6 +3,7 @@ package com.spring.careplanservice.careplan.domain.repository.command;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface CarePlanServiceCommandRepository {
@@ -17,4 +18,6 @@ public interface CarePlanServiceCommandRepository {
     );
 
     List<CarePlanService> findAllByCarePlanId(UUID carePlanId);
+
+    Optional<CarePlanService> findById(UUID id);
 }
