@@ -6,6 +6,9 @@ spring:
     config:
       enabled: false
 
+    discovery:
+      enabled: false
+
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
     username: ${POSTGRES_USERNAME:postgres}
@@ -21,3 +24,9 @@ spring:
         default_schema: discharge_schema
         hbm2ddl:
           create_namespaces: true
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
