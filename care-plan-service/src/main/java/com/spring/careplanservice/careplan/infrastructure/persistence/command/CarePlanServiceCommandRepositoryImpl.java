@@ -48,6 +48,6 @@ public class CarePlanServiceCommandRepositoryImpl implements CarePlanServiceComm
 
     @Override
     public Optional<CarePlanService> findById(UUID id) {
-        return jpaCarePlanServiceRepository.findById(id);
+        return jpaCarePlanServiceRepository.findByIdAndDeletedAtIsNull(id);
     }
 }
