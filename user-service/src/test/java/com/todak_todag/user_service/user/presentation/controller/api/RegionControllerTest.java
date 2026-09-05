@@ -3,13 +3,11 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.user.application.query.RegionFindAdminQuery;
-import com.todak_todag.user_service.user.application.result.RegionCreateResult;
-import com.todak_todag.user_service.user.application.result.RegionFindAdminResult;
-import com.todak_todag.user_service.user.application.result.RegionFindAvailableResult;
-import com.todak_todag.user_service.user.application.result.RegionFindDetailResult;
+import com.todak_todag.user_service.user.application.result.*;
 import com.todak_todag.user_service.user.application.service.command.RegionCommandService;
 import com.todak_todag.user_service.user.application.service.query.RegionQueryService;
 import com.todak_todag.user_service.user.presentation.request.RegionCreateRequest;
+import com.todak_todag.user_service.user.presentation.request.RegionUpdateActiveRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -31,8 +29,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -406,6 +403,75 @@ class RegionControllerTest {
                             post("/api/v1/admin/regions")
                                     .contentType("application/json")
                                     .content(objectMapper.writeValueAsString(request))
+                    )
+                    .andExpect(status().isBadRequest());
+
+            then(regionCommandService)
+                    .shouldHaveNoInteractions();
+        }
+    }
+
+    @Nested
+    @DisplayName("지역 활성/비활성 상태 변경")
+    class UpdateActive {
+
+        @Test
+        @DisplayName("지역 활성 상태를 변경하면 200을 반환한다")
+        void updateActive_success() throws Exception {
+            UUID regionId = UUID.randomUUID();
+
+            RegionUpdateActiveRequest request =
+                    new RegionUpdateActiveRequest(true);
+
+            RegionUpdateActiveResult result =
+                    new RegionUpdateActiveResult(
+                            regionId,
+                            true
+                    );
+
+            given(regionCommandService.updateActive(any()))
+                    .willReturn(result);
+
+            mockMvc.perform(
+                            patch("/api/v1/admin/regions/{regionId}/active", regionId)
+                                    .contentType("application/json")
+                                    .content(
+                                            objectMapper.writeValueAsString(request)
+                                    )
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(
+                            jsonPath("$.message")
+                                    .value("지역 상태 변경 성공")
+                    )
+                    .andExpect(
+                            jsonPath("$.data.regionId")
+                                    .value(regionId.toString())
+                    )
+                    .andExpect(
+                            jsonPath("$.data.isActive")
+                                    .value(true)
+                    );
+
+            then(regionCommandService)
+                    .should()
+                    .updateActive(any());
+        }
+
+        @Test
+        @DisplayName("활성화 여부가 누락되면 400을 반환한다")
+        void updateActive_validationFail() throws Exception {
+            UUID regionId = UUID.randomUUID();
+
+            mockMvc.perform(
+                            patch("/api/v1/admin/regions/{regionId}/active", regionId)
+                                    .contentType("application/json")
+                                    .content("""
+                                        {
+                                        }
+                                        """)
                     )
                     .andExpect(status().isBadRequest());
 

@@ -3,6 +3,7 @@ package com.todak_todag.provider_service.provider.application.facade;
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkDeleteCommand;
 import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
@@ -383,6 +384,84 @@ class ServiceOfferingFacadeTest {
                     .isEqualTo(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS);
 
             verify(provideWorkCommandService, never()).update(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("제공 가능 일정 삭제")
+    class DeleteProvideWork {
+
+        private final UUID provideWorkId = UUID.randomUUID();
+
+        private ProvideWorkDeleteCommand command() {
+            return new ProvideWorkDeleteCommand(serviceOfferingId, provideWorkId, providerId);
+        }
+
+        private ServiceOffering ownedOffering() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.getId()).willReturn(serviceOfferingId);
+            given(offering.isOwnedBy(providerId)).willReturn(true);
+            return offering;
+        }
+
+        @Test
+        @DisplayName("확정 일정이 없으면 CommandService에 위임한다")
+        void deleteProvideWork_success() {
+            ServiceOffering offering = ownedOffering();
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
+
+            serviceOfferingFacade.deleteProvideWork(command());
+
+            verify(provideWorkCommandService).delete(any(ProvideWorkDeleteCommand.class));
+        }
+
+        @Test
+        @DisplayName("존재하지 않으면 Schedule-Service를 호출하지 않는다")
+        void deleteProvideWork_notFound_noExternalCall() {
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> serviceOfferingFacade.deleteProvideWork(command()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
+
+            verify(schedulePort, never()).existsConfirmedSchedule(any());
+            verify(provideWorkCommandService, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("본인 소유가 아니면 Schedule-Service를 호출하지 않는다")
+        void deleteProvideWork_notOwner_noExternalCall() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.isOwnedBy(providerId)).willReturn(false);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+
+            assertThatThrownBy(() -> serviceOfferingFacade.deleteProvideWork(command()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
+
+            verify(schedulePort, never()).existsConfirmedSchedule(any());
+            verify(provideWorkCommandService, never()).delete(any());
+        }
+
+        @Test
+        @DisplayName("확정된 일정이 있으면 CommandService를 호출하지 않는다")
+        void deleteProvideWork_scheduleExists() {
+            ServiceOffering offering = ownedOffering();
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(true);
+
+            assertThatThrownBy(() -> serviceOfferingFacade.deleteProvideWork(command()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS);
+
+            verify(provideWorkCommandService, never()).delete(any());
         }
     }
 }

@@ -3,7 +3,9 @@ package com.todak_todag.user_service.user.application.service.command;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.user.application.command.RegionCreateCommand;
+import com.todak_todag.user_service.user.application.command.RegionUpdateActiveCommand;
 import com.todak_todag.user_service.user.application.result.RegionCreateResult;
+import com.todak_todag.user_service.user.application.result.RegionUpdateActiveResult;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.repository.command.RegionCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
@@ -16,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -103,6 +106,85 @@ class RegionCommandServiceTest {
             then(regionQueryRepository)
                     .should()
                     .existsByRegionCode(command.regionCode());
+
+            then(regionCommandRepository)
+                    .shouldHaveNoInteractions();
+        }
+    }
+
+    @Nested
+    @DisplayName("지역 활성/비활성 상태 변경")
+    class UpdateActive {
+
+        @Test
+        @DisplayName("지역의 활성 상태를 변경한다")
+        void updateActive_success() {
+            UUID regionId = UUID.randomUUID();
+
+            RegionUpdateActiveCommand command =
+                    new RegionUpdateActiveCommand(
+                            regionId,
+                            true
+                    );
+
+            Region region = Mockito.mock(Region.class);
+
+            given(regionQueryRepository.findById(regionId))
+                    .willReturn(Optional.of(region));
+
+            given(region.getId())
+                    .willReturn(regionId);
+
+            given(region.isActive())
+                    .willReturn(true);
+
+            RegionUpdateActiveResult result =
+                    regionCommandService.updateActive(command);
+
+            assertThat(result.regionId())
+                    .isEqualTo(regionId);
+
+            assertThat(result.isActive())
+                    .isTrue();
+
+            then(regionQueryRepository)
+                    .should()
+                    .findById(regionId);
+
+            then(region)
+                    .should()
+                    .updateActive(true);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 지역의 상태는 변경할 수 없다")
+        void updateActive_regionNotFound() {
+            UUID regionId = UUID.randomUUID();
+
+            RegionUpdateActiveCommand command =
+                    new RegionUpdateActiveCommand(
+                            regionId,
+                            true
+                    );
+
+            given(regionQueryRepository.findById(regionId))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() ->
+                    regionCommandService.updateActive(command)
+            )
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(exception -> {
+                        BusinessException businessException =
+                                (BusinessException) exception;
+
+                        assertThat(businessException.getErrorCode())
+                                .isEqualTo(RegionErrorCode.REGION_NOT_FOUND);
+                    });
+
+            then(regionQueryRepository)
+                    .should()
+                    .findById(regionId);
 
             then(regionCommandRepository)
                     .shouldHaveNoInteractions();

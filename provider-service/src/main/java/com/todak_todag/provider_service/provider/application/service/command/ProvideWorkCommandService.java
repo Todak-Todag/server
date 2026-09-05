@@ -3,6 +3,7 @@ package com.todak_todag.provider_service.provider.application.service.command;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.command.ProvideWorkCreateCommand;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkDeleteCommand;
 import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
@@ -87,6 +88,29 @@ public class ProvideWorkCommandService {
                 provideWork.getId(), command.serviceOfferingId());
 
         return ProvideWorkUpdateResult.from(provideWork);
+    }
+
+    // schedulePort 호출은 Facade가 트랜잭션 밖에서 수행한다
+    @Transactional
+    public void delete(ProvideWorkDeleteCommand command) {
+        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
+
+        if (!serviceOffering.isOwnedBy(command.providerId())) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
+        }
+
+        ProvideWork provideWork = provideWorkQueryRepository.findById(command.provideWorkId())
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND));
+
+        if (!provideWork.getServiceOfferingId().equals(command.serviceOfferingId())) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND);
+        }
+
+        provideWork.markDeleted(command.providerId());
+
+        log.info("[Provider] 제공 가능 일정 삭제 provideWorkId={} serviceOfferingId={}",
+                provideWork.getId(), command.serviceOfferingId());
     }
 
     // 같은 제공 서비스 안에서 요일이 같고 시간이 겹치는 일정은 등록·수정할 수 없다

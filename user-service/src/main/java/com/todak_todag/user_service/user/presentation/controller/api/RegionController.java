@@ -2,18 +2,13 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.response.PageResponse;
-import com.todak_todag.user_service.user.application.result.RegionCreateResult;
-import com.todak_todag.user_service.user.application.result.RegionFindAdminResult;
-import com.todak_todag.user_service.user.application.result.RegionFindAvailableResult;
-import com.todak_todag.user_service.user.application.result.RegionFindDetailResult;
+import com.todak_todag.user_service.user.application.result.*;
 import com.todak_todag.user_service.user.application.service.command.RegionCommandService;
 import com.todak_todag.user_service.user.application.service.query.RegionQueryService;
 import com.todak_todag.user_service.user.presentation.request.RegionCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.RegionFindAdminRequest;
-import com.todak_todag.user_service.user.presentation.response.RegionCreateResponse;
-import com.todak_todag.user_service.user.presentation.response.RegionFindAdminResponse;
-import com.todak_todag.user_service.user.presentation.response.RegionFindAvailableListResponse;
-import com.todak_todag.user_service.user.presentation.response.RegionFindDetailResponse;
+import com.todak_todag.user_service.user.presentation.request.RegionUpdateActiveRequest;
+import com.todak_todag.user_service.user.presentation.response.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -110,5 +105,26 @@ public class RegionController implements RegionApiSpec {
                                 RegionCreateResponse.from(result)
                         )
                 );
+    }
+
+    // 활성/비활성 지역 상태 변경
+    @Override
+    @PreAuthorize("hasRole('MASTER')")
+    @PatchMapping("/admin/regions/{regionId}/active")
+    public ResponseEntity<ApiResponse<RegionUpdateActiveResponse>> updateActive(
+            @PathVariable UUID regionId,
+            @Valid @RequestBody RegionUpdateActiveRequest request
+    ) {
+        RegionUpdateActiveResult result =
+                regionCommandService.updateActive(
+                        request.toCommand(regionId)
+                );
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(
+                        "지역 상태 변경 성공",
+                        RegionUpdateActiveResponse.from(result)
+                )
+        );
     }
 }

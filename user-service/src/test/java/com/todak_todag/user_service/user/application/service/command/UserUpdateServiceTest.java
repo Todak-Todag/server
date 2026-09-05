@@ -17,8 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.Mock;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -81,8 +81,7 @@ class UserUpdateServiceTest {
 				"admin0123",
 				"$2a$10$hashedvaluehashedvaluehashedvalue",
 				"관리자",
-				"01099998888",
-				UserRole.ADMIN
+				"01099998888"
 		);
 		ReflectionTestUtils.setField(user, "id", ADMIN_ID);
 		return user;
@@ -120,8 +119,7 @@ class UserUpdateServiceTest {
 				"admintarget0123",
 				"$2a$10$hashedvaluehashedvaluehashedvalue",
 				"운영자대상",
-				"01088887777",
-				UserRole.ADMIN
+				"01088887777"
 		);
 		ReflectionTestUtils.setField(user, "id", TARGET_ID);
 		return user;

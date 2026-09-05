@@ -3,6 +3,7 @@ package com.todak_todag.provider_service.provider.presentation.controller.api;
 import com.todak_todag.provider_service.global.response.ApiResponse;
 import com.todak_todag.provider_service.global.security.UserContext;
 import com.todak_todag.provider_service.provider.application.command.ProvideWorkCreateCommand;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkDeleteCommand;
 import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
 import com.todak_todag.provider_service.provider.application.facade.ServiceOfferingFacade;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkCreateResult;
@@ -72,5 +73,18 @@ public class ProvideWorkApiController {
         );
 
         return ApiResponse.ok("제공 가능 일정 수정 성공", ProvideWorkUpdateResponse.from(result));
+    }
+
+    @DeleteMapping("/{provideWorkId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('SERVICE_PROVIDER')")
+    public void delete(
+            @AuthenticationPrincipal UserContext user,
+            @PathVariable("serviceOfferingId") UUID serviceOfferingId,
+            @PathVariable("provideWorkId") UUID provideWorkId
+    ) {
+        serviceOfferingFacade.deleteProvideWork(
+                new ProvideWorkDeleteCommand(serviceOfferingId, provideWorkId, user.getUserId())
+        );
     }
 }

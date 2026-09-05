@@ -1,19 +1,17 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
-import java.util.UUID;
-
 import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
+import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
-import com.todak_todag.user_service.user.presentation.request.UserSuspendRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
+import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
-import com.todak_todag.user_service.user.presentation.response.UserSuspendedResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -80,22 +78,19 @@ public interface UserApiSpec {
 	);
 	
 	@Operation(
-			summary = "사용자 일시 정지",
+			summary = "퇴원 예정자 등록",
 			description = """
-					관리자와 지역별 운영자는 사용자를 일시 정지할 수 있습니다.
+					병원 담당자는 퇴원 예정자를 등록할 수 있습니다.
 					
-					정지 사유는 필수이며 지역별 운영자는 자신의 지역내 사용자에 대해서만 일시 정지가 가능합니다.
+					퇴원 예정자의 주소와 지역 ID 가 존재하는 경우 일치 여부를 검증합니다.
 					
-					정지된 사용자는 SUSPENDED 상태가 됩니다.
+					생성된 퇴원 예정자는 WITHDRAWN 상태가 됩니다.
 			"""
 	)
-	ResponseEntity<ApiResponse<UserSuspendedResponse>> suspend(
-			@Parameter(description = "정지 대상 사용자 ID", required = true)
-			UUID userId,
-			
-			@Parameter(description = "정지 사유", required = true)
+	ResponseEntity<ApiResponse<UserPatientCreatedResponse>> createPatient(
+			@Parameter(description = "퇴원 예정자 등록 정보", required = true)
 			@Valid
-			UserSuspendRequest userSuspendRequest,
+			UserPatientCreateRequest userPatientCreateRequest,
 			
 			@Parameter(hidden = true)
 			UserContext user
