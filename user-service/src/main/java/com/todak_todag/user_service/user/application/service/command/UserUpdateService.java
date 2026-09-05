@@ -86,7 +86,7 @@ public class UserUpdateService {
 			User requesterAdmin = userQueryRepo.findActiveById(command.requesterId())
 					.orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST));
 			
-			if(Objects.equals(user.getRegionId(), requesterAdmin.getRegionId())) {
+			if(!Objects.equals(user.getRegionId(), requesterAdmin.getRegionId())) {
 				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
 			}
 		}
