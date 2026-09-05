@@ -35,7 +35,7 @@ public class UserInternalController implements UserInternalSpec {
 					result.role(),
 					result.regionId()
     	);
-
+    	
       return ResponseEntity.status(200).body(ApiResponse.ok("사용자 정보 조회 완료", response));
     }
 
