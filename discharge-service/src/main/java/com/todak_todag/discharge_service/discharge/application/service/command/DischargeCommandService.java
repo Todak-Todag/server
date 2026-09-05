@@ -3,7 +3,7 @@ package com.todak_todag.discharge_service.discharge.application.service.command;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeCreateCommand;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
 import com.todak_todag.discharge_service.discharge.domain.entity.Discharge;
-import com.todak_todag.discharge_service.discharge.domain.repository.DischargeRepository;
+import com.todak_todag.discharge_service.discharge.domain.repository.command.DischargeCommandRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,7 +14,7 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class DischargeCommandService {
 
-    private final DischargeRepository dischargeRepository;
+    private final DischargeCommandRepository dischargeCommandRepository;
 
     @Transactional
     public DischargeCreateResult createDischarge(
@@ -33,7 +33,7 @@ public class DischargeCommandService {
                 command.scheduledDate()
         );
 
-        Discharge saved = dischargeRepository.save(discharge);
+        Discharge saved = dischargeCommandRepository.save(discharge);
 
         return new DischargeCreateResult(saved.getId());
     }

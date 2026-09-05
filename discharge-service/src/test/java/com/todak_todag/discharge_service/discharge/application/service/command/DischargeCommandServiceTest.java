@@ -3,7 +3,7 @@ package com.todak_todag.discharge_service.discharge.application.service.command;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeCreateCommand;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
 import com.todak_todag.discharge_service.discharge.domain.entity.Discharge;
-import com.todak_todag.discharge_service.discharge.domain.repository.DischargeRepository;
+import com.todak_todag.discharge_service.discharge.domain.repository.command.DischargeCommandRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,14 +21,14 @@ import static org.mockito.Mockito.when;
 class DischargeCommandServiceTest {
 
     @Mock
-    private DischargeRepository dischargeRepository;
+    private DischargeCommandRepository dischargeCommandRepository;
 
     private DischargeCommandService dischargeCommandService;
 
     @BeforeEach
     void setUp() {
         dischargeCommandService =
-                new DischargeCommandService(dischargeRepository);
+                new DischargeCommandService(dischargeCommandRepository);
     }
 
     @Test
@@ -45,7 +45,7 @@ class DischargeCommandServiceTest {
                         LocalDate.now().plusDays(1)
                 );
 
-        when(dischargeRepository.save(any(Discharge.class)))
+        when(dischargeCommandRepository.save(any(Discharge.class)))
                 .thenAnswer(invocation -> {
                     Discharge discharge = invocation.getArgument(0);
 

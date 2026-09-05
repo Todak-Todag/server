@@ -3,7 +3,7 @@ package com.todak_todag.discharge_service.discharge.application.service.query;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeFindResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeInternalFindResult;
 import com.todak_todag.discharge_service.discharge.domain.entity.Discharge;
-import com.todak_todag.discharge_service.discharge.domain.repository.DischargeRepository;
+import com.todak_todag.discharge_service.discharge.domain.repository.query.DischargeQueryRepository;
 import com.todak_todag.discharge_service.global.common.UserRole;
 import com.todak_todag.discharge_service.global.exception.BusinessException;
 import com.todak_todag.discharge_service.global.exception.ErrorCode;
@@ -19,7 +19,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class DischargeQueryService {
 
-    private final DischargeRepository dischargeRepository;
+    private final DischargeQueryRepository dischargeQueryRepository;
 
     public DischargeFindResult findDischarge(
             UUID dischargeId,
@@ -27,7 +27,7 @@ public class DischargeQueryService {
             UserRole userRole
     ) {
         Discharge discharge =
-                dischargeRepository.findById(dischargeId)
+                dischargeQueryRepository.findById(dischargeId)
                         .orElseThrow(
                                 () -> new BusinessException(
                                         ErrorCode.DISCHARGE_NOT_FOUND,
@@ -49,7 +49,7 @@ public class DischargeQueryService {
 
     public DischargeInternalFindResult findById(UUID dischargeId) {
         Discharge discharge =
-                dischargeRepository.findById(dischargeId)
+                dischargeQueryRepository.findById(dischargeId)
                         .orElseThrow(
                                 () -> new BusinessException(
                                         ErrorCode.COMMON_NOT_FOUND,
