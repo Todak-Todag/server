@@ -113,6 +113,7 @@ class UserQueryServiceTest {
             UUID socialWorkerId = UUID.randomUUID();
             User patient = Mockito.mock(User.class);
 
+            given(patient.isPatient()).willReturn(true);
             given(patient.getRegionId()).willReturn(regionId);
             given(patient.getAddress()).willReturn("전라남도 고흥군 도양읍");
             given(userQueryRepository.findById(patientId))
@@ -147,11 +148,31 @@ class UserQueryServiceTest {
         }
 
         @Test
+        @DisplayName("대상이 퇴원 예정자(PATIENT)가 아니면 USER_APPROVAL_CONFLICT 예외가 발생하고 이후 검증을 수행하지 않는다")
+        void getMatchableSocialWorkers_notPatient() {
+            UUID patientId = UUID.randomUUID();
+            User patient = Mockito.mock(User.class);
+
+            given(patient.isPatient()).willReturn(false);
+            given(userQueryRepository.findById(patientId))
+                    .willReturn(Optional.of(patient));
+
+            assertThatThrownBy(() -> userQueryService.getMatchableSocialWorkers(patientId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                    .isEqualTo(UserErrorCode.USER_APPROVAL_CONFLICT);
+
+            then(regionQueryRepository).should(never()).existsAvailableRegion(any(UUID.class));
+            then(userQueryRepository).should(never()).findMatchableSocialWorkerIds(any(UUID.class));
+        }
+
+        @Test
         @DisplayName("환자의 지역 ID가 없으면 USER_PATIENT_INVALID_REGION 예외가 발생한다")
         void getMatchableSocialWorkers_noRegionId() {
             UUID patientId = UUID.randomUUID();
             User patient = Mockito.mock(User.class);
 
+            given(patient.isPatient()).willReturn(true);
             given(patient.getRegionId()).willReturn(null);
             given(userQueryRepository.findById(patientId))
                     .willReturn(Optional.of(patient));
@@ -169,6 +190,7 @@ class UserQueryServiceTest {
             UUID regionId = UUID.randomUUID();
             User patient = Mockito.mock(User.class);
 
+            given(patient.isPatient()).willReturn(true);
             given(patient.getRegionId()).willReturn(regionId);
             given(patient.getAddress()).willReturn(null);
             given(userQueryRepository.findById(patientId))
@@ -187,6 +209,7 @@ class UserQueryServiceTest {
             UUID regionId = UUID.randomUUID();
             User patient = Mockito.mock(User.class);
 
+            given(patient.isPatient()).willReturn(true);
             given(patient.getRegionId()).willReturn(regionId);
             given(patient.getAddress()).willReturn("전라남도 고흥군 도양읍");
             given(userQueryRepository.findById(patientId))
@@ -209,6 +232,7 @@ class UserQueryServiceTest {
             UUID regionId = UUID.randomUUID();
             User patient = Mockito.mock(User.class);
 
+            given(patient.isPatient()).willReturn(true);
             given(patient.getRegionId()).willReturn(regionId);
             given(patient.getAddress()).willReturn("전라남도 고흥군 도양읍");
             given(userQueryRepository.findById(patientId))
