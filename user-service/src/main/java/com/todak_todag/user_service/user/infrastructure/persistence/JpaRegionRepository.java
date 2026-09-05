@@ -5,6 +5,7 @@ import com.todak_todag.user_service.user.infrastructure.persistence.query.Region
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface JpaRegionRepository
@@ -15,4 +16,7 @@ public interface JpaRegionRepository
 
     // 회원가입 시 지역 검증 : 서비스 기능 + 미삭제 지역 조회
     boolean existsByIdAndActiveTrueAndDeletedAtIsNull(UUID regionId);
+
+    // 지역 단건 조회
+    Optional<Region> findByIdAndDeletedAtIsNull(UUID regionId);
 }

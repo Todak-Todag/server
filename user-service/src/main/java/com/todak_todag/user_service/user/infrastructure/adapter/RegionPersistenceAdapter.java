@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -38,5 +39,10 @@ public class RegionPersistenceAdapter implements RegionQueryRepository {
         // 회원가입 시 지역 검증 조회
         return jpaRepository
                 .existsByIdAndActiveTrueAndDeletedAtIsNull(regionId);
+    }
+
+    @Override
+    public Optional<Region> findById(UUID regionId) {
+        return jpaRepository.findByIdAndDeletedAtIsNull(regionId);
     }
 }
