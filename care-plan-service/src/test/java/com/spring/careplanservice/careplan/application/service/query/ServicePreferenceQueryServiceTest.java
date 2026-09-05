@@ -1,11 +1,16 @@
 package com.spring.careplanservice.careplan.application.service.query;
 
+import com.spring.careplanservice.careplan.application.query.ServicePreferenceFindQuery;
 import com.spring.careplanservice.careplan.application.query.ServicePreferenceSearchQuery;
+import com.spring.careplanservice.careplan.application.result.ServicePreferenceFindResult;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceSearchResult;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
 import com.spring.careplanservice.careplan.domain.entity.PreferredTimeSlot;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanQueryRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceView;
 import com.spring.careplanservice.global.common.UserRole;
@@ -50,6 +55,9 @@ class ServicePreferenceQueryServiceTest {
 
     @Mock
     private ServicePreferenceQueryRepository servicePreferenceQueryRepository;
+
+    @Mock
+    private CarePlanServiceQueryRepository carePlanServiceQueryRepository;
 
     @Mock
     private CarePlanOwnerValidator carePlanOwnerValidator;
@@ -378,6 +386,177 @@ class ServicePreferenceQueryServiceTest {
             assertThat(result.preferredDate()).isEqualTo(preferredDate);
             assertThat(result.preferredTimeSlot()).isEqualTo(PreferredTimeSlot.MORNING);
             assertThat(result.createdAt()).isEqualTo(createdAt);
+        }
+    }
+
+    @Nested
+    @DisplayName("서비스 희망 일정 단건 조회")
+    class FindServicePreference {
+        @Test
+        @DisplayName("PATIENT 본인 소유이면 성공")
+        void findServicePreference_patientOwner_success() {
+            ServicePreferenceFindQuery query = new ServicePreferenceFindQuery(
+                    patientId,
+                    UserRole.PATIENT,
+                    servicePreferenceId
+            );
+
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    UUID.randomUUID(),
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            given(servicePreferenceQueryRepository.findById(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(preference.getPlanServiceId())).willReturn(Optional.of(carePlanService));
+            given(carePlanQueryRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            ServicePreferenceFindResult result = servicePreferenceQueryService.findServicePreference(query);
+
+            assertThat(result.servicePreferenceId()).isEqualTo(preference.getId());
+            assertThat(result.planServiceId()).isEqualTo(preference.getPlanServiceId());
+            assertThat(result.provideServiceId()).isEqualTo(provideServiceId);
+            assertThat(result.preferredDate()).isEqualTo(LocalDate.of(2026, 9, 10));
+            assertThat(result.preferredTimeSlot()).isEqualTo(PreferredTimeSlot.MORNING);
+            verify(carePlanOwnerValidator).validate(patientId, patientId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 servicePreferenceId면 예외")
+        void findServicePreference_notFound() {
+            ServicePreferenceFindQuery query = new ServicePreferenceFindQuery(
+                    patientId,
+                    UserRole.PATIENT,
+                    servicePreferenceId
+            );
+
+            given(servicePreferenceQueryRepository.findById(servicePreferenceId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> servicePreferenceQueryService.findServicePreference(query))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(exception ->
+                            assertThat(((BusinessException) exception).getErrorCode())
+                                    .isEqualTo(ErrorCode.SERVICE_PREFERENCE_NOT_FOUND)
+                    );
+
+            verify(carePlanServiceQueryRepository, never()).findById(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("Care Plan 서비스가 존재하지 않으면 예외")
+        void findServicePreference_planServiceNotFound() {
+            ServicePreferenceFindQuery query = new ServicePreferenceFindQuery(
+                    patientId,
+                    UserRole.PATIENT,
+                    servicePreferenceId
+            );
+
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    UUID.randomUUID(),
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            given(servicePreferenceQueryRepository.findById(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(preference.getPlanServiceId())).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> servicePreferenceQueryService.findServicePreference(query))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(exception ->
+                            assertThat(((BusinessException) exception).getErrorCode())
+                                    .isEqualTo(ErrorCode.CARE_PLAN_SERVICE_NOT_FOUND)
+                    );
+
+            verify(carePlanQueryRepository, never()).findById(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("Care Plan이 존재하지 않으면 예외")
+        void findServicePreference_carePlanNotFound() {
+            ServicePreferenceFindQuery query = new ServicePreferenceFindQuery(
+                    patientId,
+                    UserRole.PATIENT,
+                    servicePreferenceId
+            );
+
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    UUID.randomUUID(),
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+
+            given(servicePreferenceQueryRepository.findById(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(preference.getPlanServiceId())).willReturn(Optional.of(carePlanService));
+            given(carePlanQueryRepository.findById(carePlanId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> servicePreferenceQueryService.findServicePreference(query))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(exception ->
+                            assertThat(((BusinessException) exception).getErrorCode())
+                                    .isEqualTo(ErrorCode.CARE_PLAN_NOT_FOUND)
+                    );
+
+            verify(carePlanOwnerValidator, never()).validate(any(UUID.class), any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("PATIENT가 본인 소유가 아니면 예외")
+        void findServicePreference_forbidden() {
+            UUID otherPatientId = UUID.randomUUID();
+
+            ServicePreferenceFindQuery query = new ServicePreferenceFindQuery(
+                    patientId,
+                    UserRole.PATIENT,
+                    servicePreferenceId
+            );
+
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    UUID.randomUUID(),
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    otherPatientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            given(servicePreferenceQueryRepository.findById(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(preference.getPlanServiceId())).willReturn(Optional.of(carePlanService));
+            given(carePlanQueryRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            doThrow(new BusinessException(ErrorCode.AUTH_FORBIDDEN))
+                    .when(carePlanOwnerValidator)
+                    .validate(patientId, otherPatientId);
+
+            assertThatThrownBy(() -> servicePreferenceQueryService.findServicePreference(query))
+                    .isInstanceOf(BusinessException.class);
         }
     }
 }
