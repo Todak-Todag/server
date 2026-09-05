@@ -214,6 +214,14 @@ public class User extends BaseAuditableEntity {
 		return this.status == UserStatus.PENDING;
 	}
 	
+	public boolean isApprove() {
+		return this.status == UserStatus.APPROVED;
+	}
+	
+	public void suspend(String statusChangeReason) {
+		this.statusChangeReason = statusChangeReason;
+	}
+	
 	public void approvalOrReject(Boolean accept, String rejectReason) {
 		// 승인
 		if(accept == true) {

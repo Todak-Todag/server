@@ -28,6 +28,7 @@ public enum UserErrorCode implements ErrorCode {
 	
 	USER_MODIFY_STATE(HttpStatus.CONFLICT, "대상 사용자는 승인/거절이 불가능한 상태입니다."),
 	
+	USER_SUSPEND_MODIFY_STATE(HttpStatus.CONFLICT, "대상 사용자를 정지시킬 수 있는 상태가 아닙니다."),
 	
 	;
 	private final HttpStatus status;

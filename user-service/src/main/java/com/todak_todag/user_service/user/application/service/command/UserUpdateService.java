@@ -62,7 +62,38 @@ public class UserUpdateService {
 	}
 	
 	public UUID suspend(UserSuspendCommand command) {
+		// 1. 요청자의 신원이 뭐니?
+		UserRole requesterRole = command.requesterRole();
 		
+		// 2. 정지 대상이 존재하는가?
+		User user = userQueryRepo.findById(command.userId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
+		// 3. 요청자가 ADMIN 인가?
+		if(Objects.equals(requesterRole, UserRole.ADMIN)) {
+			
+			// 3-1. ADMIN 은 ADMIN 을 정지시킬 수 없다.
+			if(Objects.equals(user.getRole(), UserRole.ADMIN)) {
+				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+			}
+			
+			// 3-2. ADMIN 은 같은 지역내 사용자만 정지가 가능하다.
+			User requesterAdmin = userQueryRepo.findActiveById(command.requesterId())
+					.orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST));
+			
+			if(Objects.equals(user.getRegionId(), requesterAdmin.getRegionId())) {
+				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+			}
+		}
+		
+		// 4. 3번 IF문을 안타면 MASTER 이며 일시 정지를 진행한다.
+		if(!user.isApprove()) {
+			throw new BusinessException(UserErrorCode.USER_SUSPEND_MODIFY_STATE);
+		}
+		
+		user.suspend(command.suspendReason());
+		
+		return user.getId();
 	}
 	
 }
