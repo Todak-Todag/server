@@ -105,6 +105,7 @@ public class UserApiController implements UserApiSpec {
 
 	@Override
 	@PatchMapping("/admin/users/{userId}/suspend")
+	@PreAuthorize("hasAnyRole('MASTER', 'ADMIN')")
 	public ResponseEntity<ApiResponse<UserSuspendedResponse>> suspend(
 			@PathVariable("userId") UUID userId,
 			@Valid @RequestBody UserSuspendRequest userSuspendRequest,
