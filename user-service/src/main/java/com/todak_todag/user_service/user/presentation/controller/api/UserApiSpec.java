@@ -6,9 +6,11 @@ import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
+import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
+import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -70,6 +72,24 @@ public interface UserApiSpec {
 			@Parameter(description = "승인/거절 정보", required = true)
 			@Valid
 			UserApprovalRequest userApprovalRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user
+	);
+	
+	@Operation(
+			summary = "퇴원 예정자 등록",
+			description = """
+					병원 담당자는 퇴원 예정자를 등록할 수 있습니다.
+					
+					퇴원 예정자의 주소와 지역 ID 가 존재하는 경우 일치 여부를 검증합니다.
+					
+					생성된 퇴원 예정자는 WITHDRAWN 상태가 됩니다.
+			"""
+	)
+	ResponseEntity<ApiResponse<UserPatientCreatedResponse>> createPatient(
+			@Parameter(description = "퇴원 예정자 등록 정보", required = true)
+			UserPatientCreateRequest userPatientCreateRequest,
 			
 			@Parameter(hidden = true)
 			UserContext user

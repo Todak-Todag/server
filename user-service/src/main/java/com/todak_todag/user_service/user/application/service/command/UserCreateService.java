@@ -5,12 +5,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.UserAdminCreateCommand;
+import com.todak_todag.user_service.user.application.command.UserPatientCreateCommand;
 import com.todak_todag.user_service.user.application.command.UserSignupCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
+import com.todak_todag.user_service.user.application.support.AddressValidator;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
@@ -25,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 @Transactional(rollbackFor = Exception.class)
 public class UserCreateService {
 	
+	private final AddressValidator addressValidator;
+	
 	private final PasswordEncoderPort passwordEncoder;
 	
 	private final UserCommandRepository userCommandRepo;
@@ -32,14 +37,6 @@ public class UserCreateService {
 	private final UserQueryRepository userQueryRepo;
 	
 	private final RegionQueryRepository regionQueryRepo;
-	
-	// private final regionCommandRepo
-	
-	// private final regionQueryRepo
-	
-	// private final consentCommandRepo
-	
-	// private final consentQueryRepo
 	
 	public UserSignupCreatedResult createUserSignup(UserSignupCommand signup) {
 		
@@ -83,8 +80,8 @@ public class UserCreateService {
 	}
 	
 	public UserAdminCreatedResult createUserAdmin(UserAdminCreateCommand createAdmin) {
-		// TODO: 한 건 조회가 생기는 경우 수정
-		Region region = regionQueryRepo.findAllAvailableRegions().getFirst();
+		Region region = regionQueryRepo.findById(createAdmin.regionId())
+        .orElseThrow(() -> new BusinessException(RegionErrorCode.REGION_NOT_FOUND));
 		
 		// Username 중복 검증
 		if(userQueryRepo.duplicateUsername(createAdmin.username())) {
@@ -108,8 +105,11 @@ public class UserCreateService {
 		return new UserAdminCreatedResult(user.getId(), user.getName(), region.getProvince(), region.getDistrict());
 	}
 	
-	public void createUserPatient() {
-		// TODO: 퇴원 예정자 등록 API
+	public void createUserPatient(UserPatientCreateCommand createPatient) {
+		// 1. 지역 정보가 있는가? 있으면 검증
+		addressValidator.patientAddressValidate(createPatient);
+		
+		// 2. 
 	}
 
 	// 서버 최초 구동 시 마스터 계정이 없으면 생성한다 (있으면 아무 것도 하지 않음)

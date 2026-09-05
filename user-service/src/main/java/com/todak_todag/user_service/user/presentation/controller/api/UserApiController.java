@@ -19,9 +19,11 @@ import com.todak_todag.user_service.user.application.service.command.UserCreateS
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
+import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
+import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
 import jakarta.validation.Valid;
@@ -96,6 +98,17 @@ public class UserApiController implements UserApiSpec {
 		return ResponseEntity
 				.status(200)
 				.body(ApiResponse.ok(responseMessage, response));
+	}
+
+	@Override
+	@PostMapping("/users/patient")
+	@PreAuthorize("hasRole('HOSPITAL_STAFF')")
+	public ResponseEntity<ApiResponse<UserPatientCreatedResponse>> createPatient(
+			@Valid @RequestBody UserPatientCreateRequest userPatientCreateRequest,
+			@AuthenticationPrincipal UserContext user
+	) {
+		
+		return null;
 	}
 	
 	
