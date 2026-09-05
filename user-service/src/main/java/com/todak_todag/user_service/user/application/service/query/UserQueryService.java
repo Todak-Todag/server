@@ -40,7 +40,7 @@ public class UserQueryService {
     	User patient = userQueryRepo.findById(patientId)
     			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     	
-    	if(patient.isPatient()) {
+    	if(!patient.isPatient()) {
     		throw new BusinessException(UserErrorCode.USER_APPROVAL_CONFLICT);
     	}
     	
