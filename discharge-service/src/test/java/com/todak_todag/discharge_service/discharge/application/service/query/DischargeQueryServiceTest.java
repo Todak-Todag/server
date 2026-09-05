@@ -1,8 +1,8 @@
-package com.todak_todag.discharge_service.discharge.application.query_service;
+package com.todak_todag.discharge_service.discharge.application.service.query;
 
 import com.todak_todag.discharge_service.discharge.application.result.DischargeFindResult;
 import com.todak_todag.discharge_service.discharge.domain.entity.Discharge;
-import com.todak_todag.discharge_service.discharge.domain.repository.DischargeRepository;
+import com.todak_todag.discharge_service.discharge.domain.repository.query.DischargeQueryRepository;
 import com.todak_todag.discharge_service.global.common.UserRole;
 import com.todak_todag.discharge_service.global.exception.BusinessException;
 import com.todak_todag.discharge_service.global.exception.ErrorCode;
@@ -26,14 +26,14 @@ import static org.mockito.Mockito.when;
 class DischargeQueryServiceTest {
 
     @Mock
-    private DischargeRepository dischargeRepository;
+    private DischargeQueryRepository dischargeQueryRepository;
 
     private DischargeQueryService dischargeQueryService;
 
     @BeforeEach
     void setUp() {
         dischargeQueryService =
-                new DischargeQueryService(dischargeRepository);
+                new DischargeQueryService(dischargeQueryRepository);
     }
 
     @Test
@@ -53,7 +53,7 @@ class DischargeQueryServiceTest {
                         createdAt
                 );
 
-        when(dischargeRepository.findById(dischargeId))
+        when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.of(discharge));
 
         DischargeFindResult result =
@@ -84,7 +84,7 @@ class DischargeQueryServiceTest {
         when(discharge.getPatientId())
                 .thenReturn(patientId);
 
-        when(dischargeRepository.findById(dischargeId))
+        when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.of(discharge));
 
         assertThatThrownBy(
@@ -123,7 +123,7 @@ class DischargeQueryServiceTest {
                         createdAt
                 );
 
-        when(dischargeRepository.findById(dischargeId))
+        when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.of(discharge));
 
         DischargeFindResult result =
@@ -154,7 +154,7 @@ class DischargeQueryServiceTest {
         when(discharge.getHospitalStaffId())
                 .thenReturn(hospitalStaffId);
 
-        when(dischargeRepository.findById(dischargeId))
+        when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.of(discharge));
 
         assertThatThrownBy(
@@ -182,7 +182,7 @@ class DischargeQueryServiceTest {
 
         Discharge discharge = mock(Discharge.class);
 
-        when(dischargeRepository.findById(dischargeId))
+        when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.of(discharge));
 
         assertThatThrownBy(
@@ -208,7 +208,7 @@ class DischargeQueryServiceTest {
     void 존재하지_않는_퇴원건은_조회할_수_없다() {
         UUID dischargeId = UUID.randomUUID();
 
-        when(dischargeRepository.findById(dischargeId))
+        when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(
