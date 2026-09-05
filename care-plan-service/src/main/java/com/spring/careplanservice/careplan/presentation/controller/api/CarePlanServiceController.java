@@ -1,5 +1,6 @@
 package com.spring.careplanservice.careplan.presentation.controller.api;
 
+import com.spring.careplanservice.careplan.application.command.CarePlanServiceCancelCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanServiceSelectCommand;
 import com.spring.careplanservice.careplan.application.result.CarePlanServiceSelectResult;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanServiceCommandService;
@@ -51,5 +52,21 @@ public class CarePlanServiceController {
                                 )
                         )
                 );
+    }
+
+    @PreAuthorize("hasRole('PATIENT')")
+    @DeleteMapping("/care-plan-services/{planServiceId}")
+    public ResponseEntity<Void> cancelCarePlanService(
+            @AuthenticationPrincipal UserContext user,
+            @PathVariable("planServiceId") UUID planServiceId
+    ) {
+        carePlanServiceCommandService.cancelCarePlanService(
+                new CarePlanServiceCancelCommand(
+                        user.userId(),
+                        planServiceId
+                )
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }

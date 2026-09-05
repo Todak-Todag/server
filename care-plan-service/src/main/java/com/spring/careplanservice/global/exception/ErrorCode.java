@@ -99,6 +99,16 @@ public enum ErrorCode {
     CARE_PLAN_DELETE_NOT_ALLOWED(
             HttpStatus.CONFLICT,
             "UNDER_REVIEW 상태의 Care Plan만 삭제할 수 있습니다."
+    ),
+
+    CARE_PLAN_SERVICE_CANCEL_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "UNDER_REVIEW 상태의 Care Plan만 서비스 항목을 취소할 수 있습니다."
+    ),
+
+    CARE_PLAN_SERVICE_ALREADY_DELETED(
+            HttpStatus.CONFLICT,
+            "이미 취소된 서비스 항목입니다."
     )
     ;
 
