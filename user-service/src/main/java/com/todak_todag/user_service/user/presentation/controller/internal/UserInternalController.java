@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
@@ -34,4 +35,13 @@ public class UserInternalController implements UserInternalSpec {
 
       return ResponseEntity.status(200).body(ApiResponse.ok("사용자 정보 조회 완료", response));
     }
+
+		@Override
+		@GetMapping("/{patientId}/")
+		public ResponseEntity<ApiResponse<Set<UUID>>> readMatchableSocialWorkers(UUID patientId) {
+			
+			Set<UUID> result = userQueryService.getMatchableSocialWorkers(patientId);
+			
+			return null;
+		}
 }
