@@ -78,6 +78,14 @@ public class CarePlan extends BaseAuditEntity {
         this.status = status;
     }
 
+    public boolean isUnderReview() {
+        return this.status == CarePlanStatus.UNDER_REVIEW;
+    }
+
+    public void delete(UUID deletedBy) {
+        markDeleted(deletedBy);
+    }
+
     // TODO : 이벤트 계약 이후 수정
     public void complete() {
         if (this.status != CarePlanStatus.IN_PROGRESS) {

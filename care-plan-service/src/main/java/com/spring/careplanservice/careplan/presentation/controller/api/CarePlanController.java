@@ -1,6 +1,7 @@
 package com.spring.careplanservice.careplan.presentation.controller.api;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
+import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.facade.CarePlanFacade;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
@@ -144,5 +145,21 @@ public class CarePlanController {
                         CarePlanStatusUpdateResponse.from(carePlanStatusUpdateResult)
                 )
         );
+    }
+
+    @DeleteMapping("/{carePlanId}")
+    @PreAuthorize("hasAnyRole('HOSPITAL_STAFF', 'ADMIN', 'MASTER')")
+    public ResponseEntity<Void> deleteCarePlan(
+            @AuthenticationPrincipal UserContext user,
+            @PathVariable UUID carePlanId
+    ) {
+        carePlanCommandService.deleteCarePlan(
+                new CarePlanDeleteCommand(
+                        user.userId(),
+                        carePlanId
+                )
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }

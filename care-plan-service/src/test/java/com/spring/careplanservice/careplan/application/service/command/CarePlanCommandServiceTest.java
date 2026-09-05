@@ -1,6 +1,7 @@
 package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
+import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
@@ -9,9 +10,13 @@ import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpda
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
+import com.spring.careplanservice.careplan.domain.entity.PreferredTimeSlot;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
+import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
 import com.spring.careplanservice.global.common.UserRole;
@@ -21,6 +26,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -68,6 +74,9 @@ class CarePlanCommandServiceTest {
 
     @Mock
     private UserQueryPort userQueryPort;
+
+    @Mock
+    private ServicePreferenceCommandRepository servicePreferenceCommandRepository;
 
     @Nested
     @DisplayName("Care Plan 생성")
@@ -520,6 +529,96 @@ class CarePlanCommandServiceTest {
             assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand))
                     .isInstanceOf(BusinessException.class);
             verify(carePlanCommandRepository).findById(carePlanId);
+        }
+    }
+
+    @Nested
+    @DisplayName("Care Plan 삭제")
+    class DeleteCarePlan {
+        @Test
+        @DisplayName("성공 - 희망 일정 -> 서비스 -> Care Plan 순으로 논리삭제")
+        void deleteCarePlan_success() {
+            CarePlan carePlan = spy(CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            ));
+
+            CarePlanService carePlanService = spy(CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            ));
+
+            CarePlanServicePreference preference = spy(CarePlanServicePreference.create(
+                    UUID.randomUUID(),
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            ));
+
+            CarePlanDeleteCommand carePlanDeleteCommand = new CarePlanDeleteCommand(
+                    userId,
+                    carePlanId
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+            given(carePlanServiceCommandRepository.findAllByCarePlanId(carePlan.getId())).willReturn(List.of(carePlanService));
+            given(servicePreferenceCommandRepository.findAllByPlanServiceIds(anyList())).willReturn(List.of(preference));
+
+            carePlanCommandService.deleteCarePlan(carePlanDeleteCommand);
+
+            InOrder inOrder = inOrder(preference, carePlanService, carePlan);
+            inOrder.verify(preference).delete(userId);
+            inOrder.verify(carePlanService).delete(userId);
+            inOrder.verify(carePlan).delete(userId);
+
+            assertThat(carePlan.getDeletedAt()).isNotNull();
+            assertThat(carePlan.getDeletedBy()).isEqualTo(userId);
+            assertThat(carePlanService.getDeletedAt()).isNotNull();
+            assertThat(preference.getDeletedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("Care Plan이 존재하지 않으면 예외")
+        void deleteCarePlan_carePlanNotFound() {
+            CarePlanDeleteCommand carePlanDeleteCommand = new CarePlanDeleteCommand(
+                    userId,
+                    carePlanId
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> carePlanCommandService.deleteCarePlan(carePlanDeleteCommand))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(carePlanServiceCommandRepository, never()).findAllByCarePlanId(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("UNDER_REVIEW 상태가 아니면 예외")
+        void deleteCarePlan_notUnderReview() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+            carePlan.updateStatus(CarePlanStatus.CONFIRMED);
+
+            CarePlanDeleteCommand carePlanDeleteCommand = new CarePlanDeleteCommand(
+                    userId,
+                    carePlanId
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> carePlanCommandService.deleteCarePlan(carePlanDeleteCommand))
+                    .isInstanceOf(BusinessException.class);
+
+            assertThat(carePlan.getDeletedAt()).isNull();
+            verify(carePlanServiceCommandRepository, never()).findAllByCarePlanId(any(UUID.class));
         }
     }
 }
