@@ -11,17 +11,39 @@ API 상세 스펙은 `api/` 하위 개별 문서를 참고한다.
 
 Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일정(예약)을 관리**하는 도메인 서비스다. Care-Plan-Service에서 Care Plan이 확정되면 Provider-Service의 매칭 결과를 이벤트로 수신하여 일정을 생성하고, 퇴원 예정자의 일정 변경/취소, 서비스 제공자의 수행 완료 처리, 수행 결과 등록·조회를 담당한다.
 
-담당 테이블: `p_service_schedules`(서비스 일정), `p_care_plan_service_results`(서비스 수행 결과)
+담당 테이블: `p_service_schedules`(서비스 일정), `p_care_plan_service_results`(서비스 수행 결과), `p_service_matching_attempts`(서비스 매칭 결과)
 
 ---
 
 ## 2. 도메인 모델
+
+### `p_service_matching_attempts` — 서비스 매칭 결과
+
+| 컬럼명 | 타입 | PK | FK/참조 | Nullable | 설명 |
+| --- | --- | --- | --- | --- | --- |
+| matching_attempt_id | UUID | O |  | X | 매칭 시도 ID |
+| care_plan_id | UUID |  | 논리 참조 → Care Plan | X | 케어플랜 ID |
+| region_id | UUID |  | 논리 참조 → p_regions | X | 지역 ID |
+| provide_service_id | UUID |  | 논리 참조 → p_provide_services | X | 제공 서비스 ID |
+| service_preference_id | UUID |  | 논리 참조 → p_care_plan_service_preferences | X | 서비스 희망 ID |
+| service_offering_id | UUID |  | 논리 참조 → p_provide_service_offerings | X | 제공 서비스 ID |
+| status | ENUM |  |  | X | `MATCHED` / `FAILED` |
+| failure_reason | TEXT |  |  | O | 매칭 실패 사유 |
+| matched_at | TIMESTAMP |  |  | O | 매칭 성공 일시 |
+| failed_at | TIMESTAMP |  |  | O | 매칭 실패 일시 |
+| created_at / created_by | TIMESTAMPZ / UUID |  |  | X | 생성 정보 |
+| updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X | 수정 정보 |
+| deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O | 논리 삭제 정보 |
+
+> ⚠️ **확인 필요 (신규, 중요)**: 이 테이블은 `status`가 `MATCHED`/`FAILED`뿐이라 초기 매칭(`ProviderMatched`/`ProviderMatchFailed`)의 결과만 기록하는 용도인지, 아니면 일정 변경 시의 **재매칭**(`ProviderReMatched`) 시도 결과도 이 테이블에 함께 기록하는지 문서에 명시되어 있지 않다. 만약 재매칭 결과도 이 테이블에 기록된다면, 그동안 8장에서 미해소로 남아있던 **"`ProviderReMatched`의 수신(확인) 측이 없다"는 문제가 이 테이블을 통해 해소될 가능성**이 있다 — 즉 Schedule-Service가 별도 이벤트 수신 없이 이 테이블을 폴링하거나, 이 테이블에 대한 쓰기 자체가 Provider-Service의 콜백 역할을 하는 구조일 수 있다. 다만 이는 추정이며, 실제 매칭/재매칭 흐름에서 이 테이블에 누가(Schedule-Service 자신인지 Provider-Service인지) 언제 쓰는지가 확인되지 않아 임의로 결론짓지 않는다.
+>
 
 ### `p_service_schedules` — 서비스 일정
 
 | 컬럼명 | 타입 | PK | FK/참조 | Nullable | 제약조건/기본값 | 설명 |
 | --- | --- | --- | --- | --- | --- | --- |
 | service_schedule_id | UUID | O |  | X |  | 서비스 일정 ID |
+| care_plan_id | UUID |  | 논리 FK → p_care_plans.care_plan_id | X |  | 케어플랜 ID |
 | service_preference_id | UUID |  | 논리 FK → p_care_plan_service_preferences.service_preference_id | X |  | 서비스 희망 ID |
 | service_offering_id | UUID |  | 논리 FK → p_provide_service_offerings.service_offering_id | X |  | 제공 서비스 ID |
 | status | ENUM |  |  | X | SCHEDULED / RESCHEDULING / CHANGED / COMPLETED / CANCELED / NO_SHOW, 기본값 SCHEDULED | 일정 상태 |
@@ -33,6 +55,9 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 | created_at / created_by | TIMESTAMPZ / UUID |  |  | X |  | 생성 정보 |
 | updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X |  | 수정 정보 |
 | deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O |  | 논리 삭제 정보 |
+
+> ⚠️ **확인 필요 (신규, 중요)**: `p_service_schedules`에 `care_plan_id`가 이미 로컬 컬럼으로 존재하는데, 03/04번 문서(`schedule-service.md` 5.5절)에서는 "`servicePreferenceId`를 기준으로 care-plan-service Internal API를 호출하여 **`carePlanId`**, `finishDate`, `patientId`를 조회한다"고 되어 있다. `carePlanId`가 이미 로컬에 있다면 Internal API로 다시 조회할 필요가 없어 보이는데(비효율), 왜 API 응답에 `carePlanId`가 포함되어 있는지, 혹시 Internal API 호출 기준을 `servicePreferenceId`가 아니라 **로컬에 이미 있는 `care_plan_id`로 직접 호출하는 것이 맞는지** 확인이 필요하다 — 03/04번 문서와 이 Table 명세서 사이의 잠재적 설계 불일치이므로 임의로 어느 한쪽에 맞춰 고치지 않았다.
+>
 
 ### `p_care_plan_service_results` — 서비스 수행 결과
 
@@ -273,3 +298,5 @@ Care-Plan-Service가 `CarePlanCompleted` 이벤트(5.2절)를 수신한 뒤, 이
   - ⚠️ **확인 필요**: 이 패턴이 03번 문서에서만 확인됐다. 나머지 8개 REST API(01,02,04,05,07,08,09 + 06은 내부용이라 별개)도 동일하게 `@AuthenticationPrincipal UserContext user`를 쓰는지, 각 API 문서에 개별적으로 반영이 필요한지 확인 필요.
 - **인가(Authorization)**: 각 API를 처리하는 Schedule-Service 내부에서 수행한다 (예: 본인 소유 일정인지, 역할이 일치하는지 검증).
 - **내부 API**(`/internal/v1/*`)는 API Gateway를 거치지 않는 서비스 간 통신이며, `X-Internal-Api-Key` 헤더 기반으로 별도 인증한다. 5.5절의 Schedule-Service → Care-Plan-Service 호출도 동일한 인증 패턴을 따른다.
+
+---
