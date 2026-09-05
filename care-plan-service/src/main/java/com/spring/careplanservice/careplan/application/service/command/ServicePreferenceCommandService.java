@@ -149,8 +149,6 @@ public class ServicePreferenceCommandService {
                         )
                 );
 
-        validateNotAlreadyDeleted(carePlanServicePreference);
-
         CarePlanService carePlanService = carePlanServiceQueryRepository
                 .findById(carePlanServicePreference.getPlanServiceId())
                 .orElseThrow(() ->
@@ -171,6 +169,7 @@ public class ServicePreferenceCommandService {
                 servicePreferenceDeleteCommand.userId(),
                 carePlan.getPatientId()
         );
+        validateNotAlreadyDeleted(carePlanServicePreference);
 
         validateCarePlanStatusForDelete(carePlan);
 

@@ -566,21 +566,34 @@ class ServicePreferenceCommandServiceTest {
             );
             preference.delete(patientId);
 
-            ServicePreferenceDeleteCommand command = new ServicePreferenceDeleteCommand(
+            ServicePreferenceDeleteCommand servicePreferenceDeleteCommand = new ServicePreferenceDeleteCommand(
                     patientId,
                     servicePreferenceId
             );
 
-            given(servicePreferenceCommandRepository.findByIdIncludingDeleted(servicePreferenceId)).willReturn(Optional.of(preference));
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
 
-            assertThatThrownBy(() -> servicePreferenceCommandService.deleteServicePreference(command))
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            given(servicePreferenceCommandRepository.findByIdIncludingDeleted(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.deleteServicePreference(servicePreferenceDeleteCommand))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue(
                             "errorCode",
                             ErrorCode.SERVICE_PREFERENCE_ALREADY_DELETED
                     );
-
-            verify(carePlanServiceQueryRepository, never()).findById(any(UUID.class));
         }
 
         @Test
@@ -689,6 +702,49 @@ class ServicePreferenceCommandServiceTest {
                     );
 
             verify(carePlanCommandRepository, never()).findById(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("타인의 이미 삭제된 희망 일정이면 권한 예외가 먼저 발생")
+        void deleteServicePreference_deletedButForbidden() {
+            UUID otherPatientId = UUID.randomUUID();
+
+            ServicePreferenceDeleteCommand servicePreferenceDeleteCommand = new ServicePreferenceDeleteCommand(
+                    patientId,
+                    servicePreferenceId
+            );
+
+            CarePlanService carePlanService = CarePlanService.create(
+                    carePlanId,
+                    provideServiceId
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    otherPatientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            CarePlanServicePreference preference = CarePlanServicePreference.create(
+                    planServiceId,
+                    LocalDate.of(2026, 9, 10),
+                    PreferredTimeSlot.MORNING
+            );
+
+            preference.delete(otherPatientId);
+
+            given(servicePreferenceCommandRepository.findByIdIncludingDeleted(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> servicePreferenceCommandService.deleteServicePreference(servicePreferenceDeleteCommand))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue(
+                            "errorCode",
+                            ErrorCode.AUTH_FORBIDDEN
+                    );
         }
     }
 }
