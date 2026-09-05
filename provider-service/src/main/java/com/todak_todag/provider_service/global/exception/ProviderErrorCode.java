@@ -9,7 +9,7 @@ import org.springframework.http.HttpStatus;
 public enum ProviderErrorCode implements ErrorCode {
 
     // 400
-    PROVIDE_WORK_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "종료 시각은 시작 시각보다 늦어야 합니다."),
+    PROVIDE_WORK_INVALID_TIME_RANGE(HttpStatus.BAD_REQUEST, "종료 시각은 시작 시각보다 이후여야 합니다."),
     PROVIDE_WORK_INVALID_DAY(HttpStatus.BAD_REQUEST, "제공 요일은 1(월)~7(일) 사이의 값이어야 합니다."),
 
     // 403
