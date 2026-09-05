@@ -51,6 +51,11 @@ public class ServiceOfferingFacade {
 
         UUID regionId = userPort.findRegionIdByUserId(command.providerId());
 
+        // p_provide_service_offerings.region_id가 NOT NULL이라 담당 지역이 없으면 저장할 수 없다
+        if (regionId == null) {
+            throw new BusinessException(ProviderErrorCode.PROVIDER_REGION_NOT_ASSIGNED);
+        }
+
         return serviceOfferingCommandService.create(command, regionId);
     }
 

@@ -1,5 +1,7 @@
 package com.todak_todag.provider_service.provider.infrastructure.adapter;
 
+import com.todak_todag.provider_service.global.exception.BusinessException;
+import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.port.SchedulePort;
 import com.todak_todag.provider_service.provider.infrastructure.client.ScheduleClient;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +19,14 @@ public class ScheduleAdapter implements SchedulePort {
 
     @Override
     public boolean existsConfirmedSchedule(UUID serviceOfferingId) {
-        return !scheduleClient
+        ScheduleClient.ServiceScheduleListResponse response = scheduleClient
                 .findSchedules(List.of(serviceOfferingId), LocalDate.now())
-                .data()
-                .content()
-                .isEmpty();
+                .data();
+
+        if (response == null || response.content() == null) {
+            throw new BusinessException(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
+        }
+
+        return !response.content().isEmpty();
     }
 }
