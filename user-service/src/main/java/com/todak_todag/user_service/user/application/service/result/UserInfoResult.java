@@ -10,7 +10,8 @@ public record UserInfoResult(
 		String district,
 		String phone,
 		UUID regionId,
-		UserRole role
+		UserRole role,
+		boolean isAddressActive
 ) {
 
 }

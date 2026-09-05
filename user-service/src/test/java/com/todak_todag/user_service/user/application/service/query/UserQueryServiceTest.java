@@ -1,5 +1,12 @@
 package com.todak_todag.user_service.user.application.service.query;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
+
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -16,18 +23,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.CommonErrorCode;
+import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
+import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
+import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.never;
 
 @ExtendWith(MockitoExtension.class)
 class UserQueryServiceTest {
@@ -245,6 +248,123 @@ class UserQueryServiceTest {
             Set<UUID> result = userQueryService.getMatchableSocialWorkers(patientId);
 
             assertThat(result).isEmpty();
+        }
+    }
+    
+    @DisplayName("내 정보 조회")
+    class GetMe {
+
+        @Test
+        @DisplayName("지역 ID가 없으면 province/district는 null이고 isAddressActive는 false다")
+        void getMe_noRegion() {
+            UUID userId = UUID.randomUUID();
+            User user = Mockito.mock(User.class);
+
+            given(user.isRegion()).willReturn(false);
+            given(user.getName()).willReturn("관리자");
+            given(user.getPhone()).willReturn("01099998888");
+            given(user.getRegionId()).willReturn(null);
+            given(user.getRole()).willReturn(UserRole.MASTER);
+            given(userQueryRepository.findActiveById(userId))
+                    .willReturn(Optional.of(user));
+
+            UserInfoResult result = userQueryService.getMe(userId);
+
+            assertThat(result.province()).isNull();
+            assertThat(result.district()).isNull();
+            assertThat(result.isAddressActive()).isFalse();
+            assertThat(result.regionId()).isNull();
+
+            then(regionQueryRepository).should(never()).findById(any(UUID.class));
+        }
+
+        @Test
+        @DisplayName("지역 ID는 있는데 해당 지역을 찾을 수 없으면 REGION_NOT_FOUND 예외가 발생한다")
+        void getMe_regionNotFound() {
+            UUID userId = UUID.randomUUID();
+            UUID regionId = UUID.randomUUID();
+            User user = Mockito.mock(User.class);
+
+            given(user.isRegion()).willReturn(true);
+            given(user.getRegionId()).willReturn(regionId);
+            given(userQueryRepository.findActiveById(userId))
+                    .willReturn(Optional.of(user));
+            given(regionQueryRepository.findById(regionId))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userQueryService.getMe(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                    .isEqualTo(RegionErrorCode.REGION_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("지역이 서비스 지원 중이면 isAddressActive가 true이고 province/district가 채워진다")
+        void getMe_activeRegion() {
+            UUID userId = UUID.randomUUID();
+            UUID regionId = UUID.randomUUID();
+            User user = Mockito.mock(User.class);
+            Region region = Mockito.mock(Region.class);
+
+            given(user.isRegion()).willReturn(true);
+            given(user.getName()).willReturn("김영수");
+            given(user.getPhone()).willReturn("01012345678");
+            given(user.getRegionId()).willReturn(regionId);
+            given(user.getRole()).willReturn(UserRole.PATIENT);
+            given(userQueryRepository.findActiveById(userId))
+                    .willReturn(Optional.of(user));
+
+            given(region.isActive()).willReturn(true);
+            given(region.getProvince()).willReturn("전라남도");
+            given(region.getDistrict()).willReturn("고흥군");
+            given(regionQueryRepository.findById(regionId))
+                    .willReturn(Optional.of(region));
+
+            UserInfoResult result = userQueryService.getMe(userId);
+
+            assertThat(result.isAddressActive()).isTrue();
+            assertThat(result.province()).isEqualTo("전라남도");
+            assertThat(result.district()).isEqualTo("고흥군");
+        }
+
+        @Test
+        @DisplayName("지역이 서비스 지원 중이 아니면 isAddressActive는 false이지만 province/district는 채워진다")
+        void getMe_inactiveRegion() {
+            UUID userId = UUID.randomUUID();
+            UUID regionId = UUID.randomUUID();
+            User user = Mockito.mock(User.class);
+            Region region = Mockito.mock(Region.class);
+
+            given(user.isRegion()).willReturn(true);
+            given(user.getRegionId()).willReturn(regionId);
+            given(userQueryRepository.findActiveById(userId))
+                    .willReturn(Optional.of(user));
+
+            given(region.isActive()).willReturn(false);
+            given(region.getProvince()).willReturn("전라남도");
+            given(region.getDistrict()).willReturn("고흥군");
+            given(regionQueryRepository.findById(regionId))
+                    .willReturn(Optional.of(region));
+
+            UserInfoResult result = userQueryService.getMe(userId);
+
+            assertThat(result.isAddressActive()).isFalse();
+            assertThat(result.province()).isEqualTo("전라남도");
+            assertThat(result.district()).isEqualTo("고흥군");
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 사용자를 조회하면 예외가 발생한다")
+        void getMe_userNotFound() {
+            UUID userId = UUID.randomUUID();
+
+            given(userQueryRepository.findActiveById(userId))
+                    .willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userQueryService.getMe(userId))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                    .isEqualTo(UserErrorCode.USER_NOT_FOUND);
         }
     }
 }

@@ -10,7 +10,8 @@ public record UserInfoResponse(
 		String district,
 		String phone,
 		UUID regionId,
-		String role
+		String role,
+		boolean isAddressActive
 ) {
 
 	public static UserInfoResponse from(UserInfoResult result) {
@@ -20,7 +21,8 @@ public record UserInfoResponse(
 				result.district(),
 				result.phone(),
 				result.regionId(),
-				result.role().getKoreaName()
+				result.role().getKoreaName(),
+				result.isAddressActive()
 		);
 	}
 }
