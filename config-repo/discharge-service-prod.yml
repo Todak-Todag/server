@@ -48,3 +48,6 @@ springdoc:
 logging:
   level:
     com.todak_todag.discharge_service: info
+
+internal:
+  key: ${INTERNAL_API_KEY}
