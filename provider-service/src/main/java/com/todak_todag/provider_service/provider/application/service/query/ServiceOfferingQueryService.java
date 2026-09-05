@@ -3,7 +3,6 @@ package com.todak_todag.provider_service.provider.application.service.query;
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
-import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingIdsResult;
@@ -25,7 +24,6 @@ import java.util.UUID;
 public class ServiceOfferingQueryService {
 
     private final ServiceOfferingQueryRepository serviceOfferingQueryRepository;
-    private final UserPort userPort;
 
     public Page<ServiceOfferingSearchResult> search(ServiceOfferingSearchQuery query) {
         return serviceOfferingQueryRepository
@@ -38,9 +36,8 @@ public class ServiceOfferingQueryService {
                 ));
     }
 
+    // 담당 지역 검증은 Facade가 트랜잭션 밖에서 수행한다
     public Page<ServiceOfferingRegionSearchResult> searchByRegion(ServiceOfferingRegionSearchQuery query) {
-        validateRegionAccess(query.userId(), query.userRole(), query.regionId());
-
         return serviceOfferingQueryRepository
                 .searchByRegionId(query.regionId(), query.pageable())
                 .map(view -> new ServiceOfferingRegionSearchResult(
@@ -76,19 +73,5 @@ public class ServiceOfferingQueryService {
         }
 
         return query.userId();
-    }
-
-    // MASTER는 지역 제한 없이 전체 조회 가능
-    // ADMIN은 자신의 담당 지역만 조회 가능하며, 담당 지역이 지정되지 않았다면 조회할 수 없다
-    private void validateRegionAccess(UUID userId, UserRole userRole, UUID regionId) {
-        if (userRole == UserRole.MASTER) {
-            return;
-        }
-
-        UUID adminRegionId = userPort.findRegionIdByUserId(userId);
-
-        if (adminRegionId == null || !adminRegionId.equals(regionId)) {
-            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
-        }
     }
 }

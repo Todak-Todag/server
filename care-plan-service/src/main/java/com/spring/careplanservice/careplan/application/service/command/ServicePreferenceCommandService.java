@@ -6,6 +6,7 @@ import com.spring.careplanservice.careplan.application.command.ServicePreference
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceUpdateResult;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
+import com.spring.careplanservice.careplan.application.support.ServicePreferenceDateValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -19,8 +20,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-
 @Service
 @RequiredArgsConstructor
 public class ServicePreferenceCommandService {
@@ -28,6 +27,7 @@ public class ServicePreferenceCommandService {
     private final CarePlanCommandRepository carePlanCommandRepository;
     private final ServicePreferenceCommandRepository servicePreferenceCommandRepository;
     private final CarePlanOwnerValidator carePlanOwnerValidator;
+    private final ServicePreferenceDateValidator servicePreferenceDateValidator;
 
     @Transactional
     public ServicePreferenceCreateResult createServicePreference(
@@ -56,7 +56,7 @@ public class ServicePreferenceCommandService {
 
         validateCarePlanStatus(carePlan);
 
-        validatePreferredDate(
+        servicePreferenceDateValidator.validate(
                 servicePreferenceCreateCommand.preferredDate(),
                 carePlan.getStartDate(),
                 carePlan.getFinishDate()
@@ -112,7 +112,7 @@ public class ServicePreferenceCommandService {
 
         validateCarePlanStatus(carePlan);
 
-        validatePreferredDate(
+        servicePreferenceDateValidator.validate(
                 servicePreferenceUpdateCommand.preferredDate(),
                 carePlan.getStartDate(),
                 carePlan.getFinishDate()
@@ -126,20 +126,6 @@ public class ServicePreferenceCommandService {
         return ServicePreferenceUpdateResult.from(
                 carePlanServicePreference
         );
-    }
-
-    private void validatePreferredDate(
-            LocalDate preferredDate,
-            LocalDate startDate,
-            LocalDate finishDate
-    ) {
-        if (preferredDate.isBefore(startDate)
-                || preferredDate.isAfter(finishDate)) {
-
-            throw new BusinessException(
-                    ErrorCode.SERVICE_PREFERENCE_DATE_OUT_OF_RANGE
-            );
-        }
     }
 
     private void validateCarePlanStatus(

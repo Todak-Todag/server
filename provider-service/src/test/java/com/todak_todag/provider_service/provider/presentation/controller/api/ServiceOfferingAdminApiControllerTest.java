@@ -3,8 +3,8 @@ package com.todak_todag.provider_service.provider.presentation.controller.api;
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
+import com.todak_todag.provider_service.provider.application.facade.ServiceOfferingFacade;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
-import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +40,7 @@ class ServiceOfferingAdminApiControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private ServiceOfferingQueryService serviceOfferingQueryService;
+    private ServiceOfferingFacade serviceOfferingFacade;
 
     private Page<ServiceOfferingRegionSearchResult> page(UUID serviceOfferingId, UUID providerId) {
         return new PageImpl<>(
@@ -57,7 +57,7 @@ class ServiceOfferingAdminApiControllerTest {
         UUID serviceOfferingId = UUID.randomUUID();
         UUID providerId = UUID.randomUUID();
 
-        given(serviceOfferingQueryService.searchByRegion(any()))
+        given(serviceOfferingFacade.searchByRegion(any()))
                 .willReturn(page(serviceOfferingId, providerId));
 
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)
@@ -81,7 +81,7 @@ class ServiceOfferingAdminApiControllerTest {
     @Test
     @DisplayName("조회되는 제공 서비스가 없으면 빈 목록을 반환한다")
     void searchByRegion_empty() throws Exception {
-        given(serviceOfferingQueryService.searchByRegion(any()))
+        given(serviceOfferingFacade.searchByRegion(any()))
                 .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)
@@ -95,7 +95,7 @@ class ServiceOfferingAdminApiControllerTest {
     @DisplayName("담당 지역이 아니면 403을 반환한다")
     void searchByRegion_otherRegion() throws Exception {
         doThrow(new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN))
-                .when(serviceOfferingQueryService)
+                .when(serviceOfferingFacade)
                 .searchByRegion(any());
 
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)
@@ -117,7 +117,7 @@ class ServiceOfferingAdminApiControllerTest {
     @Test
     @DisplayName("MASTER가 조회하면 200을 반환한다")
     void searchByRegion_master() throws Exception {
-        given(serviceOfferingQueryService.searchByRegion(any()))
+        given(serviceOfferingFacade.searchByRegion(any()))
                 .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)

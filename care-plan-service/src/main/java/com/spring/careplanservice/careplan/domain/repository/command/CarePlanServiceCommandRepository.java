@@ -15,4 +15,6 @@ public interface CarePlanServiceCommandRepository {
             UUID provideServiceId,
             UUID createdBy
     );
+
+    List<CarePlanService> findAllByCarePlanId(UUID carePlanId);
 }

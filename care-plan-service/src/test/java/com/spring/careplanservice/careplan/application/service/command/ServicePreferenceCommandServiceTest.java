@@ -5,6 +5,7 @@ import com.spring.careplanservice.careplan.application.command.ServicePreference
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceUpdateResult;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
+import com.spring.careplanservice.careplan.application.support.ServicePreferenceDateValidator;
 import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
@@ -39,6 +40,7 @@ class ServicePreferenceCommandServiceTest {
     UUID carePlanId = UUID.randomUUID();
     UUID planServiceId = UUID.randomUUID();
     UUID provideServiceId = UUID.randomUUID();
+    LocalDate preferredDate = LocalDate.of(2026, 9, 1);
 
     @Mock
     private CarePlanServiceQueryRepository carePlanServiceQueryRepository;
@@ -54,6 +56,9 @@ class ServicePreferenceCommandServiceTest {
 
     @Spy
     private CarePlanOwnerValidator carePlanOwnerValidator;
+
+    @Mock
+    private ServicePreferenceDateValidator servicePreferenceDateValidator;
 
     @Nested
     @DisplayName("서비스 희망 일정 생성")
@@ -183,12 +188,12 @@ class ServicePreferenceCommandServiceTest {
         }
 
         @Test
-        @DisplayName("희망 날짜가 Care Plan 시작일 이전이면 예외")
-        void createServicePreference_preferredDateBeforeStartDate() {
+        @DisplayName("희망 날짜 검증에 실패하면 예외")
+        void createServicePreference_invalidPreferredDate() {
             ServicePreferenceCreateCommand servicePreferenceCreateCommand = new ServicePreferenceCreateCommand(
                     patientId,
                     planServiceId,
-                    LocalDate.of(2026, 9, 1),
+                    preferredDate,
                     PreferredTimeSlot.MORNING
             );
 
@@ -208,41 +213,23 @@ class ServicePreferenceCommandServiceTest {
             given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
+            doThrow(new BusinessException(ErrorCode.SERVICE_PREFERENCE_DATE_OUT_OF_RANGE)).when(servicePreferenceDateValidator).validate(
+                    preferredDate,
+                    carePlan.getStartDate(),
+                    carePlan.getFinishDate()
+            );
             assertThatThrownBy(() -> servicePreferenceCommandService.createServicePreference(servicePreferenceCreateCommand))
-                    .isInstanceOf(BusinessException.class);
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue(
+                            "errorCode",
+                            ErrorCode.SERVICE_PREFERENCE_DATE_OUT_OF_RANGE
+                    );
 
-            verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
-        }
-
-        @Test
-        @DisplayName("희망 날짜가 Care Plan 종료일 이후이면 예외")
-        void createServicePreference_preferredDateAfterFinishDate() {
-            ServicePreferenceCreateCommand servicePreferenceCreateCommand = new ServicePreferenceCreateCommand(
-                    patientId,
-                    planServiceId,
-                    LocalDate.of(2026, 10, 2),
-                    PreferredTimeSlot.AFTERNOON
+            verify(servicePreferenceDateValidator).validate(
+                    preferredDate,
+                    carePlan.getStartDate(),
+                    carePlan.getFinishDate()
             );
-
-            CarePlanService carePlanService = CarePlanService.create(
-                    carePlanId,
-                    provideServiceId
-            );
-
-            CarePlan carePlan = CarePlan.create(
-                    patientId,
-                    dischargeId,
-                    LocalDate.of(2026, 9, 2),
-                    LocalDate.of(2026, 10, 1),
-                    null
-            );
-
-            given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
-            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
-
-            assertThatThrownBy(() -> servicePreferenceCommandService.createServicePreference(servicePreferenceCreateCommand))
-                    .isInstanceOf(BusinessException.class);
-
             verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
         }
 
@@ -323,11 +310,11 @@ class ServicePreferenceCommandServiceTest {
             given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
-            ServicePreferenceUpdateResult result = servicePreferenceCommandService.updateServicePreference(command);
+            ServicePreferenceUpdateResult servicePreferenceUpdateResult = servicePreferenceCommandService.updateServicePreference(command);
 
             assertThat(preference.getPreferredDate()).isEqualTo(preferredDate);
             assertThat(preference.getPreferredTimeSlot()).isEqualTo(PreferredTimeSlot.AFTERNOON);
-            assertThat(result.servicePreferenceId()).isEqualTo(preference.getId());
+            assertThat(servicePreferenceUpdateResult.servicePreferenceId()).isEqualTo(preference.getId());
 
             verify(servicePreferenceCommandRepository, never()).save(any(CarePlanServicePreference.class));
         }
@@ -428,12 +415,12 @@ class ServicePreferenceCommandServiceTest {
         }
 
         @Test
-        @DisplayName("희망 날짜가 Care Plan 일정 범위를 벗어나면 예외")
-        void updateServicePreference_dateOutOfRange() {
-            ServicePreferenceUpdateCommand command = new ServicePreferenceUpdateCommand(
+        @DisplayName("희망 날짜 검증에 실패하면 예외")
+        void updateServicePreference_invalidPreferredDate() {
+            ServicePreferenceUpdateCommand servicePreferenceUpdateCommand = new ServicePreferenceUpdateCommand(
                     patientId,
                     servicePreferenceId,
-                    LocalDate.of(2026, 10, 2),
+                    preferredDate,
                     PreferredTimeSlot.AFTERNOON
             );
 
@@ -441,6 +428,7 @@ class ServicePreferenceCommandServiceTest {
                     carePlanId,
                     provideServiceId
             );
+
             CarePlan carePlan = CarePlan.create(
                     patientId,
                     dischargeId,
@@ -448,18 +436,34 @@ class ServicePreferenceCommandServiceTest {
                     LocalDate.of(2026, 10, 1),
                     null
             );
-            CarePlanServicePreference preference = CarePlanServicePreference.create(
+
+            CarePlanServicePreference carePlanServicePreference = CarePlanServicePreference.create(
                     planServiceId,
                     LocalDate.of(2026, 9, 10),
                     PreferredTimeSlot.MORNING
             );
 
-            given(servicePreferenceCommandRepository.findById(servicePreferenceId)).willReturn(Optional.of(preference));
+            given(servicePreferenceCommandRepository.findById(servicePreferenceId)).willReturn(Optional.of(carePlanServicePreference));
             given(carePlanServiceQueryRepository.findById(planServiceId)).willReturn(Optional.of(carePlanService));
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
-            assertThatThrownBy(() -> servicePreferenceCommandService.updateServicePreference(command))
-                    .isInstanceOf(BusinessException.class);
+            doThrow(new BusinessException(ErrorCode.SERVICE_PREFERENCE_DATE_OUT_OF_RANGE)).when(servicePreferenceDateValidator).validate(
+                    preferredDate,
+                    carePlan.getStartDate(),
+                    carePlan.getFinishDate()
+            );
+            assertThatThrownBy(() -> servicePreferenceCommandService.updateServicePreference(servicePreferenceUpdateCommand))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue(
+                            "errorCode",
+                            ErrorCode.SERVICE_PREFERENCE_DATE_OUT_OF_RANGE
+                    );
+
+            verify(servicePreferenceDateValidator).validate(
+                    preferredDate,
+                    carePlan.getStartDate(),
+                    carePlan.getFinishDate()
+            );
         }
 
         @Test

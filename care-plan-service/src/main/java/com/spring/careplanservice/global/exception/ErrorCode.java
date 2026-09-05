@@ -94,6 +94,11 @@ public enum ErrorCode {
     CARE_PLAN_INVALID_STATUS_TRANSITION(
             HttpStatus.BAD_REQUEST,
             "허용되지 않는 Care Plan 상태 전이입니다."
+    ),
+
+    CARE_PLAN_DELETE_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "UNDER_REVIEW 상태의 Care Plan만 삭제할 수 있습니다."
     )
     ;
 
