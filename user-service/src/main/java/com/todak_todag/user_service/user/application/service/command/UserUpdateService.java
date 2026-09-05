@@ -69,6 +69,11 @@ public class UserUpdateService {
 		User user = userQueryRepo.findById(command.userId())
 				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 		
+		// 4. 3번 IF문을 안타면 MASTER 이며 일시 정지를 진행한다.
+		if(!user.isApprove()) {
+			throw new BusinessException(UserErrorCode.USER_SUSPEND_MODIFY_STATE);
+		}
+		
 		// 3. 요청자가 ADMIN 인가?
 		if(Objects.equals(requesterRole, UserRole.ADMIN)) {
 			
@@ -84,11 +89,6 @@ public class UserUpdateService {
 			if(Objects.equals(user.getRegionId(), requesterAdmin.getRegionId())) {
 				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
 			}
-		}
-		
-		// 4. 3번 IF문을 안타면 MASTER 이며 일시 정지를 진행한다.
-		if(!user.isApprove()) {
-			throw new BusinessException(UserErrorCode.USER_SUSPEND_MODIFY_STATE);
 		}
 		
 		user.suspend(command.suspendReason());
