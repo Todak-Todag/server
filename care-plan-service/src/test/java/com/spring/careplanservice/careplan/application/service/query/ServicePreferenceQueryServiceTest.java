@@ -4,6 +4,7 @@ import com.spring.careplanservice.careplan.application.query.ServicePreferenceSe
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceSearchResult;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
+import com.spring.careplanservice.careplan.domain.entity.PreferredTimeSlot;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceView;
@@ -293,6 +294,90 @@ class ServicePreferenceQueryServiceTest {
             verify(servicePreferenceQueryRepository).search(eq(carePlanId), eq((LocalDate) null), pageableCaptor.capture());
 
             assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("preferredDate가 있으면 조회 조건으로 전달")
+        void searchServicePreferences_withPreferredDate_passesFilter() {
+            LocalDate preferredDate = LocalDate.of(2026, 9, 10);
+
+            ServicePreferenceSearchQuery servicePreferenceSearchQuery = new ServicePreferenceSearchQuery(
+                    patientId,
+                    UserRole.PATIENT,
+                    carePlanId,
+                    preferredDate,
+                    0,
+                    10
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            given(carePlanQueryRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+            given(servicePreferenceQueryRepository.search(
+                    eq(carePlanId),
+                    eq(preferredDate),
+                    any(Pageable.class)
+            )).willReturn(Page.empty());
+
+            servicePreferenceQueryService.searchServicePreferences(servicePreferenceSearchQuery);
+
+            verify(servicePreferenceQueryRepository).search(
+                    eq(carePlanId),
+                    eq(preferredDate),
+                    any(Pageable.class)
+            );
+        }
+
+        @Test
+        @DisplayName("조회 View를 SearchResult로 변환")
+        void searchServicePreferences_mapsViewToResult() {
+            LocalDate preferredDate = LocalDate.of(2026, 9, 10);
+
+            Instant createdAt = Instant.parse("2026-08-28T03:30:00Z");
+            ServicePreferenceSearchQuery servicePreferenceSearchQuery = new ServicePreferenceSearchQuery(
+                    patientId,
+                    UserRole.PATIENT,
+                    carePlanId,
+                    null,
+                    0,
+                    10
+            );
+
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            ServicePreferenceView view = new ServicePreferenceView(
+                    servicePreferenceId,
+                    provideServiceId,
+                    preferredDate,
+                    PreferredTimeSlot.MORNING,
+                    createdAt
+            );
+
+            given(carePlanQueryRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+            given(servicePreferenceQueryRepository.search(eq(carePlanId), eq((LocalDate) null), any(Pageable.class)))
+                    .willReturn(new PageImpl<>(List.of(view), PageRequest.of(0, 10), 1));
+
+            Page<ServicePreferenceSearchResult> resultPage = servicePreferenceQueryService.searchServicePreferences(servicePreferenceSearchQuery);
+
+            ServicePreferenceSearchResult result = resultPage.getContent().getFirst();
+
+            assertThat(result.servicePreferenceId()).isEqualTo(servicePreferenceId);
+            assertThat(result.provideServiceId()).isEqualTo(provideServiceId);
+            assertThat(result.preferredDate()).isEqualTo(preferredDate);
+            assertThat(result.preferredTimeSlot()).isEqualTo(PreferredTimeSlot.MORNING);
+            assertThat(result.createdAt()).isEqualTo(createdAt);
         }
     }
 }
