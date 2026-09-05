@@ -4,13 +4,10 @@ import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
-import com.todak_todag.provider_service.provider.application.port.SchedulePort;
-import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
-import com.todak_todag.provider_service.provider.domain.repository.query.ProvideServiceQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+// 트랜잭션 경계만 담당한다
+// 선검증과 외부 서비스 호출은 ServiceOfferingFacade가 트랜잭션 밖에서 수행한다
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,27 +28,18 @@ public class ServiceOfferingCommandService {
     private final ServiceOfferingCommandRepository serviceOfferingCommandRepository;
     private final ServiceOfferingQueryRepository serviceOfferingQueryRepository;
     private final ProvideWorkQueryRepository provideWorkQueryRepository;
-    private final ProvideServiceQueryRepository provideServiceQueryRepository;
-    private final UserPort userPort;
-    private final SchedulePort schedulePort;
 
+    // regionId는 Facade가 트랜잭션 밖에서 User-Service로부터 조회해 전달한다
     @Transactional
-    public ServiceOfferingCreateResult create(ServiceOfferingCreateCommand command) {
-        UUID providerId = command.providerId();
-        UUID provideServiceId = command.provideServiceId();
-
-        if (!provideServiceQueryRepository.existsById(provideServiceId)) {
-            throw new BusinessException(ProviderErrorCode.PROVIDE_SERVICE_NOT_FOUND);
-        }
-
-        if (serviceOfferingQueryRepository.existsByProviderIdAndProvideServiceId(providerId, provideServiceId)) {
+    public ServiceOfferingCreateResult create(ServiceOfferingCreateCommand command, UUID regionId) {
+        // Facade의 검증과 이 트랜잭션 사이의 시점 차이를 방어하기 위해 중복을 다시 확인
+        if (serviceOfferingQueryRepository.existsByProviderIdAndProvideServiceId(
+                command.providerId(), command.provideServiceId())) {
             throw new BusinessException(ProviderErrorCode.SERVICE_OFFERING_DUPLICATE);
         }
 
-        UUID regionId = userPort.findRegionIdByUserId(providerId);
-
         ServiceOffering saved = serviceOfferingCommandRepository.save(
-                ServiceOffering.of(providerId, provideServiceId, regionId)
+                ServiceOffering.of(command.providerId(), command.provideServiceId(), regionId)
         );
 
         log.info("[Provider] 제공 서비스 등록 serviceOfferingId={}", saved.getId());
@@ -59,13 +49,12 @@ public class ServiceOfferingCommandService {
 
     @Transactional
     public void delete(ServiceOfferingDeleteCommand command) {
+        // Facade의 조회와 이 트랜잭션 사이의 시점 차이를 방어하기 위해 다시 조회
         ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
                 .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
 
-        validateDeletable(serviceOffering, command);
-
-        if (schedulePort.existsConfirmedSchedule(serviceOffering.getId())) {
-            throw new BusinessException(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS);
+        if (!serviceOffering.isOwnedBy(command.userId())) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
         }
 
         List<ProvideWork> provideWorks = provideWorkQueryRepository.findAllByServiceOfferingId(serviceOffering.getId());
@@ -74,14 +63,5 @@ public class ServiceOfferingCommandService {
 
         log.info("[Provider] 제공 서비스 삭제 serviceOfferingId={} provideWorkCount={}",
                 serviceOffering.getId(), provideWorks.size());
-    }
-
-    private void validateDeletable(ServiceOffering serviceOffering, ServiceOfferingDeleteCommand command) {
-        // TODO: User-Service 사용자 조회 API 구현 후 ADMIN 담당 지역 검증으로 교체
-        //       그 전까지는 ADMIN도 본인 소유만 삭제 가능하도록 제한
-
-        if (!serviceOffering.isOwnedBy(command.userId())) {
-            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
-        }
     }
 }

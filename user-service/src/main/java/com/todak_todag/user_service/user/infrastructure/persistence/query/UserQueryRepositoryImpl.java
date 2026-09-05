@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Repository;
 
+import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
@@ -37,5 +38,10 @@ public class UserQueryRepositoryImpl implements UserQueryRepository {
 	@Override
 	public boolean duplicateUsername(String username) {
 		return jpaRepo.existsByUsername(username);
+	}
+	
+	@Override
+	public Optional<User> findAdminById(UUID userId) {
+		return jpaRepo.findByIdAndRole(userId, UserRole.ADMIN);
 	}
 }

@@ -3,9 +3,11 @@ package com.todak_todag.provider_service.provider.application.service.query;
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
+import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingIdsResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingProviderResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingView;
@@ -44,6 +46,7 @@ class ServiceOfferingQueryServiceTest {
     private final UUID providerId = UUID.randomUUID();
     private final UUID otherProviderId = UUID.randomUUID();
     private final UUID adminId = UUID.randomUUID();
+    private final UUID regionId = UUID.randomUUID();
     private final UUID serviceOfferingId = UUID.randomUUID();
 
     private final Pageable pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
@@ -61,7 +64,7 @@ class ServiceOfferingQueryServiceTest {
     private Page<ServiceOfferingView> page() {
         return new PageImpl<>(
                 List.of(new ServiceOfferingView(
-                        UUID.randomUUID(), UUID.randomUUID(), "방문간호", Instant.now())),
+                        UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), "방문간호", Instant.now())),
                 pageable,
                 1
         );
@@ -226,6 +229,58 @@ class ServiceOfferingQueryServiceTest {
                     serviceOfferingQueryService.findIdsByProvider(providerId);
 
             assertThat(result.serviceOfferingIds()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("지역별 조회")
+    class RegionSearch {
+
+        private ServiceOfferingRegionSearchQuery query(UUID requestedRegionId, UserRole userRole) {
+            return new ServiceOfferingRegionSearchQuery(requestedRegionId, adminId, userRole, pageable);
+        }
+
+        @Test
+        @DisplayName("요청한 지역의 제공 서비스 목록을 조회한다")
+        void searchByRegion_success() {
+            given(serviceOfferingQueryRepository.searchByRegionId(regionId, pageable))
+                    .willReturn(page());
+
+            Page<ServiceOfferingRegionSearchResult> results =
+                    serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.ADMIN));
+
+            assertThat(results.getContent()).hasSize(1);
+            verify(serviceOfferingQueryRepository).searchByRegionId(regionId, pageable);
+        }
+
+        @Test
+        @DisplayName("View의 providerId가 결과에 그대로 매핑된다")
+        void searchByRegion_mapsProviderId() {
+            UUID viewServiceOfferingId = UUID.randomUUID();
+            UUID viewProviderId = UUID.randomUUID();
+            UUID viewProvideServiceId = UUID.randomUUID();
+
+            given(serviceOfferingQueryRepository.searchByRegionId(regionId, pageable))
+                    .willReturn(new PageImpl<>(
+                            List.of(new ServiceOfferingView(
+                                    viewServiceOfferingId,
+                                    viewProviderId,
+                                    viewProvideServiceId,
+                                    "방문간호",
+                                    Instant.now())),
+                            pageable,
+                            1
+                    ));
+
+            ServiceOfferingRegionSearchResult result =
+                    serviceOfferingQueryService.searchByRegion(query(regionId, UserRole.ADMIN))
+                            .getContent()
+                            .getFirst();
+
+            assertThat(result.serviceOfferingId()).isEqualTo(viewServiceOfferingId);
+            assertThat(result.providerId()).isEqualTo(viewProviderId);
+            assertThat(result.provideServiceId()).isEqualTo(viewProvideServiceId);
+            assertThat(result.provideServiceName()).isEqualTo("방문간호");
         }
     }
 }

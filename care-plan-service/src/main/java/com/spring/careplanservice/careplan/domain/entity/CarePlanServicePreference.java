@@ -44,4 +44,16 @@ public class CarePlanServicePreference extends BaseAuditEntity {
 
         return preference;
     }
+
+    public void updatePreference(
+            LocalDate preferredDate,
+            PreferredTimeSlot preferredTimeSlot
+    ) {
+        this.preferredDate = preferredDate;
+        this.preferredTimeSlot = preferredTimeSlot;
+    }
+
+    public void delete(UUID deletedBy) {
+        markDeleted(deletedBy);
+    }
 }

@@ -3,9 +3,12 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
-import com.todak_todag.user_service.user.presentation.request.UserRequest.UserAdminCreateRequest;
-import com.todak_todag.user_service.user.presentation.request.UserRequest.UserSignupRequest;
+import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
+import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
+import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,5 +54,24 @@ public interface UserApiSpec {
 			@Parameter(description = "운영자 등록 정보", required = true)
 			@Valid
 			UserAdminCreateRequest userAdminCreateRequest
+	);
+	
+	@Operation(
+			summary = "회원가입 승인/거절",
+			description = """
+					관리자 또는 운영자는 회원가입을 승인 또는 거절할 수 있다.
+					운영자는 자신의 관리 지역내 사용자만 승인이 가능하다.
+					
+					승인 후 대상 사용자는 APPROVED 상태가 된다.
+					거절 후 대상 사용자는 REJECTED 상태가 된다.
+			"""
+	)
+	ResponseEntity<ApiResponse<UserApprovalResponse>> approval(
+			@Parameter(description = "승인/거절 정보", required = true)
+			@Valid
+			UserApprovalRequest userApprovalRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user
 	);
 }

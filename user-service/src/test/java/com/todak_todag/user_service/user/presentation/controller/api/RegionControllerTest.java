@@ -1,8 +1,11 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.user.application.query.RegionFindAdminQuery;
 import com.todak_todag.user_service.user.application.result.RegionFindAdminResult;
 import com.todak_todag.user_service.user.application.result.RegionFindAvailableResult;
+import com.todak_todag.user_service.user.application.result.RegionFindDetailResult;
 import com.todak_todag.user_service.user.application.service.query.RegionQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -255,6 +258,85 @@ class RegionControllerTest {
                                     )
                     )
                     .andExpect(status().isBadRequest());
+        }
+    }
+
+    @Nested
+    @DisplayName("지역 단건 조회")
+    class FindRegion {
+
+        @Test
+        @DisplayName("지역 ID로 지역 상세 정보를 조회한다")
+        void findRegion_success() throws Exception {
+            // given
+            UUID regionId = UUID.randomUUID();
+
+            RegionFindDetailResult result =
+                    new RegionFindDetailResult(
+                            regionId,
+                            "전라남도",
+                            "고흥군",
+                            "4677000000",
+                            true
+                    );
+
+            given(regionQueryService.findRegion(regionId))
+                    .willReturn(result);
+
+            // when & then
+            mockMvc.perform(get(URI + "/{regionId}", regionId))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.message")
+                            .value("지역 상세 조회 성공"))
+                    .andExpect(jsonPath("$.data.regionId")
+                            .value(regionId.toString()))
+                    .andExpect(jsonPath("$.data.province")
+                            .value("전라남도"))
+                    .andExpect(jsonPath("$.data.district")
+                            .value("고흥군"))
+                    .andExpect(jsonPath("$.data.regionCode")
+                            .value("4677000000"))
+                    .andExpect(jsonPath("$.data.isActive")
+                            .value(true));
+
+            then(regionQueryService)
+                    .should()
+                    .findRegion(regionId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 지역이면 404를 반환한다")
+        void findRegion_notFound() throws Exception {
+            // given
+            UUID regionId = UUID.randomUUID();
+
+            given(regionQueryService.findRegion(regionId))
+                    .willThrow(
+                            new BusinessException(
+                                    RegionErrorCode.REGION_NOT_FOUND
+                            )
+                    );
+
+            // when & then
+            mockMvc.perform(get(URI + "/{regionId}", regionId))
+                    .andExpect(status().isNotFound());
+
+            then(regionQueryService)
+                    .should()
+                    .findRegion(regionId);
+        }
+
+        @Test
+        @DisplayName("지역 ID가 UUID 형식이 아니면 400을 반환한다")
+        void findRegion_invalidRegionId() throws Exception {
+            // when & then
+            mockMvc.perform(get(URI + "/{regionId}", "invalid-region-id"))
+                    .andExpect(status().isBadRequest());
+
+            then(regionQueryService)
+                    .shouldHaveNoInteractions();
         }
     }
 }

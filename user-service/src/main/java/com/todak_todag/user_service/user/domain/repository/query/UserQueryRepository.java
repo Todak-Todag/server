@@ -13,5 +13,7 @@ public interface UserQueryRepository {
 
 	Optional<User> findActiveById(UUID userId);
 	
+	Optional<User> findAdminById(UUID userId);
+	
 	boolean duplicateUsername(String username);
 }

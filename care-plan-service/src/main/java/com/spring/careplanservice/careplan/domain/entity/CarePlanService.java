@@ -36,4 +36,8 @@ public class CarePlanService extends BaseCreateDeleteEntity {
 
         return carePlanService;
     }
+
+    public void delete(UUID deletedBy) {
+        markDeleted(deletedBy);
+    }
 }

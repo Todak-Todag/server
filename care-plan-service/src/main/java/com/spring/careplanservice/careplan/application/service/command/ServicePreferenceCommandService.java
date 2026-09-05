@@ -2,8 +2,11 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceCreateCommand;
+import com.spring.careplanservice.careplan.application.command.ServicePreferenceUpdateCommand;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
+import com.spring.careplanservice.careplan.application.result.ServicePreferenceUpdateResult;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
+import com.spring.careplanservice.careplan.application.support.ServicePreferenceDateValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -17,8 +20,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-
 @Service
 @RequiredArgsConstructor
 public class ServicePreferenceCommandService {
@@ -26,6 +27,7 @@ public class ServicePreferenceCommandService {
     private final CarePlanCommandRepository carePlanCommandRepository;
     private final ServicePreferenceCommandRepository servicePreferenceCommandRepository;
     private final CarePlanOwnerValidator carePlanOwnerValidator;
+    private final ServicePreferenceDateValidator servicePreferenceDateValidator;
 
     @Transactional
     public ServicePreferenceCreateResult createServicePreference(
@@ -54,7 +56,7 @@ public class ServicePreferenceCommandService {
 
         validateCarePlanStatus(carePlan);
 
-        validatePreferredDate(
+        servicePreferenceDateValidator.validate(
                 servicePreferenceCreateCommand.preferredDate(),
                 carePlan.getStartDate(),
                 carePlan.getFinishDate()
@@ -75,18 +77,55 @@ public class ServicePreferenceCommandService {
         );
     }
 
-    private void validatePreferredDate(
-            LocalDate preferredDate,
-            LocalDate startDate,
-            LocalDate finishDate
+    @Transactional
+    public ServicePreferenceUpdateResult updateServicePreference(
+            ServicePreferenceUpdateCommand servicePreferenceUpdateCommand
     ) {
-        if (preferredDate.isBefore(startDate)
-                || preferredDate.isAfter(finishDate)) {
+        CarePlanServicePreference carePlanServicePreference = servicePreferenceCommandRepository
+                .findById(servicePreferenceUpdateCommand.servicePreferenceId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.SERVICE_PREFERENCE_NOT_FOUND
+                        )
+                );
 
-            throw new BusinessException(
-                    ErrorCode.SERVICE_PREFERENCE_DATE_OUT_OF_RANGE
-            );
-        }
+        CarePlanService carePlanService = carePlanServiceQueryRepository
+                .findById(carePlanServicePreference.getPlanServiceId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_SERVICE_NOT_FOUND
+                        )
+                );
+
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanService.getCarePlanId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_NOT_FOUND
+                        )
+                );
+
+        carePlanOwnerValidator.validate(
+                servicePreferenceUpdateCommand.userId(),
+                carePlan.getPatientId()
+        );
+
+        validateCarePlanStatus(carePlan);
+
+        servicePreferenceDateValidator.validate(
+                servicePreferenceUpdateCommand.preferredDate(),
+                carePlan.getStartDate(),
+                carePlan.getFinishDate()
+        );
+
+        carePlanServicePreference.updatePreference(
+                servicePreferenceUpdateCommand.preferredDate(),
+                servicePreferenceUpdateCommand.preferredTimeSlot()
+        );
+
+        return ServicePreferenceUpdateResult.from(
+                carePlanServicePreference
+        );
     }
 
     private void validateCarePlanStatus(

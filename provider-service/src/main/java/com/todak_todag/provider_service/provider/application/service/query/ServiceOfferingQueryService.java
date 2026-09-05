@@ -3,9 +3,11 @@ package com.todak_todag.provider_service.provider.application.service.query;
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
+import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingIdsResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingProviderResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
@@ -31,6 +33,18 @@ public class ServiceOfferingQueryService {
                         view.provideServiceId(),
                         view.provideServiceName(),
                         view.createdAt()
+                ));
+    }
+
+    // 담당 지역 검증은 Facade가 트랜잭션 밖에서 수행한다
+    public Page<ServiceOfferingRegionSearchResult> searchByRegion(ServiceOfferingRegionSearchQuery query) {
+        return serviceOfferingQueryRepository
+                .searchByRegionId(query.regionId(), query.pageable())
+                .map(view -> new ServiceOfferingRegionSearchResult(
+                        view.serviceOfferingId(),
+                        view.providerId(),
+                        view.provideServiceId(),
+                        view.provideServiceName()
                 ));
     }
 
