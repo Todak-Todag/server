@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -250,6 +251,21 @@ class CarePlanServiceResultSearchQueryRepositoryImplTest {
         assertThat(result.getContent()).extracting(CarePlanServiceResult::getServiceResultId)
                 .containsExactly(active.getServiceResultId())
                 .doesNotContain(resultOfDeletedSchedule.getServiceResultId());
+    }
+
+    @Test
+    @DisplayName("소유권 필터가 모두 null이면 전체 조회를 막고 예외를 던진다")
+    void search_withoutAnyOwnershipFilter_throwsException() {
+        // given
+        persistResult(persistSchedule(UUID.randomUUID(), UUID.randomUUID()));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        // when & then
+        assertThatThrownBy(() -> carePlanServiceResultQueryRepository.search(
+                null, null, PageRequest.of(0, 10)
+        )).isInstanceOf(IllegalArgumentException.class);
     }
 
     private ServiceSchedule persistSchedule(UUID servicePreferenceId, UUID serviceOfferingId) {
