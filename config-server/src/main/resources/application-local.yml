@@ -4,4 +4,4 @@ spring:
       server:
         native:
           # 프로젝트 루트의 config-repo 디렉토리를 설정 저장소로 지정.
-          search-locations: file:./config-repo
+          search-locations: file:../config-repo
