@@ -89,6 +89,7 @@ public interface UserApiSpec {
 	)
 	ResponseEntity<ApiResponse<UserPatientCreatedResponse>> createPatient(
 			@Parameter(description = "퇴원 예정자 등록 정보", required = true)
+			@Valid
 			UserPatientCreateRequest userPatientCreateRequest,
 			
 			@Parameter(hidden = true)

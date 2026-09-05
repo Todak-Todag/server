@@ -95,8 +95,7 @@ class AuthApiControllerIntegrationTest {
 				username,
 				passwordEncoder.encode(RAW_PASSWORD),
 				"테스트유저",
-				"01012345670",
-				UserRole.ADMIN
+				"01012345670"
 		);
 
 		return jpaUserRepository.save(user);
