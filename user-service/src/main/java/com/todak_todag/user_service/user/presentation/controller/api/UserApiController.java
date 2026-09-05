@@ -107,11 +107,16 @@ public class UserApiController implements UserApiSpec {
 	@PatchMapping("/admin/users/{userId}/suspend")
 	public ResponseEntity<ApiResponse<UserSuspendedResponse>> suspend(
 			@PathVariable("userId") UUID userId,
-			@Valid @RequestBody UserSuspendRequest userSuspendRequest, UserContext user) {
+			@Valid @RequestBody UserSuspendRequest userSuspendRequest,
+			@AuthenticationPrincipal UserContext user
+	) {
+		UUID suspendedUserId = userUpdateService.suspend(userSuspendRequest.toCommand(userId, user));
 		
+		UserSuspendedResponse response = new UserSuspendedResponse(suspendedUserId);
 		
-		
-		return null;
+		return ResponseEntity
+				.status(200)
+				.body(ApiResponse.ok("해당 사용자가 일시 정지 되었습니다.", response));
 	}
 	
 	
