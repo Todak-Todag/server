@@ -8,7 +8,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
+import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
+import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
+import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 public class UserQueryService {
 
     private final UserQueryRepository userQueryRepository;
+    
+    private final RegionQueryRepository regionQueryRepo;
 
     public UserInternalReadResult getUser(UUID userId) {
         User user = userQueryRepository.findActiveById(userId)
@@ -30,4 +35,37 @@ public class UserQueryService {
                 user.getRegionId()
         );
     };
+    
+    public UserInfoResult getMe(UUID userId) {
+    	// 1. 사용자를 먼저 조회한당.
+    	User user = userQueryRepository.findActiveById(userId)
+    			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+    	
+    	// 2. regionId 가 없을 수 있으니 미리 null 변수 준비
+    	String province = null;
+    	String district = null;
+    	
+    	// 3. regionId 가 있을때만 조회한다.
+    	if(user.isRegion()) {
+    		Region region = regionQueryRepo.findById(user.getRegionId())
+    				.orElse(null);
+    		
+    		if(region == null) {
+    			province = "서비스 이용 지역이 아닙니다.";
+    			district = "서비스 이용 지역이 아닙니다.";
+    		} else {
+    			province = region.getProvince();
+    			district = region.getDistrict();
+    		}
+    	}
+    	
+    	return new UserInfoResult(
+    			user.getName(),
+    			province,
+    			district,
+    			user.getPhone(),
+    			user.getRegionId(),
+    			user.getRole()
+    	);
+    }
 }

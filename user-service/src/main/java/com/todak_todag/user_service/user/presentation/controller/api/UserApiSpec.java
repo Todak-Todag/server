@@ -9,6 +9,7 @@ import com.todak_todag.user_service.user.presentation.request.UserApprovalReques
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
+import com.todak_todag.user_service.user.presentation.response.UserInfoResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -71,6 +72,20 @@ public interface UserApiSpec {
 			@Valid
 			UserApprovalRequest userApprovalRequest,
 			
+			@Parameter(hidden = true)
+			UserContext user
+	);
+	
+	@Operation(
+			summary = "내 정보 조회",
+			description = """
+					내 정보를 조회합니다.
+					
+					사용자 정보는 헤더를 통해 전달됩니다.
+					APPROVED 상태의 사용자만 조회가 가능합니다.			
+			"""
+	)
+	ResponseEntity<ApiResponse<UserInfoResponse>> me(
 			@Parameter(hidden = true)
 			UserContext user
 	);

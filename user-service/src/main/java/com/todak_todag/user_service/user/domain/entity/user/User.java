@@ -214,6 +214,10 @@ public class User extends BaseAuditableEntity {
 		return this.status == UserStatus.PENDING;
 	}
 	
+	public boolean isRegion() {
+		return this.regionId != null;
+	}
+	
 	public void approvalOrReject(Boolean accept, String rejectReason) {
 		// 승인
 		if(accept == true) {
