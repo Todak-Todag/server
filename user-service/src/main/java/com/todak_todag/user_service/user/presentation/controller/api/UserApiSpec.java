@@ -5,8 +5,8 @@ import org.springframework.http.ResponseEntity;
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.user.presentation.request.UserRequest.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserRequest.UserSignupRequest;
-import com.todak_todag.user_service.user.presentation.response.UserResponse.UserAdminCreatedResponse;
-import com.todak_todag.user_service.user.presentation.response.UserResponse.UserSignupCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

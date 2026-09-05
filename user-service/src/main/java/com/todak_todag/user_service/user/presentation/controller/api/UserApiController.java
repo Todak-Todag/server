@@ -14,8 +14,8 @@ import com.todak_todag.user_service.user.application.result.UserResult.UserSignu
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.presentation.request.UserRequest.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserRequest.UserSignupRequest;
-import com.todak_todag.user_service.user.presentation.response.UserResponse.UserAdminCreatedResponse;
-import com.todak_todag.user_service.user.presentation.response.UserResponse.UserSignupCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;

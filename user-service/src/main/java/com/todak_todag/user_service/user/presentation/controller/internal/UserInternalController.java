@@ -25,15 +25,13 @@ public class UserInternalController implements UserInternalSpec {
     public ResponseEntity<ApiResponse<UserInternalReadResponse>> readUser(
             @PathVariable("userId") UUID userId
     ) {
+    	UserInternalReadResult result = userQueryService.getUser(userId);
+    	UserInternalReadResponse response = new UserInternalReadResponse(
+					result.userId(),
+					result.role(),
+					result.regionId()
+    	);
 
-        UserInternalReadResult result = userQueryService.getUser(userId);
-
-        UserInternalReadResponse response = new UserInternalReadResponse(
-                result.userId(),
-                result.role(),
-                result.regionId()
-        );
-
-        return ResponseEntity.status(200).body(ApiResponse.ok("사용자 정보 조회 완료", response));
+      return ResponseEntity.status(200).body(ApiResponse.ok("사용자 정보 조회 완료", response));
     }
 }
