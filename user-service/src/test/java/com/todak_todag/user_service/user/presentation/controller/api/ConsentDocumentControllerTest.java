@@ -1,5 +1,6 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import com.todak_todag.user_service.user.application.result.ConsentDocumentFindDetailResult;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentFindResult;
 import com.todak_todag.user_service.user.application.service.query.ConsentDocumentQueryService;
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +12,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -91,6 +93,79 @@ class ConsentDocumentControllerTest {
                     .andExpect(jsonPath("$.code").value(200))
                     .andExpect(jsonPath("$.data.content").isArray())
                     .andExpect(jsonPath("$.data.content").isEmpty());
+        }
+    }
+
+    @Nested
+    @DisplayName("약관 상세 조회")
+    class FindConsentDocumentDetail {
+
+        @Test
+        @DisplayName("약관 버전 상세 조회에 성공한다")
+        void findConsentDocumentDetail_success() throws Exception {
+            // given
+            UUID documentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+
+            LocalDateTime effectiveAt =
+                    LocalDateTime.of(2026, 9, 1, 0, 0);
+
+            ConsentDocumentFindDetailResult result =
+                    new ConsentDocumentFindDetailResult(
+                            documentId,
+                            versionId,
+                            "TERMS_OF_SERVICE",
+                            "서비스 이용약관",
+                            "v2",
+                            "약관 본문입니다.",
+                            true,
+                            effectiveAt
+                    );
+
+            given(
+                    consentDocumentQueryService.findConsentDocumentDetail(
+                            versionId
+                    )
+            ).willReturn(result);
+
+            // when & then
+            mockMvc.perform(
+                            get(URI + "/{consentDocumentVersionId}", versionId)
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.message")
+                            .value("약관 상세 조회 성공"))
+                    .andExpect(jsonPath("$.data.consentDocumentId")
+                            .value(documentId.toString()))
+                    .andExpect(jsonPath("$.data.consentDocumentVersionId")
+                            .value(versionId.toString()))
+                    .andExpect(jsonPath("$.data.consentType")
+                            .value("TERMS_OF_SERVICE"))
+                    .andExpect(jsonPath("$.data.title")
+                            .value("서비스 이용약관"))
+                    .andExpect(jsonPath("$.data.version")
+                            .value("v2"))
+                    .andExpect(jsonPath("$.data.content")
+                            .value("약관 본문입니다."))
+                    .andExpect(jsonPath("$.data.isRequired")
+                            .value(true))
+                    .andExpect(jsonPath("$.data.effectiveAt")
+                            .value("2026-09-01T00:00:00"));
+        }
+
+        @Test
+        @DisplayName("약관 버전 ID 형식이 올바르지 않으면 400을 반환한다")
+        void findConsentDocumentDetail_invalidVersionId() throws Exception {
+            mockMvc.perform(
+                            get(
+                                    URI + "/{consentDocumentVersionId}",
+                                    "invalid-version-id"
+                            )
+                    )
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
         }
     }
 }
