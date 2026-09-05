@@ -34,7 +34,7 @@ public class InternalResponseInterceptor implements HandlerInterceptor {
 
         if(requestApiKey == null || requestApiKey.isBlank() || !matches(requestApiKey)) {
             log.warn(
-                    "[User] Internal API 헤더 누락 uri={}, remoteAddr={}",
+                    "[Schedule] Internal API 헤더 누락 uri={}, remoteAddr={}",
                     request.getRequestURI(),
                     request.getRemoteAddr()
             );
