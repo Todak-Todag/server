@@ -125,7 +125,7 @@ public class User extends BaseAuditableEntity {
 		user.phone = phone;
 		user.role = UserRole.PATIENT;
 		user.address = address;
-		user.status = UserStatus.PENDING;
+		user.status = UserStatus.WITHDRAWN;
 		
 		return user;
 	}

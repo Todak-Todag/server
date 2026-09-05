@@ -480,7 +480,7 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("퇴원 예정자로 생성된 User 의 상태는 PENDING 이고 권한은 PATIENT 이다")
+		@DisplayName("퇴원 예정자로 생성된 User 의 상태는 WITHDRAWN 이고 권한은 PATIENT 이다")
 		void createUserPatientTest_statusAndRole() {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
@@ -495,7 +495,7 @@ class UserCreateServiceTest {
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
 			verify(userCommandRepo).save(captor.capture());
 
-			assertThat(captor.getValue().getStatus()).isEqualTo(UserStatus.PENDING);
+			assertThat(captor.getValue().getStatus()).isEqualTo(UserStatus.WITHDRAWN);
 			assertThat(captor.getValue().getRole()).isEqualTo(UserRole.PATIENT);
 		}
 
