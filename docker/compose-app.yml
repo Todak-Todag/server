@@ -167,6 +167,57 @@ services:
     networks:
       - todak-network
 
+  discharge-service:
+    build:
+      context: ..
+      dockerfile: discharge-service/Dockerfile
+      args:
+        JAR_FILE: discharge-service/build/libs/*.jar
+
+    container_name: todak-discharge-service
+    restart: unless-stopped
+
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+
+      # Config Server
+      CONFIG_SERVER_URL: http://config-server:8888
+
+      # Eureka
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+
+      # PostgreSQL
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # RabbitMQ
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+      # Zipkin
+      ZIPKIN_HOST: zipkin
+
+      # Internal API Key
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+    ports:
+      - "19001:19001"
+
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:19001/actuator/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - todak-network
+
 
 networks:
   todak-network:
