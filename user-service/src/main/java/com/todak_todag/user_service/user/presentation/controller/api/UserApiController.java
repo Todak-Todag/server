@@ -1,10 +1,13 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import java.util.UUID;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,9 +23,11 @@ import com.todak_todag.user_service.user.application.service.command.UserUpdateS
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
+import com.todak_todag.user_service.user.presentation.request.UserSuspendRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserSuspendedResponse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -97,6 +102,18 @@ public class UserApiController implements UserApiSpec {
 				.status(200)
 				.body(ApiResponse.ok(responseMessage, response));
 	}
+
+	@Override
+	@PatchMapping("/admin/users/{userId}/suspend")
+	public ResponseEntity<ApiResponse<UserSuspendedResponse>> suspend(
+			@PathVariable("userId") UUID userId,
+			@Valid @RequestBody UserSuspendRequest userSuspendRequest, UserContext user) {
+		
+		
+		
+		return null;
+	}
+	
 	
 	
 }
