@@ -40,8 +40,10 @@ public class UserInternalController implements UserInternalSpec {
     }
 
 		@Override
-		@GetMapping("/{patientId}/")
-		public ResponseEntity<ApiResponse<UserMatchableSocialWorkersResponse>> readMatchableSocialWorkers(UUID patientId) {
+		@GetMapping("/{patientId}/social-worker-match")
+		public ResponseEntity<ApiResponse<UserMatchableSocialWorkersResponse>> readMatchableSocialWorkers(
+				@PathVariable("patientId") UUID patientId
+		) {
 			
 			Set<UUID> result = userQueryService.getMatchableSocialWorkers(patientId);
 			

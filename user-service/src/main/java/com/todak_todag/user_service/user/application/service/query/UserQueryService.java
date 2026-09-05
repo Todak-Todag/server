@@ -40,6 +40,10 @@ public class UserQueryService {
     	User patient = userQueryRepo.findById(patientId)
     			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     	
+    	if(patient.isPatient()) {
+    		throw new BusinessException(UserErrorCode.USER_APPROVAL_CONFLICT);
+    	}
+    	
     	// 퇴원 예정자의 regionId 유무 검증
     	if(patient.getRegionId() == null || patient.getAddress() == null) {
     		throw new BusinessException(UserErrorCode.USER_PATIENT_INVALID_REGION);
