@@ -100,19 +100,6 @@ public class CarePlanServiceCommandService {
         carePlanService.delete(deletedBy);
     }
 
-
-    // 요청한 환자가 해당 Care Plan의 환자인지 검사
-    private void validateCarePlanOwner(
-            UUID userId,
-            UUID patientId
-    ) {
-        if (!userId.equals(patientId)) {
-            throw new BusinessException(
-                    ErrorCode.AUTH_FORBIDDEN
-            );
-        }
-    }
-
     // 동일한 서비스가 이미 선택되어 있는지 검사
     private void validateDuplicateCarePlanService(
             UUID carePlanId,
@@ -153,5 +140,4 @@ public class CarePlanServiceCommandService {
             );
         }
     }
-
 }
