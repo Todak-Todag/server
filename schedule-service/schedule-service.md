@@ -47,6 +47,9 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 | updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X | 수정 정보 |
 | deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O | 논리 삭제 정보 |
 
+> ⚠️ **확인 완료 (2026-09-01)**: 초기 API 문서에는 이 테이블에 `is_performed`(수행 여부) 필드가 언급되어 있었으나, 실제 테이블 스키마에는 해당 컬럼이 없어 팀 확인 결과 **`isPerformed` 필드는 전체 제거**하기로 확정했다. 등록 API의 Request/Response, 목록 조회 Response 어디에도 포함하지 않는다.
+>
+
 ---
 
 ## 3. 상태(status) 정의
@@ -229,6 +232,20 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 }
 ```
 
+### 5.8 내부(Internal) API — Care-Plan-Service → Schedule-Service (수신 방향)
+
+Care-Plan-Service가 `CarePlanCompleted` 이벤트(5.2절)를 수신한 뒤, 이벤트 페이로드에 담긴 `serviceResultId`가 실제 존재하는 데이터인지 검증하기 위해 호출하는 동기 내부 API. 5.4절과 같은 **수신(inbound) 방향**이지만 호출 주체가 Provider-Service가 아닌 Care-Plan-Service라는 점이 다르다.
+
+- **엔드포인트**: `GET /internal/v1/service-results/{serviceResultId}`
+- **용도**: `CarePlanCompleted` 이벤트 페이로드의 `serviceResultId` 존재 검증
+- **응답 필드**: `serviceResultId`, `serviceScheduleId`, `startedAt`, `finishedAt`
+- **필터**: `deletedAt IS NULL`인 수행 결과만 반환
+- **인증**: `X-Internal-Api-Key` 헤더, Interceptor에서 검증 (Controller는 직접 처리하지 않음 — 5.4절과 동일 패턴)
+- 상세 스펙: `10_내부API_서비스수행결과조회.md` 참고
+
+> ⚠️ **확인 필요 (신규, 중요)**: 이 API의 본래 목적은 "존재 검증"인데, 문서화된 Status 코드가 `200`/`401`뿐이라 `serviceResultId`가 존재하지 않을 때의 응답이 정의되어 있지 않다. Care-Plan-Service가 검증 실패를 어떻게 판별하는지(예: `404`) 확인 필요.
+>
+
 ---
 
 ## 6. API 목록
@@ -240,14 +257,15 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 | 03 | 서비스 일정 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | 03 |
 | 04 | 서비스 일정 취소 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/cancel` | 04 |
 | 05 | 서비스 수행 완료 상태 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/complete` | 05 |
-| 06 | \[내부 API\] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | 06 |
+| 06 | [내부 API] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | 06 |
 | 07 | 서비스 수행 결과 등록 | POST | `/api/v1/service-results/{serviceScheduleId}` | 07 |
 | 08 | 서비스 수행 결과 목록 조회 | GET | `/api/v1/service-results` | 08 |
 | 09 | 서비스 수행 결과 상세 조회 | GET | `/api/v1/service-results/{serviceResultId}` | 09 |
-| 10 | \[이벤트 발행\] CarePlanCompleted | - | RabbitMQ Publish | 10 |
-| 11 | \[이벤트 발행\] ProviderReMatched | - | RabbitMQ Publish | 11 |
-| 12 | \[이벤트 수신\] ProviderMatched | - | RabbitMQ Consume | 12 |
-| 13 | \[이벤트 수신\] ProviderMatchFailed | - | RabbitMQ Consume | 13 |
+| 10 | [내부 API] 서비스 수행 결과 조회 | GET | `/internal/v1/service-results/{serviceResultId}` | 10 |
+| 11 | [이벤트 발행] CarePlanCompleted | - | RabbitMQ Publish | 11 |
+| 12 | [이벤트 발행] ProviderReMatched | - | RabbitMQ Publish | 12 |
+| 13 | [이벤트 수신] ProviderMatched | - | RabbitMQ Consume | 13 |
+| 14 | [이벤트 수신] ProviderMatchFailed | - | RabbitMQ Consume | 14 |
 
 > ⚠️ 참고: API 목록에는 Schedule-Service가 **호출하는** Care-Plan-Service Internal API(5.5절, `carePlanId`/`finishDate`/`patientId` 단건 조회), Provider-Service Internal API(5.6절, `providerId` 단건 조회), 그리고 목록 조회용 ID 목록 반환 API(5.7절)가 아직 별도 번호로 등록되어 있지 않다. 세 API 모두 상대 서비스 쪽 명세이므로 이 목록에는 포함하지 않되, 각각 03/04번, 05번, 01번 문서와 5.5/5.6/5.7절에서 연동 대상으로 참조만 한다.
 >
@@ -258,8 +276,9 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 
 - **인증(Authentication)**: API Gateway에서 수행 (JWT 검증). 인증된 요청자 정보는 `X-User-Id`, `X-User-Role` 헤더로 각 서비스에 전달된다.
   - Controller는 이 헤더를 직접 읽지 않고 **`@AuthenticationPrincipal UserContext user`*로 주입받는다 (Spring Security 기반, 06번 내부 API의 Interceptor 처리와 유사한 패턴). 헤더→`UserContext` 변환 로직(Filter/Resolver)은 아직 코드에 없음.
+  - ⚠️ **확인 필요**: 이 패턴이 03번 문서에서만 확인됐다. 나머지 8개 REST API(01,02,04,05,07,08,09 + 06은 내부용이라 별개)도 동일하게 `@AuthenticationPrincipal UserContext user`를 쓰는지, 각 API 문서에 개별적으로 반영이 필요한지 확인 필요.
 - **인가(Authorization)**: 각 API를 처리하는 Schedule-Service 내부에서 수행한다 (예: 본인 소유 일정인지, 역할이 일치하는지 검증).
-- **내부 API**(`/internal/v1/*`)는 API Gateway를 거치지 않는 서비스 간 통신이며, `X-Internal-Api-Key` 헤더 기반으로 별도 인증한다. 5.5절의 Schedule-Service → Care-Plan-Service 호출도 동일한 인증 패턴을 따른다
+- **내부 API**(`/internal/v1/*`)는 API Gateway를 거치지 않는 서비스 간 통신이며, `X-Internal-Api-Key` 헤더 기반으로 별도 인증한다. 5.5절의 Schedule-Service → Care-Plan-Service 호출도 동일한 인증 패턴을 따른다.
 
 ---
 
@@ -294,6 +313,8 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 | **02번 API의 status 옵션 목록 CHANGED** | ✅ 확정 (2026-09-03): `02_서비스일정상세조회.md`의 Response `status` 옵션 목록에 `CHANGED` 포함 확정 (표에는 이미 있었으나 주석 표기 실수 정정) | ✅ 확정 |
 | **07번 API와 05번 API의 순서 관계** | ✅ 확정 (2026-09-04): 결과 등록 시 서비스 일정의 `status`가 `COMPLETED`/`NO_SHOW`가 아니면 `409` 실패. 05번이 먼저 처리되어 상태가 확정된 이후에만 07번 진행 가능 | ✅ 확정 |
 | **07번 API의 중복 등록 처리** | ✅ 확정 (2026-09-04): 동일 `serviceScheduleId`에 대한 중복 등록 불허, 이미 등록된 경우 재등록 시도는 `409` | ✅ 확정 |
+| **신규 10번 API의 테이블명 오기 (2026-09-04)** | `10_내부API_서비스수행결과조회.md`의 Notion 원본 속성 `테이블명`이 `p_service_schedules`로 되어 있으나 실제 Response 필드는 `p_care_plan_service_results` 테이블 컬럼과 일치. 오기로 판단해 문서에서 정정함 | 정정 완료 |
+| **신규 10번 API의 존재 검증 실패 케이스 부재 (2026-09-04)** | 이 API의 목적이 "serviceResultId 존재 검증"인데 Status 표에 `200`/`401`만 있고 존재하지 않을 때의 응답(예: `404`)이 정의되어 있지 않음. 이 API의 핵심 목적과 직결되는 중요한 누락 | 확인 필요 (중요) |
 | **07번 문서 설명의 is_performed 잔존** | ✅ 해소 (2026-09-04): Notion 원본 설명이 갱신되어 `is_performed` 언급 제거됨. `07_서비스수행결과등록.md`와 이미 일치 | ✅ 해소 |
 
 ---
@@ -316,3 +337,5 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 | 2026-09-04 | `07_서비스수행결과등록.md` 최신화 반영 — JSON 예시 문법 오류 수정, 비즈니스 규칙 구조화, 05번의 확정된 provider-service Internal API 메커니즘 재사용 명시. 8장에 신규 확인 필요 항목 2건(05번과의 순서 관계, 중복 등록 처리) 및 참고 항목 1건(is_performed 잔존 언급) 추가 |
 | 2026-09-04 | `07_서비스수행결과등록.md` 2차 최신화 — Notion 원본 설명 갱신 반영(`is_performed` 언급 제거), 8장 해당 항목 해소로 전환. 05번과의 순서 관계, 중복 등록 처리 항목은 미해소 상태로 유지 |
 | 2026-09-04 | ✅ 확정: `07_서비스수행결과등록.md`에 05번과의 순서 관계(상태가 `COMPLETED`/`NO_SHOW`가 아니면 `409`) 및 중복 등록 금지(`409`) 반영. 8장 해당 항목 확정으로 전환 |
+| 2026-09-04 | **신규 API 발견**: `[내부 API] 서비스 수행 결과 조회`(`GET /internal/v1/service-results/{serviceResultId}`) 문서화 — Care-Plan-Service가 `CarePlanCompleted` 이벤트의 `serviceResultId`를 검증하기 위해 호출. API 목록(6장)에 14번으로 추가, 신규 5.8절 작성. 테이블명 오기 정정, 존재 검증 실패 케이스 부재를 8장에 확인 필요로 추가 |
+| 2026-09-04 | Notion 마스터 문서 갱신 반영 — API 목록(6장) 번호 재정렬: 신규 내부 API를 **10번**으로 배치하고 기존 이벤트 4종(`CarePlanCompleted` 등)을 11~14번으로 이동. 관련 파일명(`14_...` → `10_내부API_서비스수행결과조회.md`)과 8장/5.8절 참조 전부 동기화 |

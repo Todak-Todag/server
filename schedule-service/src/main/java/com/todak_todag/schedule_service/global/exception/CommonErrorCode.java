@@ -11,6 +11,9 @@ public enum CommonErrorCode implements ErrorCode {
     // 400
     INVALID_PARAMETER(HttpStatus.BAD_REQUEST, "요청 파라미터가 올바르지 않습니다."),
 
+    // 401
+    UNAUTHORIZED_INTERNAL_REQUEST(HttpStatus.UNAUTHORIZED, "잘못된 접근입니다."),
+
     // 403
     AUTH_FORBIDDEN(HttpStatus.FORBIDDEN, "요청 권한이 없습니다."),
 

@@ -1,12 +1,14 @@
 package com.todak_todag.schedule_service.schedule.presentation.controller.internal;
 
 import com.todak_todag.schedule_service.global.common.SystemId;
+import com.todak_todag.schedule_service.global.security.InternalHeader;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceScheduleRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -31,6 +33,9 @@ class ServiceScheduleInternalControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Value("${internal.key}")
+    private String internalKey;
 
     @Autowired
     private SpringDataServiceScheduleRepository springDataServiceScheduleRepository;
@@ -61,7 +66,7 @@ class ServiceScheduleInternalControllerTest {
         springDataServiceScheduleRepository.save(completed);
 
         // when & then
-        mockMvc.perform(get(URI)
+        mockMvc.perform(get(URI).header(InternalHeader.INTERNAL_KEY, internalKey)
                         .param("serviceOfferingIds", serviceOfferingId.toString())
                         .param("startDate", startDate.toString()))
                 .andExpect(status().isOk())
@@ -80,7 +85,7 @@ class ServiceScheduleInternalControllerTest {
         persist(offeringB, startDate);
 
         // when & then
-        mockMvc.perform(get(URI)
+        mockMvc.perform(get(URI).header(InternalHeader.INTERNAL_KEY, internalKey)
                         .param("serviceOfferingIds", offeringA + "," + offeringB)
                         .param("startDate", startDate.toString()))
                 .andExpect(status().isOk())
@@ -90,7 +95,7 @@ class ServiceScheduleInternalControllerTest {
     @Test
     void 조회_결과가_없으면_빈_배열을_반환한다() throws Exception {
         // when & then
-        mockMvc.perform(get(URI)
+        mockMvc.perform(get(URI).header(InternalHeader.INTERNAL_KEY, internalKey)
                         .param("serviceOfferingIds", UUID.randomUUID().toString())
                         .param("startDate", LocalDate.now().toString()))
                 .andExpect(status().isOk())
@@ -100,7 +105,7 @@ class ServiceScheduleInternalControllerTest {
     @Test
     void serviceOfferingIds가_없으면_400을_반환한다() throws Exception {
         // when & then
-        mockMvc.perform(get(URI).param("startDate", LocalDate.now().toString()))
+        mockMvc.perform(get(URI).header(InternalHeader.INTERNAL_KEY, internalKey).param("startDate", LocalDate.now().toString()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -108,7 +113,7 @@ class ServiceScheduleInternalControllerTest {
     @Test
     void startDate가_없으면_400을_반환한다() throws Exception {
         // when & then
-        mockMvc.perform(get(URI).param("serviceOfferingIds", UUID.randomUUID().toString()))
+        mockMvc.perform(get(URI).header(InternalHeader.INTERNAL_KEY, internalKey).param("serviceOfferingIds", UUID.randomUUID().toString()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -116,7 +121,7 @@ class ServiceScheduleInternalControllerTest {
     @Test
     void startDate_형식이_올바르지_않으면_400을_반환한다() throws Exception {
         // when & then
-        mockMvc.perform(get(URI)
+        mockMvc.perform(get(URI).header(InternalHeader.INTERNAL_KEY, internalKey)
                         .param("serviceOfferingIds", UUID.randomUUID().toString())
                         .param("startDate", "2026/09/01"))
                 .andExpect(status().isBadRequest())
@@ -126,7 +131,7 @@ class ServiceScheduleInternalControllerTest {
     @Test
     void serviceOfferingIds_형식이_올바르지_않으면_400을_반환한다() throws Exception {
         // when & then
-        mockMvc.perform(get(URI)
+        mockMvc.perform(get(URI).header(InternalHeader.INTERNAL_KEY, internalKey)
                         .param("serviceOfferingIds", "not-a-uuid")
                         .param("startDate", LocalDate.now().toString()))
                 .andExpect(status().isBadRequest())
@@ -135,10 +140,8 @@ class ServiceScheduleInternalControllerTest {
 
     @Test
     void serviceOfferingIds가_빈_값이면_400을_반환한다() throws Exception {
-        // ScheduleInternalApiSpec에 선언된 @NotEmpty가 Controller의 @Override 메서드에
-        // 상속되어(HV000151 회피를 위해 재선언하지 않음) 정상 동작하는지 검증한다.
         // when & then
-        mockMvc.perform(get(URI)
+        mockMvc.perform(get(URI).header(InternalHeader.INTERNAL_KEY, internalKey)
                         .param("serviceOfferingIds", "")
                         .param("startDate", LocalDate.now().toString()))
                 .andExpect(status().isBadRequest())
