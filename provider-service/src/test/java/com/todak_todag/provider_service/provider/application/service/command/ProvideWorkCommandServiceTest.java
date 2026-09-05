@@ -3,7 +3,9 @@ package com.todak_todag.provider_service.provider.application.service.command;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.command.ProvideWorkCreateCommand;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkCreateResult;
+import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
 import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ProvideWorkCommandRepository;
@@ -17,6 +19,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalTime;
 import java.util.List;
@@ -56,6 +59,17 @@ class ProvideWorkCommandServiceTest {
 
     private ProvideWorkCreateCommand command(int day, LocalTime startedAt, LocalTime finishedAt) {
         return new ProvideWorkCreateCommand(serviceOfferingId, providerId, day, startedAt, finishedAt);
+    }
+
+    private ProvideWorkUpdateCommand updateCommand(int day, LocalTime startedAt, LocalTime finishedAt) {
+        return new ProvideWorkUpdateCommand(
+                serviceOfferingId, provideWorkId, providerId, day, startedAt, finishedAt);
+    }
+
+    private ProvideWork existingProvideWork(int day, LocalTime startedAt, LocalTime finishedAt) {
+        ProvideWork provideWork = ProvideWork.of(serviceOfferingId, day, startedAt, finishedAt);
+        ReflectionTestUtils.setField(provideWork, "id", provideWorkId);
+        return provideWork;
     }
 
     private ServiceOffering ownedOffering() {
@@ -235,6 +249,156 @@ class ProvideWorkCommandServiceTest {
                     .isEqualTo(ProviderErrorCode.PROVIDE_WORK_INVALID_TIME_RANGE);
 
             verify(provideWorkCommandRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("수정")
+    class Update {
+
+        @Test
+        @DisplayName("요일과 시간을 바꾸면 반영된다")
+        void update_success() {
+            ServiceOffering offering = ownedOffering();
+            ProvideWork provideWork = existingProvideWork(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
+            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
+                    .willReturn(List.of(provideWork));
+
+            ProvideWorkUpdateResult result = provideWorkCommandService.update(
+                    updateCommand(TUESDAY, LocalTime.of(14, 0), LocalTime.of(18, 0)));
+
+            assertThat(result.provideWorkId()).isEqualTo(provideWorkId);
+            assertThat(provideWork.getDay()).isEqualTo(TUESDAY);
+            assertThat(provideWork.getStartedAt()).isEqualTo(LocalTime.of(14, 0));
+            assertThat(provideWork.getFinishedAt()).isEqualTo(LocalTime.of(18, 0));
+        }
+
+        @Test
+        @DisplayName("시간을 바꾸지 않고 요일만 수정해도 자기 자신과는 겹치지 않는다")
+        void update_excludesItself() {
+            ServiceOffering offering = ownedOffering();
+            ProvideWork provideWork = existingProvideWork(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
+            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
+                    .willReturn(List.of(provideWork));
+
+            ProvideWorkUpdateResult result = provideWorkCommandService.update(
+                    updateCommand(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0)));
+
+            assertThat(result.provideWorkId()).isEqualTo(provideWorkId);
+            assertThat(provideWork.getDay()).isEqualTo(MONDAY);
+        }
+
+        @Test
+        @DisplayName("다른 일정과 시간이 겹치면 PROVIDE_WORK_TIME_OVERLAP")
+        void update_timeOverlap() {
+            ServiceOffering offering = ownedOffering();
+            ProvideWork target = existingProvideWork(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
+            ProvideWork other = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(13, 0), LocalTime.of(18, 0));
+            ReflectionTestUtils.setField(other, "id", UUID.randomUUID());
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(target));
+            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
+                    .willReturn(List.of(target, other));
+
+            assertThatThrownBy(() -> provideWorkCommandService.update(
+                    updateCommand(MONDAY, LocalTime.of(12, 0), LocalTime.of(15, 0))))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_TIME_OVERLAP);
+
+            assertThat(target.getStartedAt()).isEqualTo(LocalTime.of(9, 0));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 제공 서비스면 SERVICE_OFFERING_NOT_FOUND")
+        void update_offeringNotFound() {
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> provideWorkCommandService.update(
+                    updateCommand(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0))))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
+
+            verify(provideWorkQueryRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("본인 소유가 아니면 AUTH_FORBIDDEN")
+        void update_notOwner() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.isOwnedBy(providerId)).willReturn(false);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+
+            assertThatThrownBy(() -> provideWorkCommandService.update(
+                    updateCommand(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0))))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
+
+            verify(provideWorkQueryRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 제공 가능 일정이면 PROVIDE_WORK_NOT_FOUND")
+        void update_provideWorkNotFound() {
+            ServiceOffering offering = ownedOffering();
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> provideWorkCommandService.update(
+                    updateCommand(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0))))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("다른 제공 서비스에 속한 일정이면 PROVIDE_WORK_NOT_FOUND")
+        void update_belongsToOtherOffering() {
+            ServiceOffering offering = ownedOffering();
+            ProvideWork otherOfferingWork =
+                    ProvideWork.of(UUID.randomUUID(), MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(otherOfferingWork));
+
+            assertThatThrownBy(() -> provideWorkCommandService.update(
+                    updateCommand(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0))))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND);
+
+            verify(provideWorkQueryRepository, never()).findAllByServiceOfferingId(any());
+        }
+
+        @Test
+        @DisplayName("종료 시각이 시작 시각보다 이르면 PROVIDE_WORK_INVALID_TIME_RANGE")
+        void update_invalidTimeRange() {
+            ServiceOffering offering = ownedOffering();
+            ProvideWork provideWork = existingProvideWork(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
+            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
+                    .willReturn(List.of(provideWork));
+
+            assertThatThrownBy(() -> provideWorkCommandService.update(
+                    updateCommand(MONDAY, LocalTime.of(18, 0), LocalTime.of(14, 0))))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_INVALID_TIME_RANGE);
+
+            assertThat(provideWork.getStartedAt()).isEqualTo(LocalTime.of(9, 0));
         }
     }
 }
