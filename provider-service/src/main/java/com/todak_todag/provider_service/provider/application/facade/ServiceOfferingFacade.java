@@ -3,13 +3,16 @@ package com.todak_todag.provider_service.provider.application.facade;
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
 import com.todak_todag.provider_service.provider.application.port.SchedulePort;
 import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
+import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
+import com.todak_todag.provider_service.provider.application.service.command.ProvideWorkCommandService;
 import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
@@ -30,6 +33,7 @@ public class ServiceOfferingFacade {
     private final ProvideServiceQueryRepository provideServiceQueryRepository;
     private final ServiceOfferingCommandService serviceOfferingCommandService;
     private final ServiceOfferingQueryService serviceOfferingQueryService;
+    private final ProvideWorkCommandService provideWorkCommandService;
     private final UserPort userPort;
     private final SchedulePort schedulePort;
 
@@ -75,6 +79,23 @@ public class ServiceOfferingFacade {
         validateRegionAccess(query.userId(), query.userRole(), query.regionId());
 
         return serviceOfferingQueryService.searchByRegion(query);
+    }
+
+    // 제공 가능 일정 수정
+    // 소유자 검증을 먼저 수행해 권한 없는 요청이 Schedule-Service를 호출하지 않도록 한다
+    public ProvideWorkUpdateResult updateProvideWork(ProvideWorkUpdateCommand command) {
+        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
+
+        if (!serviceOffering.isOwnedBy(command.providerId())) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
+        }
+
+        if (schedulePort.existsConfirmedSchedule(serviceOffering.getId())) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS);
+        }
+
+        return provideWorkCommandService.update(command);
     }
 
     // MASTER는 지역 제한 없이 전체 조회 가능

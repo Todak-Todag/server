@@ -57,6 +57,10 @@ public class ProvideWork extends BaseAuditableEntity {
     }
 
     public void update(Integer day, LocalTime startedAt, LocalTime finishedAt) {
+        if (!finishedAt.isAfter(startedAt)) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_INVALID_TIME_RANGE);
+        }
+
         this.day = day;
         this.startedAt = startedAt;
         this.finishedAt = finishedAt;
