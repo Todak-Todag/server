@@ -271,6 +271,7 @@ class CarePlanServiceResultSearchQueryRepositoryImplTest {
     private ServiceSchedule persistSchedule(UUID servicePreferenceId, UUID serviceOfferingId) {
         LocalDate date = LocalDate.now().plusDays(1);
         ServiceSchedule schedule = ServiceSchedule.confirm(
+                UUID.randomUUID(),
                 servicePreferenceId,
                 serviceOfferingId,
                 date,

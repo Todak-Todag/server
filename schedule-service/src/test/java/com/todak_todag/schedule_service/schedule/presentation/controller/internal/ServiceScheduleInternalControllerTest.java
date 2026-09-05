@@ -160,6 +160,7 @@ class ServiceScheduleInternalControllerTest {
     private ServiceSchedule persist(UUID serviceOfferingId, LocalDate date) {
         ServiceSchedule schedule = ServiceSchedule.confirm(
                 UUID.randomUUID(),
+                UUID.randomUUID(),
                 serviceOfferingId,
                 date,
                 date.atTime(9, 0),
