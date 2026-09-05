@@ -3,6 +3,7 @@ package com.todak_todag.provider_service.provider.application.service.command;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.command.ProvideWorkCreateCommand;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkDeleteCommand;
 import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
@@ -64,6 +65,10 @@ class ProvideWorkCommandServiceTest {
     private ProvideWorkUpdateCommand updateCommand(int day, LocalTime startedAt, LocalTime finishedAt) {
         return new ProvideWorkUpdateCommand(
                 serviceOfferingId, provideWorkId, providerId, day, startedAt, finishedAt);
+    }
+
+    private ProvideWorkDeleteCommand deleteCommand() {
+        return new ProvideWorkDeleteCommand(serviceOfferingId, provideWorkId, providerId);
     }
 
     private ProvideWork existingProvideWork(int day, LocalTime startedAt, LocalTime finishedAt) {
@@ -399,6 +404,90 @@ class ProvideWorkCommandServiceTest {
                     .isEqualTo(ProviderErrorCode.PROVIDE_WORK_INVALID_TIME_RANGE);
 
             assertThat(provideWork.getStartedAt()).isEqualTo(LocalTime.of(9, 0));
+        }
+    }
+
+    @Nested
+    @DisplayName("삭제")
+    class Delete {
+
+        @Test
+        @DisplayName("논리 삭제된다")
+        void delete_success() {
+            ServiceOffering offering = ownedOffering();
+            ProvideWork provideWork = Mockito.mock(ProvideWork.class);
+
+            given(provideWork.getId()).willReturn(provideWorkId);
+            given(provideWork.getServiceOfferingId()).willReturn(serviceOfferingId);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
+
+            provideWorkCommandService.delete(deleteCommand());
+
+            verify(provideWork).markDeleted(providerId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 제공 서비스면 SERVICE_OFFERING_NOT_FOUND")
+        void delete_offeringNotFound() {
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> provideWorkCommandService.delete(deleteCommand()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
+
+            verify(provideWorkQueryRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("본인 소유가 아니면 AUTH_FORBIDDEN")
+        void delete_notOwner() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.isOwnedBy(providerId)).willReturn(false);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+
+            assertThatThrownBy(() -> provideWorkCommandService.delete(deleteCommand()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
+
+            verify(provideWorkQueryRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 제공 가능 일정이면 PROVIDE_WORK_NOT_FOUND")
+        void delete_provideWorkNotFound() {
+            ServiceOffering offering = ownedOffering();
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.empty());
+
+            assertThatThrownBy(() -> provideWorkCommandService.delete(deleteCommand()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("다른 제공 서비스에 속한 일정이면 PROVIDE_WORK_NOT_FOUND")
+        void delete_belongsToOtherOffering() {
+            ServiceOffering offering = ownedOffering();
+            ProvideWork provideWork = Mockito.mock(ProvideWork.class);
+
+            given(provideWork.getServiceOfferingId()).willReturn(UUID.randomUUID());
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
+
+            assertThatThrownBy(() -> provideWorkCommandService.delete(deleteCommand()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND);
+
+            verify(provideWork, never()).markDeleted(any());
         }
     }
 }

@@ -3,6 +3,7 @@ package com.todak_todag.provider_service.provider.application.facade;
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkDeleteCommand;
 import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
@@ -62,14 +63,9 @@ public class ServiceOfferingFacade {
     // 제공 서비스 삭제
     // 소유자 검증을 먼저 수행해 권한 없는 요청이 Schedule-Service를 호출하지 않도록 한다
     public void delete(ServiceOfferingDeleteCommand command) {
-        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
-                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
-
         // TODO: User-Service 사용자 조회 API 구현 후 ADMIN 담당 지역 검증으로 교체
         //       그 전까지는 ADMIN도 본인 소유만 삭제 가능하도록 제한
-        if (!serviceOffering.isOwnedBy(command.userId())) {
-            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
-        }
+        ServiceOffering serviceOffering = findOwnedServiceOffering(command.serviceOfferingId(), command.userId());
 
         if (schedulePort.existsConfirmedSchedule(serviceOffering.getId())) {
             throw new BusinessException(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS);
@@ -89,18 +85,37 @@ public class ServiceOfferingFacade {
     // 제공 가능 일정 수정
     // 소유자 검증을 먼저 수행해 권한 없는 요청이 Schedule-Service를 호출하지 않도록 한다
     public ProvideWorkUpdateResult updateProvideWork(ProvideWorkUpdateCommand command) {
-        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
-                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
-
-        if (!serviceOffering.isOwnedBy(command.providerId())) {
-            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
-        }
+        ServiceOffering serviceOffering = findOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
 
         if (schedulePort.existsConfirmedSchedule(serviceOffering.getId())) {
             throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS);
         }
 
         return provideWorkCommandService.update(command);
+    }
+
+    // 제공 가능 일정 삭제
+    // 소유자 검증을 먼저 수행해 권한 없는 요청이 Schedule-Service를 호출하지 않도록 한다
+    public void deleteProvideWork(ProvideWorkDeleteCommand command) {
+        ServiceOffering serviceOffering = findOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
+
+        if (schedulePort.existsConfirmedSchedule(serviceOffering.getId())) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS);
+        }
+
+        provideWorkCommandService.delete(command);
+    }
+
+    // 제공 서비스를 조회하고 요청자가 소유자인지 검증한다
+    private ServiceOffering findOwnedServiceOffering(UUID serviceOfferingId, UUID requesterId) {
+        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(serviceOfferingId)
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
+
+        if (!serviceOffering.isOwnedBy(requesterId)) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
+        }
+
+        return serviceOffering;
     }
 
     // MASTER는 지역 제한 없이 전체 조회 가능
