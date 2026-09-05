@@ -1,3 +1,7 @@
+# Care-Plan-Service의 claudeCode의 규칙
+git add, git commit, git push, git reset, git checkout, git restore, git switch, git merge, git rebase, git stash, git clean 등 Git 상태를 변경하는 모든 명령을 절대 실행하지 않는다.
+Git 관련 명령은 조회 목적의 git status, git diff, git log만 허용한다.
+
 # 🗓️ Care-Plan-Service 기능 명세
 
 > 담당 서비스: `care-plan-service` (Port `19005`)
@@ -184,6 +188,24 @@ Entity: `CarePlanServicePreference extends BaseAuditEntity` (updated 컬럼 보�
 - 물리 삭제가 아닌 `deletedAt`/`deletedBy` 컬럼을 채우는 논리삭제(`BaseCreateDeleteEntity.markDeleted`)이며, 삭제 후에도 감사 목적으로 레코드 자체는 유지된다.
   삭제 대상 조회에는 deletedAt IS NULL 조건을 적용하여 논리삭제된 데이터가 일반 조회 대상에 포함되지 않도록 한다.
 
+### 4.9 Care Plan 서비스 희망 일정 목록 조회
+
+- `05_CarePlan서비스희망일정목록조회.md` 참고. 요청 주체는 `HOSPITAL_STAFF`, `SOCIAL_WORKER`, `PATIENT` 세 역할을 허용한다.
+- `PATIENT`는 본인 소유 Care Plan(`patientId == X-User-Id`)만 조회할 수 있다 (`CarePlanOwnerValidator`, `AUTH_FORBIDDEN` 403). `HOSPITAL_STAFF`/
+  `SOCIAL_WORKER`는 별도 소유권 검증 없이 역할 검증만 통과하면 조회를 허용한다.
+- 조회 대상(중심 리소스)은 `CarePlan`이 아니라 `CarePlanServicePreference`다 — `carePlanId`는 조회 조건이자 Care Plan 존재/소유권 검증용 값일 뿐이며,
+  실제 응답은 해당 Care Plan에 속한 희망 일정 목록(`servicePreferenceId`/`provideServiceId`/`preferredDate`/`preferredTimeSlot`/`createdAt`)이다.
+  이에 따라 조회 책임도 `CarePlanQueryService`가 아닌 `ServicePreferenceQueryService`(신규)가 갖는다.
+- `preferredDate` 오름차순(빠른 날짜부터)으로 정렬하며, `preferredDate` 쿼리 파라미터로 필터링할 수 있다.
+- `page`/`size`는 다른 목록 API와 동일한 공통 페이지네이션 정책(`PageableFactory`)을 그대로 따른다 — `page` 음수는 예외 없이 `0`으로,
+  `size`는 `10`/`30`/`50` 외의 값이면 `10`으로 보정한다 (`CarePlanQueryService.searchCarePlan()`처럼 `page < 0`에서 예외를 던지는 방식은 채택하지
+  않음).
+- 404는 `CARE_PLAN_SERVICE_NOT_FOUND`가 아닌 기존 `CARE_PLAN_NOT_FOUND`를 재사용한다 (조회 실패 대상이 `carePlanId`이기 때문).
+- `provideServiceId`는 `CarePlanServicePreference`가 직접 갖고 있지 않아, `CarePlanService`와의 QueryDSL 조인으로 조회 시점에 함께 가져온다.
+  리포지토리 반환 타입은 `application` 계층의 `Result`가 아니라 `domain/repository/query`에 위치한 `ServicePreferenceView`(provider-service의
+  `ServiceOfferingView`와 동일한 패턴)를 사용해 도메인 계층이 애플리케이션 계층을 의존하지 않도록 하며, `ServicePreferenceQueryService`가
+  `View → Result`로 변환한다.
+
 ---
 
 ## 5. 서비스 간 연동 (이벤트 & 내부 API)
@@ -261,6 +283,7 @@ Care-Plan-Service가 제공하는 동기 내부 API 목록이다 (`CarePlanInter
 | -  | 서비스 희망 일정 등록                   | POST   | `/api/v1/care-plan-services/{planServiceId}/service-preferences`   | 퇴원예정자                         | -                        |
 | 01 | 서비스 희망 일정 수정                   | PATCH  | `/api/v1/service-preferences/{servicePreferenceId}`                | 퇴원예정자                         | `api/01_서비스 희망 일정 수정.md` |
 | 02 | Care Plan 삭제                   | DELETE | `/api/v1/care-plans/{carePlanId}`                                  | 병원 담당자, ADMIN, MASTER         | `api/02_CarePlan삭제.md`   |
+| 05 | Care Plan 서비스 희망 일정 목록 조회      | GET    | `/api/v1/care-plans/{carePlanId}/service-preferences`              | 병원 담당자, 사회복지사, 퇴원예정자          | `api/05_CarePlan서비스희망일정목록조회.md` |
 | -  | [내부 API] 환자 기준 Care Plan 조회    | GET    | `/internal/v1/care-plans/{patientId}`                              | (서비스 간)                       | -                        |
 | -  | [내부 API] 희망 일정 기준 Care Plan 조회 | GET    | `/internal/v1/service-preferences/{servicePreferenceId}/care-plan` | (서비스 간, schedule-service)     | -                        |
 | -  | [내부 API] 환자 소유 희망 일정 ID 목록 조회  | GET    | `/internal/v1/service-preferences?patientId=`                      | (서비스 간, schedule-service)     | -                        |
@@ -310,3 +333,5 @@ Care-Plan-Service가 제공하는 동기 내부 API 목록이다 (`CarePlanInter
 | 2026-09-04 | 최초 작성 — Notion `Table 명세서`(3개 테이블) 및 실제 코드(`domain/entity`, `application`, `presentation`, `infrastructure`) 기반으로 전체 구조화. 원본 표의 셀 밀림으로 인해 `p_care_plan_service_preferences.plan_service_id`의 참조 대상, `p_care_plan_services`의 `care_plan_id`/`provide_service_id` 설명이 뒤바뀌어 있던 것을 엔티티 코드 기준으로 정정. 코드 내 `TODO` 주석 2건(`CarePlan.complete()`, User-Service 연동)과 `CARE_PLAN_BAD_REQUEST` 상태 코드 불일치를 8장에 확인 필요로 반영. `schedule-service.md`에서 미확정으로 남아있던 Internal API 2건(희망 일정→Care Plan 조회, 희망 일정 ID 목록 조회)이 이미 구현되어 있음을 확인하여 8장에 반영 |
 | 2026-09-04 | 서비스 희망 일정 수정 API(`01_서비스 희망 일정 수정.md`) 구현 완료 — `SERVICE_PREFERENCE_NOT_FOUND` 에러 코드 신설, `CarePlanServicePreference.updatePreference()` 도메인 메서드, `ServicePreferenceCommandRepository.findById()`, `ServicePreferenceCommandService.updateServicePreference()`, `PATCH /api/v1/service-preferences/{servicePreferenceId}` 엔드포인트 추가. 8장 해당 항목을 확정으로 전환                                                                                                                                                                         |
 | 2026-09-05 | Care Plan 삭제 API(`02_CarePlan삭제.md`) 구현 완료 — `CARE_PLAN_DELETE_NOT_ALLOWED` 에러 코드 신설, `CarePlan`/`CarePlanService`/`CarePlanServicePreference`에 `delete()` 도메인 메서드 추가, `CarePlanServiceCommandRepository.findAllByCarePlanId()`/`ServicePreferenceCommandRepository.findAllByPlanServiceIds()` 추가, `CarePlanCommandService.deleteCarePlan()`(하위 리소스 `preference → service → carePlan` 순 논리삭제), `DELETE /api/v1/care-plans/{carePlanId}` 엔드포인트(`HOSPITAL_STAFF`/`ADMIN`/`MASTER`만 허용) 추가. 4.8절 신설, API 목록에 02번 반영            |
+| 2026-09-05 | Care Plan 서비스 희망 일정 목록 조회 API(`05_CarePlan서비스희망일정목록조회.md`) 구현 완료 — 요청자 `HOSPITAL_STAFF`/`SOCIAL_WORKER`/`PATIENT` 허용(`PATIENT`만 소유권 검증), 404는 `CARE_PLAN_NOT_FOUND` 재사용, `page`/`size`는 기존 `PageableFactory` 공통 정책 재사용. 신규 `ServicePreferenceQueryService`(조회 책임을 `CarePlan`이 아닌 `CarePlanServicePreference`에 두기 위해 신설, `CarePlanQueryService`는 미변경), `ServicePreferenceSearchQuery`/`ServicePreferenceSearchResult`/`ServicePreferenceSearchResponse` 추가, `ServicePreferenceQueryRepository.search()`(QueryDSL, `CarePlanServicePreference`-`CarePlanService` 조인, `preferredDate` 오름차순) 추가, `GET /api/v1/care-plans/{carePlanId}/service-preferences` 엔드포인트 추가. 4.9절 신설, API 목록에 05번 반영 |
+| 2026-09-05 | 위 API의 리포지토리 반환 타입을 계층 구조에 맞게 리팩터링 — `ServicePreferenceQueryRepository`(도메인 계층)가 `application/result`의 `ServicePreferenceSearchResult`를 직접 반환하던 것을 `domain/repository/query`에 신설한 `ServicePreferenceView`(provider-service의 `ServiceOfferingView`와 동일 패턴, 순수 도메인 record)로 교체. `ServicePreferenceQueryService`에서 `View → Result` 변환(`.map()`)을 담당하도록 하여 도메인 계층이 애플리케이션 계층 타입을 의존하지 않도록 정정 |

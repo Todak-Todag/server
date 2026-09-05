@@ -1,6 +1,5 @@
 package com.spring.careplanservice.careplan.domain.repository.query;
 
-import com.spring.careplanservice.careplan.application.result.ServicePreferenceSearchResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,7 +18,7 @@ public interface ServicePreferenceQueryRepository {
             List<UUID> planServiceIds
     );
 
-    Page<ServicePreferenceSearchResult> search(
+    Page<ServicePreferenceView> search(
             UUID carePlanId,
             LocalDate preferredDate,
             Pageable pageable

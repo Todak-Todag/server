@@ -3,9 +3,9 @@ package com.spring.careplanservice.careplan.infrastructure.persistence.query;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.spring.careplanservice.careplan.application.result.ServicePreferenceSearchResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceView;
 import com.spring.careplanservice.careplan.infrastructure.persistence.repository.JpaServicePreferenceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -61,15 +61,15 @@ public class ServicePreferenceQueryRepositoryImpl implements ServicePreferenceQu
     }
 
     @Override
-    public Page<ServicePreferenceSearchResult> search(
+    public Page<ServicePreferenceView> search(
             UUID carePlanId,
             LocalDate preferredDate,
             Pageable pageable
     ) {
-        List<ServicePreferenceSearchResult> content = queryFactory
+        List<ServicePreferenceView> content = queryFactory
                 .select(
                         Projections.constructor(
-                                ServicePreferenceSearchResult.class,
+                                ServicePreferenceView.class,
                                 carePlanServicePreference.id,
                                 carePlanService.provideServiceId,
                                 carePlanServicePreference.preferredDate,

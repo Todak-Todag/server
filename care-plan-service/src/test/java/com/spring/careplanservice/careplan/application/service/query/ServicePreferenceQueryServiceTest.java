@@ -6,6 +6,7 @@ import com.spring.careplanservice.careplan.application.support.CarePlanOwnerVali
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanQueryRepository;
 import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceQueryRepository;
+import com.spring.careplanservice.careplan.domain.repository.query.ServicePreferenceView;
 import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
@@ -78,7 +79,7 @@ class ServicePreferenceQueryServiceTest {
                     null
             );
 
-            ServicePreferenceSearchResult result = new ServicePreferenceSearchResult(
+            ServicePreferenceView view = new ServicePreferenceView(
                     servicePreferenceId,
                     provideServiceId,
                     LocalDate.of(2026, 9, 10),
@@ -86,8 +87,8 @@ class ServicePreferenceQueryServiceTest {
                     Instant.parse("2026-08-28T03:30:00Z")
             );
 
-            Page<ServicePreferenceSearchResult> page = new PageImpl<>(
-                    List.of(result),
+            Page<ServicePreferenceView> page = new PageImpl<>(
+                    List.of(view),
                     PageRequest.of(0, 10),
                     1
             );
@@ -98,7 +99,14 @@ class ServicePreferenceQueryServiceTest {
 
             Page<ServicePreferenceSearchResult> resultPage = servicePreferenceQueryService.searchServicePreferences(query);
 
-            assertThat(resultPage.getContent()).containsExactly(result);
+            assertThat(resultPage.getContent()).hasSize(1);
+
+            ServicePreferenceSearchResult result = resultPage.getContent().getFirst();
+
+            assertThat(result.servicePreferenceId()).isEqualTo(servicePreferenceId);
+            assertThat(result.provideServiceId()).isEqualTo(provideServiceId);
+            assertThat(result.preferredDate()).isEqualTo(LocalDate.of(2026, 9, 10));
+            assertThat(result.createdAt()).isEqualTo(Instant.parse("2026-08-28T03:30:00Z"));
             verify(carePlanOwnerValidator).validate(patientId, patientId);
         }
 
