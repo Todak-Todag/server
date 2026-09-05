@@ -50,9 +50,6 @@ public class UserQueryService {
     		throw new BusinessException(CommonErrorCode.REGION_NOT_SUPPORTED);
     	}
     	
-    	
-    	
-    	
     	return userQueryRepo.findMatchableSocialWorkerIds(patient.getRegionId());
     }
 }

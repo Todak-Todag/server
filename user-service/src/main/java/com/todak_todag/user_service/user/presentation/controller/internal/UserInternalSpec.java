@@ -1,12 +1,12 @@
 package com.todak_todag.user_service.user.presentation.controller.internal;
 
-import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.user.presentation.response.UserInternalReadResponse;
+import com.todak_todag.user_service.user.presentation.response.UserMatchableSocialWorkersResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -36,7 +36,7 @@ public interface UserInternalSpec {
     				APPROVED 상태의 회원만 조회되며 퇴원 예정자와 동일한 지역의 사회복지사 리스트를 반환합니다.		
     		"""
     )
-    ResponseEntity<ApiResponse<Set<UUID>>> readMatchableSocialWorkers(
+    ResponseEntity<ApiResponse<UserMatchableSocialWorkersResponse>> readMatchableSocialWorkers(
     		@Parameter(description = "퇴원 예정자의 사용자 ID", required = true)
     		UUID patientId
     );

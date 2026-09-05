@@ -1,18 +1,21 @@
 package com.todak_todag.user_service.user.presentation.controller.internal;
 
-import com.todak_todag.user_service.global.response.ApiResponse;
-import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
-import com.todak_todag.user_service.user.application.service.query.UserQueryService;
-import com.todak_todag.user_service.user.presentation.response.UserInternalReadResponse;
-import lombok.RequiredArgsConstructor;
+import java.util.Set;
+import java.util.UUID;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Set;
-import java.util.UUID;
+import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
+import com.todak_todag.user_service.user.application.service.query.UserQueryService;
+import com.todak_todag.user_service.user.presentation.response.UserInternalReadResponse;
+import com.todak_todag.user_service.user.presentation.response.UserMatchableSocialWorkersResponse;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequiredArgsConstructor
@@ -38,10 +41,14 @@ public class UserInternalController implements UserInternalSpec {
 
 		@Override
 		@GetMapping("/{patientId}/")
-		public ResponseEntity<ApiResponse<Set<UUID>>> readMatchableSocialWorkers(UUID patientId) {
+		public ResponseEntity<ApiResponse<UserMatchableSocialWorkersResponse>> readMatchableSocialWorkers(UUID patientId) {
 			
 			Set<UUID> result = userQueryService.getMatchableSocialWorkers(patientId);
 			
-			return null;
+			UserMatchableSocialWorkersResponse response = new UserMatchableSocialWorkersResponse(result);
+			
+			return ResponseEntity
+					.status(200)
+					.body(ApiResponse.ok("사회복지사 정보 조회 성공", response));
 		}
 }
