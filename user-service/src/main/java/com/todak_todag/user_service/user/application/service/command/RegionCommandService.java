@@ -111,7 +111,15 @@ public class RegionCommandService {
                     RegionErrorCode.REGION_UPDATE_VALUE_REQUIRED
             );
         }
+
+        // "    " 과 같은 값 방지를 위한 검증
+        if (command.hasBlankValue()) {
+            throw new BusinessException(
+                    RegionErrorCode.REGION_UPDATE_VALUE_INVALID
+            );
+        }
     }
+
 
     private void validateDuplicateRegionCode(
             Region region,

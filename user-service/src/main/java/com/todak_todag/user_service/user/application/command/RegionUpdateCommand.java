@@ -16,4 +16,15 @@ public record RegionUpdateCommand(
                 || district != null
                 || regionCode != null;
     }
+
+    // {"   "} 이러한 값도 저장될 수 있음을 방지하기 위한 검증
+    public boolean hasBlankValue() {
+        return isBlank(province)
+                || isBlank(district)
+                || isBlank(regionCode);
+    }
+
+    private boolean isBlank(String value) {
+        return value != null && value.isBlank();
+    }
 }
