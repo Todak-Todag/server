@@ -16,5 +16,7 @@ public interface JpaUserRepository extends JpaRepository<User, UUID> {
 
 	Optional<User> findByUsernameAndStatusIn(String username, List<UserStatus> status);
 	
+	Optional<User> findByIdAndStatus(UUID id, UserStatus status);
+	
 	Optional<User> findByIdAndRole(UUID id, UserRole role);
 }
