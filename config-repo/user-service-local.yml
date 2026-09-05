@@ -38,7 +38,7 @@ jwt:
   secret: ${JWT_SECRET}
   access:
     expiration: ${ACCESS_EXPIRATION:30m}
-    max-age: ${REFRESH_EXPIRATION:7d} # 지금 토큰 인증 구조에선 RefreshToken 과 똑같이
+    max-age: ${REFRESH_EXPIRATION:7d}  # 지금 토큰 인증 구조에선 RefreshToken 과 똑같이
   refresh:
     expiration: ${REFRESH_EXPIRATION:7d}
     max-age: ${REFRESH_EXPIRATION:7d}
