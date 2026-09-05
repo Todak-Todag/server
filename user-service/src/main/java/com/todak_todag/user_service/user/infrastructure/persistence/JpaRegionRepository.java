@@ -19,4 +19,7 @@ public interface JpaRegionRepository
 
     // 지역 단건 조회
     Optional<Region> findByIdAndDeletedAtIsNull(UUID regionId);
+
+    // 삭제되지 않은 지역 중 RegionCode 중복 조회 : 삭제된 코드 사용 가능
+    boolean existsByRegionCodeAndDeletedAtIsNull(String regionCode);
 }
