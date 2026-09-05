@@ -30,6 +30,11 @@ public class CarePlanServicePreferenceCommandRepositoryImpl implements ServicePr
     }
 
     @Override
+    public Optional<CarePlanServicePreference> findByIdIncludingDeleted(UUID id) {
+        return jpaServicePreferenceRepository.findById(id);
+    }
+
+    @Override
     public List<CarePlanServicePreference> findAllByPlanServiceIds(
             List<UUID> planServiceIds
     ) {
