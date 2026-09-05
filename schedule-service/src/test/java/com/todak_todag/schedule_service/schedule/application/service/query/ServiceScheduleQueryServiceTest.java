@@ -41,7 +41,7 @@ class ServiceScheduleQueryServiceTest {
         Pageable pageable = PageRequest.of(0, 10);
 
         ServiceSchedule schedule = ServiceSchedule.confirm(
-                servicePreferenceIds.get(0), UUID.randomUUID(), date, date.atTime(9, 0), date.atTime(10, 0)
+                UUID.randomUUID(), servicePreferenceIds.get(0), UUID.randomUUID(), date, date.atTime(9, 0), date.atTime(10, 0)
         );
 
         when(serviceScheduleQueryRepository.search(servicePreferenceIds, null, status, date, pageable))
@@ -82,7 +82,7 @@ class ServiceScheduleQueryServiceTest {
         UUID serviceOfferingId = UUID.randomUUID();
         LocalDate date = LocalDate.now().plusDays(1);
         ServiceSchedule schedule = ServiceSchedule.confirm(
-                servicePreferenceId, serviceOfferingId, date, date.atTime(9, 0), date.atTime(10, 0)
+                UUID.randomUUID(), servicePreferenceId, serviceOfferingId, date, date.atTime(9, 0), date.atTime(10, 0)
         );
 
         when(serviceScheduleQueryRepository.findById(schedule.getId())).thenReturn(Optional.of(schedule));
@@ -106,7 +106,7 @@ class ServiceScheduleQueryServiceTest {
         // given
         LocalDate date = LocalDate.now().plusDays(1);
         ServiceSchedule schedule = ServiceSchedule.confirm(
-                UUID.randomUUID(), UUID.randomUUID(), date, date.atTime(9, 0), date.atTime(10, 0)
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), date, date.atTime(9, 0), date.atTime(10, 0)
         );
         schedule.cancel("개인 사정으로 취소합니다");
 
