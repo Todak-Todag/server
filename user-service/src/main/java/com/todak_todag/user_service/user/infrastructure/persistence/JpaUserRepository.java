@@ -27,7 +27,7 @@ public interface JpaUserRepository extends JpaRepository<User, UUID> {
 			SELECT u.id FROM User u
 			WHERE u.regionId =:regionId
 					AND u.role =:role
-					AND u.stauts =:stauts
+					AND u.status =:status
 	""")
 	Set<UUID> findByRegionIdAndRoleAndStatus(UUID regionId, UserRole socialWorker, UserStatus approved);
 }
