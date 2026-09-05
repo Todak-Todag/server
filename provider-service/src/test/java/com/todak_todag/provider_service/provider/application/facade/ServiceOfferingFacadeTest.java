@@ -139,6 +139,22 @@ class ServiceOfferingFacadeTest {
             verify(userPort, never()).findRegionIdByUserId(any());
             verify(serviceOfferingCommandService, never()).create(any(), any());
         }
+
+        @Test
+        @DisplayName("담당 지역이 없으면 PROVIDER_REGION_NOT_ASSIGNED")
+        void create_regionNotAssigned() {
+            given(provideServiceQueryRepository.existsById(provideServiceId)).willReturn(true);
+            given(serviceOfferingQueryRepository.existsByProviderIdAndProvideServiceId(providerId, provideServiceId))
+                    .willReturn(false);
+            given(userPort.findRegionIdByUserId(providerId)).willReturn(null);
+
+            assertThatThrownBy(() -> serviceOfferingFacade.create(command()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.PROVIDER_REGION_NOT_ASSIGNED);
+
+            verify(serviceOfferingCommandService, never()).create(any(), any());
+        }
     }
 
     @Nested
