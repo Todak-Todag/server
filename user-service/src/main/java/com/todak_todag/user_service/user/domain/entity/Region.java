@@ -54,4 +54,9 @@ public class Region extends BaseAuditableEntity {
 
         return region;
     }
+
+    // 지역 상태 변경 메서드
+    public void updateActive(boolean active) {
+        this.active = active;
+    }
 }
