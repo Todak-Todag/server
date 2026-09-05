@@ -5,6 +5,7 @@ import com.todak_todag.user_service.global.response.PageResponse;
 import com.todak_todag.user_service.user.presentation.request.RegionCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.RegionFindAdminRequest;
 import com.todak_todag.user_service.user.presentation.request.RegionUpdateActiveRequest;
+import com.todak_todag.user_service.user.presentation.request.RegionUpdateRequest;
 import com.todak_todag.user_service.user.presentation.response.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -131,5 +132,32 @@ public interface RegionApiSpec {
     ResponseEntity<ApiResponse<RegionUpdateActiveResponse>> updateActive(
             UUID regionId,
             RegionUpdateActiveRequest request
+    );
+
+    @Operation(
+            summary = "지역 정보 수정",
+            description = "등록된 지역의 province, district, regionCode 중 전달된 값을 수정합니다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "지역 정보 수정 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Request Validation 실패"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "요청 권한 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "지역을 찾을 수 없음"
+            )
+    })
+    ResponseEntity<ApiResponse<RegionUpdateResponse>> updateRegion(
+            UUID regionId,
+            RegionUpdateRequest request
     );
 }
