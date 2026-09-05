@@ -200,6 +200,33 @@ class RegionCommandServiceTest {
     class UpdateRegion {
 
         @Test
+        @DisplayName("수정 값이 공백이면 예외가 발생한다")
+        void updateRegion_blankValue() {
+            // given
+            UUID regionId = UUID.randomUUID();
+
+            RegionUpdateCommand command = new RegionUpdateCommand(
+                    regionId,
+                    "   ",
+                    null,
+                    null
+            );
+
+            // when
+            BusinessException exception = assertThrows(
+                    BusinessException.class,
+                    () -> regionCommandService.updateRegion(command)
+            );
+
+            // then
+            assertThat(exception.getErrorCode())
+                    .isEqualTo(RegionErrorCode.REGION_UPDATE_VALUE_INVALID);
+
+            then(regionQueryRepository)
+                    .shouldHaveNoInteractions();
+        }
+
+        @Test
         @DisplayName("지역 정보를 수정한다")
         void updateRegion_success() {
             // given
