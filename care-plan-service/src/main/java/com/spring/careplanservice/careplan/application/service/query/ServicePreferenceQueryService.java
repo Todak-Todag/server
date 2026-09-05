@@ -43,6 +43,14 @@ public class ServicePreferenceQueryService {
             );
         }
 
+        // TODO: (MVP 이후) HOSPITAL_STAFF는 본인이 등록한 퇴원건에 연결된 Care Plan만 조회 가능하도록 검증 필요.
+        // Discharge Internal API 응답에 hospitalStaffId가 없어 현재 검증 불가.
+        // 응답 확장 후 discharge.hospitalStaffId == userId 검증 추가.
+
+        // TODO: (MVP 이후) SOCIAL_WORKER는 본인이 담당 중인 퇴원예정자의 Care Plan만 조회 가능하도록 검증 필요.
+        // Social Worker 담당 관계 조회 Internal API 연동 후
+        // patientId + socialWorkerId + ACTIVE 상태 기준 검증 추가.
+
         Pageable pageable = PageableFactory.of(
                 servicePreferenceSearchQuery.page(),
                 servicePreferenceSearchQuery.size(),
