@@ -47,9 +47,6 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 | updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X | 수정 정보 |
 | deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O | 논리 삭제 정보 |
 
-> ⚠️ **확인 완료 (2026-09-01)**: 초기 API 문서에는 이 테이블에 `is_performed`(수행 여부) 필드가 언급되어 있었으나, 실제 테이블 스키마에는 해당 컬럼이 없어 팀 확인 결과 **`isPerformed` 필드는 전체 제거**하기로 확정했다. 등록 API의 Request/Response, 목록 조회 Response 어디에도 포함하지 않는다.
->
-
 ---
 
 ## 3. 상태(status) 정의
@@ -254,15 +251,15 @@ Care-Plan-Service가 `CarePlanCompleted` 이벤트(5.2절)를 수신한 뒤, 이
 | 03 | 서비스 일정 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | 03 |
 | 04 | 서비스 일정 취소 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/cancel` | 04 |
 | 05 | 서비스 수행 완료 상태 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/complete` | 05 |
-| 06 | [내부 API] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | 06 |
+| 06 | \[내부 API\] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | 06 |
 | 07 | 서비스 수행 결과 등록 | POST | `/api/v1/service-results/{serviceScheduleId}` | 07 |
 | 08 | 서비스 수행 결과 목록 조회 | GET | `/api/v1/service-results` | 08 |
 | 09 | 서비스 수행 결과 상세 조회 | GET | `/api/v1/service-results/{serviceResultId}` | 09 |
-| 10 | [내부 API] 서비스 수행 결과 조회 | GET | `/internal/v1/service-results/{serviceResultId}` | 10 |
-| 11 | [이벤트 발행] CarePlanCompleted | - | RabbitMQ Publish | 11 |
-| 12 | [이벤트 발행] ProviderReMatched | - | RabbitMQ Publish | 12 |
-| 13 | [이벤트 수신] ProviderMatched | - | RabbitMQ Consume | 13 |
-| 14 | [이벤트 수신] ProviderMatchFailed | - | RabbitMQ Consume | 14 |
+| 10 | \[내부 API\] 서비스 수행 결과 조회 | GET | `/internal/v1/service-results/{serviceResultId}` | 10 |
+| 11 | \[이벤트 발행\] CarePlanCompleted | - | RabbitMQ Publish | 11 |
+| 12 | \[이벤트 발행\] ProviderReMatched | - | RabbitMQ Publish | 12 |
+| 13 | \[이벤트 수신\] ProviderMatched | - | RabbitMQ Consume | 13 |
+| 14 | \[이벤트 수신\] ProviderMatchFailed | - | RabbitMQ Consume | 14 |
 
 > ⚠️ 참고: API 목록에는 Schedule-Service가 **호출하는** Care-Plan-Service Internal API(5.5절, `carePlanId`/`finishDate`/`patientId` 단건 조회), Provider-Service Internal API(5.6절, `providerId` 단건 조회), 그리고 목록 조회용 ID 목록 반환 API(5.7절)가 아직 별도 번호로 등록되어 있지 않다. 세 API 모두 상대 서비스 쪽 명세이므로 이 목록에는 포함하지 않되, 각각 03/04번, 05번, 01번 문서와 5.5/5.6/5.7절에서 연동 대상으로 참조만 한다.
 >
@@ -276,67 +273,3 @@ Care-Plan-Service가 `CarePlanCompleted` 이벤트(5.2절)를 수신한 뒤, 이
   - ⚠️ **확인 필요**: 이 패턴이 03번 문서에서만 확인됐다. 나머지 8개 REST API(01,02,04,05,07,08,09 + 06은 내부용이라 별개)도 동일하게 `@AuthenticationPrincipal UserContext user`를 쓰는지, 각 API 문서에 개별적으로 반영이 필요한지 확인 필요.
 - **인가(Authorization)**: 각 API를 처리하는 Schedule-Service 내부에서 수행한다 (예: 본인 소유 일정인지, 역할이 일치하는지 검증).
 - **내부 API**(`/internal/v1/*`)는 API Gateway를 거치지 않는 서비스 간 통신이며, `X-Internal-Api-Key` 헤더 기반으로 별도 인증한다. 5.5절의 Schedule-Service → Care-Plan-Service 호출도 동일한 인증 패턴을 따른다.
-
----
-
-## 8. 알려진 미확정/논의 사항 정리
-
-| 구분 | 내용 | 상태 |
-| --- | --- | --- |
-| 이벤트 페이로드 | `CarePlanCompleted`, `ProviderReMatched`, `ProviderMatched`, `ProviderMatchFailed` 4종 전체 | 미확정 (TBD) |
-| Exchange/Queue/Routing Key | 4개 이벤트 전부 실제 이름 미정 | 미확정 (TBD) |
-| 재시도/DLQ 정책 | 수신 이벤트(`ProviderMatched`, `ProviderMatchFailed`) | 미확정 (TBD) |
-| 멱등성 처리 | 수신 이벤트 2종 | 미확정 (TBD) |
-| `CarePlanCompleted` 발행 조건 | 케어플랜 내 모든 서비스 완료 판단을 위한 정확한 집계 로직 | 미확정 (TBD) |
-| `status` 명칭 | `DELAY` → `RESCHEDULING` 확정 완료 (2026-09-01, 코드/문서 전체 반영) | ✅ 확정 |
-| Error Response 포맷 | `success/code/message/details/timestamp` (details는 고정 레코드 `ErrorDetail(reason)`, reason은 항상 errorCode 기본 메시지)로 확정, 코드와 Notion API 문서 일치 | ✅ 확정 |
-| 인증 헤더 | 전체 9개 REST API Request에 `X-User-Role` 헤더 존재 확인 | ✅ 반영 완료 |
-| 외부 API 인증 주입 방식 | 03번 문서 기준 `@AuthenticationPrincipal UserContext user`로 확정. 나머지 8개 API 문서에도 동일 적용되는지, 각 문서의 Request 표에서 `X-User-Id`/`X-User-Role` 행을 제거해야 하는지 확인 필요 | 확인 필요 (03번만 반영됨) |
-| `ProviderMatchFailed` 처리 시 기록 위치 | 문서상 "note"에 실패 사유 기록으로 되어 있으나 테이블엔 `note` 컬럼이 없고 `cancel_reason`만 존재 | 확인 필요 |
-| SSE 알림 | 매칭 실패 시 SSE 알림 전송 여부 | 확인 필요 (범위 포함 여부 미정) |
-| 내부 API Batch 조회 범위 | `startDate`부터 30일간 고정 조회 (Care Plan마다 가변적이지 않음, 06번 API 문서 참고) | ✅ 확정 |
-| `CHANGED` 상태 신규 추가 | Table 명세서 재확인 결과 `RESCHEDULING`(변경 중)과 별도로 `CHANGED`(변경 완료) 상태가 존재. ✅ 확정: 신규 생성=`ProviderMatched`, 기존 건 갱신(`RESCHEDULING`→`CHANGED`)=`ProviderReMatched` 흐름으로 역할 분리됨 | ✅ 확정 (역할 분리) / ⚠️ 확인 필요 (아래 참고) |
-| `ProviderReMatched`의 수신(확인) 측 누락 | 현재 11번 문서는 Schedule-Service가 "발행"만 하는 것으로 기록되어 있으나, "기존 건 갱신"을 수행하려면 Provider-Service의 재매칭 성공 응답을 Schedule-Service가 다시 **수신**하는 과정이 필요해 보임. 같은 이벤트명이 반대 방향으로도 쓰이는지, 별도 이벤트가 있는지 확인 필요 (임의로 만들어내지 않음) | 확인 필요 |
-| 재매칭 실패 시 상태 전환 상충 | `03_서비스일정변경.md`(2026-09-02 갱신, 최신 확정본)는 "실패 시 `SCHEDULED`로 복구", `13_이벤트수신_ProviderMatchFailed.md`(기존)는 "실패 시 `CANCELED`로 변경"이라고 서로 다르게 기재됨. 03번이 더 최근에 팀 확인을 거쳤으나, 13번 문서를 아직 그에 맞춰 갱신하지 않았으므로 두 문서 중 하나로 임의 통일하지 않음 | 확인 필요 (상충) |
-| 내부 API(06) Batch 조회 대상에 `CHANGED` 포함 여부 | ✅ 확정 (2026-09-01): `CHANGED`는 Batch 조회 대상에 **포함하지 않음** | ✅ 확정 |
-| **Care Plan 범위 검증용 Internal API (신규)** | Schedule-Service → Care-Plan-Service 방향의 Internal API(`servicePreferenceId` → `carePlanId`/`finishDate`/`patientId`, 5.5절)가 `03_서비스일정변경.md`/`04_서비스일정취소.md` 최신화로 신규 확인됨. `carePlanId`/`finishDate`/`patientId` 3개 필드를 모두 반환하는 것은 확정됐으나 (1) 재조회 필요 시점, (2) 실패 시 에러 처리, (3) Care-Plan-Service 측 실제 엔드포인트 스펙 3가지가 미정 | 확인 필요 (신규) |
-| **서비스 제공자 본인 확인 메커니즘** | ✅ 확정 (2026-09-03): provider-service Internal API(`GET /internal/v1/service-offerings/{serviceOfferingId}`)로 `providerId`를 조회해 요청자 `userId`와 비교하는 방식으로 확정됨 (5.6절 참고). 다만 이 API의 정확한 Response 필드 구조, `serviceOfferingId` 미존재 시 에러 처리는 미정 | ✅ 확정 (메커니즘) / 확인 필요 (세부 스펙) |
-| **05번 API의 400 Validation 케이스 부재 (신규, 2026-09-03)** | `status`(COMPLETED/NO_SHOW) Enum 검증 실패 시의 400 케이스가 Status 표에 없음. 다른 API와 달리 의도적으로 뺀 것인지 누락인지 확인 필요 | 확인 필요 (신규) |
-| **status 필터 목록의 CHANGED 누락** | ✅ 해소 (2026-09-03): Notion 원본이 갱신되어 `01_서비스일정목록조회.md`의 `status` 옵션 목록에 `CHANGED`가 추가됨 | ✅ 해소 |
-| **01번 Response의 servicePreferenceId/serviceOfferingId 노출 여부** | 한때 Notion 원본에 추가됐다가 다시 제거됨 — ✅ 확정 (2026-09-03, 팀 확인 완료): 내부 필터링에만 쓰이는 ID라 클라이언트 응답에는 노출하지 않는 것으로 최종 확정 | ✅ 확정 |
-| **01번 목록 조회 시 소유권 검증 방식** | ✅ 확정 (2026-09-03, 팀 논의 완료): 레코드별 개별 검증 대신, 요청자가 소유한 `servicePreferenceId`/`serviceOfferingId` 전체 목록을 Internal API로 1회 조회한 뒤 `IN` 조건으로 필터링하는 방식으로 확정 (5.7절 참고) | ✅ 확정 (방식) |
-| **ID 목록 반환용 Internal API 스펙** | ✅ 확정 (2026-09-03): care-plan-service(`GET /internal/v1/service-preferences?patientId=`), provider-service(`GET /internal/v1/service-offerings?providerId=`) 엔드포인트/Request/Response 스펙 확정 (5.7절 참고) | ✅ 확정 |
-| **01번 API의 잘못된 status 필터 처리** | ✅ 확정 (2026-09-03): 허용되지 않는 `status` 값이 들어오면 `400`을 반환하는 것으로 확정 | ✅ 확정 |
-| **02번 API의 status 옵션 목록 CHANGED** | ✅ 확정 (2026-09-03): `02_서비스일정상세조회.md`의 Response `status` 옵션 목록에 `CHANGED` 포함 확정 (표에는 이미 있었으나 주석 표기 실수 정정) | ✅ 확정 |
-| **07번 API와 05번 API의 순서 관계** | ✅ 확정 (2026-09-04): 결과 등록 시 서비스 일정의 `status`가 `COMPLETED`/`NO_SHOW`가 아니면 `409` 실패. 05번이 먼저 처리되어 상태가 확정된 이후에만 07번 진행 가능 | ✅ 확정 |
-| **07번 API의 중복 등록 처리** | ✅ 확정 (2026-09-04): 동일 `serviceScheduleId`에 대한 중복 등록 불허, 이미 등록된 경우 재등록 시도는 `409` | ✅ 확정 |
-| **신규 10번 API의 테이블명 오기** | ✅ 정정 완료 (2026-09-04): Notion 원본 `테이블명` 속성이 `p_care_plan_service_results`로 정정됨 (기존 `p_service_schedules` 오기였음, 문서에도 이미 반영) | ✅ 정정 완료 |
-| **신규 10번 API의 존재 검증 실패 케이스** | ✅ 확정 (2026-09-04): Notion 원본에 `404`(존재하지 않는 수행 결과) 케이스 추가됨. 이 API의 핵심 목적(존재 검증)에 필요한 마지막 사항 해소 | ✅ 확정 |
-| **08번 API의 조인 관계 (신규, 2026-09-05)** | `08_서비스수행결과목록조회.md`가 01번과 같은 ID 목록 기반 필터링을 쓰는데, `p_care_plan_service_results`에는 `service_preference_id`/`service_offering_id` 컬럼이 없어 `p_service_schedules`와의 조인이 필요할 것으로 보임. 문서에 명시되어 있지 않아 확인 필요 | 확인 필요 (신규) |
-| **08번 API의 Response에 serviceScheduleId 부재 (신규, 2026-09-05)** | 목록에서 어떤 서비스 일정에 대한 결과인지 알 수 없음. 의도된 설계일 수 있어 참고로만 남김 | 참고 (영향 미확정) |
-| **07번 문서 설명의 is_performed 잔존** | ✅ 해소 (2026-09-04): Notion 원본 설명이 갱신되어 `is_performed` 언급 제거됨. `07_서비스수행결과등록.md`와 이미 일치 | ✅ 해소 |
-
----
-
-## 변경 이력
-
-| 날짜 | 변경 내용 |
-| --- | --- |
-| 2026-09-02 | 4.1절의 `DELAY` 잔존 표현을 `RESCHEDULING`/`CHANGED`로 정정 (3장과의 불일치 해소) |
-| 2026-09-02 | `03_서비스일정변경.md` 최신화 내용 반영 — Care Plan 범위 검증용 Internal API(Schedule-Service → Care-Plan-Service, Feign) 호출을 4.1절 및 신규 5.5절로 추가 |
-| 2026-09-02 | 8장 미확정 사항 테이블에 Care Plan 범위 검증 Internal API 관련 신규 확인 필요 항목 추가 |
-| 2026-09-03 | `05_서비스수행완료.md` 최신화 반영 — API 목록(6장)의 05번 URL 오기 정정(`/status`→`/complete`), 4.3절에 서비스 제공자 본인 확인 메커니즘 미정 사항 반영, Care Plan Internal API 필드에 `patientId` 반영(03/04번 확정 내용 동기화), 8장에 신규 확인 필요 항목 2건 추가 |
-| 2026-09-03 | `05_서비스수행완료.md` 2차 최신화 — 서비스 제공자 본인 확인 메커니즘 확정 반영(provider-service Internal API `GET /internal/v1/service-offerings/{serviceOfferingId}`), 신규 5.6절 추가, 8장 해당 항목을 확정으로 전환 |
-| 2026-09-03 | `01_서비스일정목록조회.md` 최신화 반영 — 목록 조회 소유권 검증 방식 불명확, `status` 필터의 `CHANGED` 누락 등 신규 확인 필요 항목 8장에 추가 |
-| 2026-09-03 | `01_서비스일정목록조회.md` 2차 최신화 — Notion 원본 갱신(`CHANGED` 추가, `servicePreferenceId`/`serviceOfferingId` 응답 추가) 반영, 잘못된 `status` 필터 시 `400` 확정, 목록 조회 소유권 필터링을 "ID 목록 기반 배치 조회" 방식으로 확정(팀 논의 완료), 신규 5.7절 추가 |
-| 2026-09-03 | `01_서비스일정목록조회.md` 3차 최신화 — Notion 원본 오타 정정(퇴원 예정자 조회 시 호출 대상이 "Schedule-Service"로 잘못 기재되어 있던 것을 care-plan-service로 정정), Response의 `servicePreferenceId`/`serviceOfferingId`를 최종적으로 제외하는 것으로 확정(팀 확인 완료, 내부 필터링 전용 ID는 응답에 노출하지 않음). 8장 관련 항목 갱신 |
-| 2026-09-03 | ✅ 확정: 5.7절의 ID 목록 반환 Internal API 엔드포인트 스펙 확정 — care-plan-service `GET /internal/v1/service-preferences?patientId=`, provider-service `GET /internal/v1/service-offerings?providerId=`. 마지막 블로커 해소, 8장 해당 항목 확정으로 전환 |
-| 2026-09-03 | `02_서비스일정상세조회.md` 최신화 반영 — JSON 예시 문법 오류 수정, 비즈니스 규칙 구조화, 03/04/05번의 기존 Internal API(점검증)를 재사용하는 방식임을 명시. `status` 옵션 목록의 `CHANGED` 누락을 8장에 신규 확인 필요로 추가 |
-| 2026-09-03 | ✅ 확정: `02_서비스일정상세조회.md`의 `status` 옵션에 `CHANGED` 포함 확정 (표기 실수 정정). 8장 해당 항목 확정으로 전환 |
-| 2026-09-04 | `07_서비스수행결과등록.md` 최신화 반영 — JSON 예시 문법 오류 수정, 비즈니스 규칙 구조화, 05번의 확정된 provider-service Internal API 메커니즘 재사용 명시. 8장에 신규 확인 필요 항목 2건(05번과의 순서 관계, 중복 등록 처리) 및 참고 항목 1건(is_performed 잔존 언급) 추가 |
-| 2026-09-04 | `07_서비스수행결과등록.md` 2차 최신화 — Notion 원본 설명 갱신 반영(`is_performed` 언급 제거), 8장 해당 항목 해소로 전환. 05번과의 순서 관계, 중복 등록 처리 항목은 미해소 상태로 유지 |
-| 2026-09-04 | ✅ 확정: `07_서비스수행결과등록.md`에 05번과의 순서 관계(상태가 `COMPLETED`/`NO_SHOW`가 아니면 `409`) 및 중복 등록 금지(`409`) 반영. 8장 해당 항목 확정으로 전환 |
-| 2026-09-04 | **신규 API 발견**: `[내부 API] 서비스 수행 결과 조회`(`GET /internal/v1/service-results/{serviceResultId}`) 문서화 — Care-Plan-Service가 `CarePlanCompleted` 이벤트의 `serviceResultId`를 검증하기 위해 호출. API 목록(6장)에 14번으로 추가, 신규 5.8절 작성. 테이블명 오기 정정, 존재 검증 실패 케이스 부재를 8장에 확인 필요로 추가 |
-| 2026-09-04 | Notion 마스터 문서 갱신 반영 — API 목록(6장) 번호 재정렬: 신규 내부 API를 **10번**으로 배치하고 기존 이벤트 4종(`CarePlanCompleted` 등)을 11~14번으로 이동. 관련 파일명(`14_...` → `10_내부API_서비스수행결과조회.md`)과 8장/5.8절 참조 전부 동기화 |
-| 2026-09-04 | ✅ 확정: `10_내부API_서비스수행결과조회.md`의 Notion 원본에 `테이블명` 정정 및 `404`(존재하지 않는 수행 결과) 케이스 추가 확인. 이 API의 남은 확인 필요 항목 모두 해소, 8장 해당 항목 확정으로 전환 |
-| 2026-09-05 | `08_서비스수행결과목록조회.md` 최신화 반영 — 01번의 ID 목록 기반 조회 패턴 재사용 명시, `p_care_plan_service_results`와 `p_service_schedules` 간 조인 필요성을 신규 확인 필요로 8장에 추가, Response의 `serviceScheduleId` 부재를 참고 사항으로 기록 |
