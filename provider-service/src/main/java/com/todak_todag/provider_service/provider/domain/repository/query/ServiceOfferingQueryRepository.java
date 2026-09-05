@@ -17,4 +17,6 @@ public interface ServiceOfferingQueryRepository {
     Page<ServiceOfferingView> searchByProviderId(UUID providerId, Pageable pageable);
 
     List<UUID> findIdsByProviderId(UUID providerId);
+
+    Page<ServiceOfferingView> searchByRegionId(UUID regionId, Pageable pageable);
 }

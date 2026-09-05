@@ -10,6 +10,10 @@ public interface UserQueryRepository {
 	Optional<User> findById(UUID userId);
 	
 	Optional<User> findLoginByUsername(String username);
+
+	Optional<User> findActiveById(UUID userId);
+	
+	Optional<User> findAdminById(UUID userId);
 	
 	boolean duplicateUsername(String username);
 }

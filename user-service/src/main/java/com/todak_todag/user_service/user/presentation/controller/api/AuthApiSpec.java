@@ -3,7 +3,7 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
-import com.todak_todag.user_service.user.presentation.request.UserRequest.UserLoginRequest;
+import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

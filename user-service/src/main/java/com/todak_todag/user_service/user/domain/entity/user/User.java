@@ -1,5 +1,6 @@
 package com.todak_todag.user_service.user.domain.entity.user;
 
+import java.util.Objects;
 import java.util.UUID;
 
 import org.hibernate.annotations.SQLRestriction;
@@ -49,6 +50,9 @@ public class User extends BaseAuditableEntity {
 	@Column(name = "phone", nullable = false, length = 20)
 	private String phone;
 
+	@Column(name = "status_change_reason")
+	private String statusChangeReason;
+	
 	@Enumerated(EnumType.STRING)
 	@Column(name = "role", nullable = false, length = 20)
 	private UserRole role;
@@ -204,6 +208,40 @@ public class User extends BaseAuditableEntity {
 	
 	public boolean isWithdrawn() {
 		return this.status == UserStatus.WITHDRAWN;
+	}
+	
+	public boolean isPending() {
+		return this.status == UserStatus.PENDING;
+	}
+	
+	public void approvalOrReject(Boolean accept, String rejectReason) {
+		// 승인
+		if(accept == true) {
+			if(rejectReason != null) {
+				throw new BusinessException(UserErrorCode.USER_APPROVAL_CONFLICT);
+			}
+			
+			if(isPending()) {
+				this.status = UserStatus.APPROVED;
+				this.statusChangeReason = null;
+				return;
+			}
+			
+			throw new BusinessException(UserErrorCode.USER_MODIFY_STATE);
+		}
+		
+		// 거절
+		if(rejectReason == null || rejectReason.isBlank()) {
+			throw new BusinessException(UserErrorCode.USER_REJECT_CONFLICT);
+		}
+		
+		if(isPending()) {
+			this.status = UserStatus.REJECTED;
+			this.statusChangeReason = rejectReason;
+			return;
+		}
+		
+		throw new BusinessException(UserErrorCode.USER_MODIFY_STATE);
 	}
 	
 }

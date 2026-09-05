@@ -5,13 +5,10 @@ import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
-import com.todak_todag.provider_service.provider.application.port.SchedulePort;
-import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
-import com.todak_todag.provider_service.provider.domain.repository.query.ProvideServiceQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -53,15 +50,6 @@ class ServiceOfferingCommandServiceTest {
     @Mock
     private ProvideWorkQueryRepository provideWorkQueryRepository;
 
-    @Mock
-    private ProvideServiceQueryRepository provideServiceQueryRepository;
-
-    @Mock
-    private UserPort userPort;
-
-    @Mock
-    private SchedulePort schedulePort;
-
     @InjectMocks
     private ServiceOfferingCommandService serviceOfferingCommandService;
 
@@ -74,7 +62,7 @@ class ServiceOfferingCommandServiceTest {
     class Success {
 
         @Test
-        @DisplayName("User-Service에서 조회한 regionId와 함께 저장한다")
+        @DisplayName("Facade가 전달한 regionId와 함께 저장한다")
         void create_success() {
             Instant createdAt = Instant.now();
             ServiceOffering saved = Mockito.mock(ServiceOffering.class);
@@ -83,13 +71,11 @@ class ServiceOfferingCommandServiceTest {
             given(saved.getProviderId()).willReturn(providerId);
             given(saved.getCreatedAt()).willReturn(createdAt);
 
-            given(provideServiceQueryRepository.existsById(provideServiceId)).willReturn(true);
             given(serviceOfferingQueryRepository.existsByProviderIdAndProvideServiceId(providerId, provideServiceId))
                     .willReturn(false);
-            given(userPort.findRegionIdByUserId(providerId)).willReturn(regionId);
             given(serviceOfferingCommandRepository.save(any(ServiceOffering.class))).willReturn(saved);
 
-            ServiceOfferingCreateResult result = serviceOfferingCommandService.create(command());
+            ServiceOfferingCreateResult result = serviceOfferingCommandService.create(command(), regionId);
 
             assertThat(result.serviceOfferingId()).isEqualTo(serviceOfferingId);
             assertThat(result.providerId()).isEqualTo(providerId);
@@ -102,31 +88,16 @@ class ServiceOfferingCommandServiceTest {
     class Failure {
 
         @Test
-        @DisplayName("존재하지 않는 서비스 종류면 PROVIDE_SERVICE_NOT_FOUND")
-        void provideServiceNotFound() {
-            given(provideServiceQueryRepository.existsById(provideServiceId)).willReturn(false);
-
-            assertThatThrownBy(() -> serviceOfferingCommandService.create(command()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.PROVIDE_SERVICE_NOT_FOUND);
-
-            verify(serviceOfferingCommandRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("이미 등록한 서비스 종류면 SERVICE_OFFERING_DUPLICATE")
+        @DisplayName("Facade 검증 이후 중복이 생겼으면 SERVICE_OFFERING_DUPLICATE")
         void duplicate() {
-            given(provideServiceQueryRepository.existsById(provideServiceId)).willReturn(true);
             given(serviceOfferingQueryRepository.existsByProviderIdAndProvideServiceId(providerId, provideServiceId))
                     .willReturn(true);
 
-            assertThatThrownBy(() -> serviceOfferingCommandService.create(command()))
+            assertThatThrownBy(() -> serviceOfferingCommandService.create(command(), regionId))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_DUPLICATE);
 
-            verify(userPort, never()).findRegionIdByUserId(any());
             verify(serviceOfferingCommandRepository, never()).save(any());
         }
     }
@@ -149,14 +120,13 @@ class ServiceOfferingCommandServiceTest {
         }
 
         @Test
-        @DisplayName("확정 일정이 없으면 제공 서비스와 하위 제공 가능 일정을 함께 논리 삭제한다")
+        @DisplayName("제공 서비스와 하위 제공 가능 일정을 함께 논리 삭제한다")
         void delete_success() {
             ServiceOffering offering = ownedOffering();
             ProvideWork provideWork = Mockito.mock(ProvideWork.class);
 
             given(serviceOfferingQueryRepository.findById(serviceOfferingId))
                     .willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(provideWork));
 
@@ -173,7 +143,6 @@ class ServiceOfferingCommandServiceTest {
 
             given(serviceOfferingQueryRepository.findById(serviceOfferingId))
                     .willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of());
 
@@ -183,7 +152,7 @@ class ServiceOfferingCommandServiceTest {
         }
 
         @Test
-        @DisplayName("존재하지 않으면 SERVICE_OFFERING_NOT_FOUND")
+        @DisplayName("Facade 조회 이후 삭제되었으면 SERVICE_OFFERING_NOT_FOUND")
         void notFound() {
             given(serviceOfferingQueryRepository.findById(serviceOfferingId))
                     .willReturn(Optional.empty());
@@ -193,7 +162,7 @@ class ServiceOfferingCommandServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
 
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
+            verify(provideWorkQueryRepository, never()).findAllByServiceOfferingId(any());
         }
 
         @Test
@@ -210,7 +179,7 @@ class ServiceOfferingCommandServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
 
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
+            verify(provideWorkQueryRepository, never()).findAllByServiceOfferingId(any());
             verify(offering, never()).markDeleted(any());
         }
 
@@ -227,24 +196,6 @@ class ServiceOfferingCommandServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
-
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
-            verify(offering, never()).markDeleted(any());
-        }
-
-        @Test
-        @DisplayName("확정된 일정이 있으면 SERVICE_OFFERING_SCHEDULE_EXISTS")
-        void scheduleExists() {
-            ServiceOffering offering = ownedOffering();
-
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
-                    .willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(true);
-
-            assertThatThrownBy(() -> serviceOfferingCommandService.delete(command(UserRole.SERVICE_PROVIDER)))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS);
 
             verify(provideWorkQueryRepository, never()).findAllByServiceOfferingId(any());
             verify(offering, never()).markDeleted(any());

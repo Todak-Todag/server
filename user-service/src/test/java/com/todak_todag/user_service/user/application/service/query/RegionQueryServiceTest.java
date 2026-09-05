@@ -1,8 +1,11 @@
 package com.todak_todag.user_service.user.application.service.query;
 
+import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.user.application.query.RegionFindAdminQuery;
 import com.todak_todag.user_service.user.application.result.RegionFindAdminResult;
 import com.todak_todag.user_service.user.application.result.RegionFindAvailableResult;
+import com.todak_todag.user_service.user.application.result.RegionFindDetailResult;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -20,9 +23,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -226,6 +231,68 @@ class RegionQueryServiceTest {
 
             // then
             assertThat(result).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("지역 단건 조회")
+    class FindRegion {
+
+        @Test
+        @DisplayName("지역 ID로 지역 상세 정보를 조회한다")
+        void findRegion_success() {
+            // given
+            UUID regionId = UUID.randomUUID();
+            Region region = Mockito.mock(Region.class);
+
+            given(region.getId()).willReturn(regionId);
+            given(region.getProvince()).willReturn("전라남도");
+            given(region.getDistrict()).willReturn("고흥군");
+            given(region.getRegionCode()).willReturn("4677000000");
+            given(region.isActive()).willReturn(true);
+
+            given(regionQueryRepository.findById(regionId))
+                    .willReturn(Optional.of(region));
+
+            // when
+            RegionFindDetailResult result =
+                    regionQueryService.findRegion(regionId);
+
+            // then
+            assertThat(result.regionId()).isEqualTo(regionId);
+            assertThat(result.province()).isEqualTo("전라남도");
+            assertThat(result.district()).isEqualTo("고흥군");
+            assertThat(result.regionCode()).isEqualTo("4677000000");
+            assertThat(result.isActive()).isTrue();
+
+            then(regionQueryRepository)
+                    .should()
+                    .findById(regionId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 지역이면 REGION_NOT_FOUND 예외를 발생시킨다")
+        void findRegion_notFound() {
+            // given
+            UUID regionId = UUID.randomUUID();
+
+            given(regionQueryRepository.findById(regionId))
+                    .willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> regionQueryService.findRegion(regionId))
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(exception -> {
+                        BusinessException businessException =
+                                (BusinessException) exception;
+
+                        assertThat(businessException.getErrorCode())
+                                .isEqualTo(RegionErrorCode.REGION_NOT_FOUND);
+                    });
+
+            then(regionQueryRepository)
+                    .should()
+                    .findById(regionId);
         }
     }
 }

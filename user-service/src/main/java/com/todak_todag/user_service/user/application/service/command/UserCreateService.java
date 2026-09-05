@@ -1,17 +1,16 @@
 package com.todak_todag.user_service.user.application.service.command;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
-import com.todak_todag.user_service.user.application.command.UserCommand.UserAdminCreateCommand;
-import com.todak_todag.user_service.user.application.command.UserCommand.UserSignupCommand;
+import com.todak_todag.user_service.user.application.command.UserAdminCreateCommand;
+import com.todak_todag.user_service.user.application.command.UserSignupCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
-import com.todak_todag.user_service.user.application.result.UserResult;
-import com.todak_todag.user_service.user.application.result.UserResult.UserAdminCreatedResult;
-import com.todak_todag.user_service.user.application.result.UserResult.UserSignupCreatedResult;
+import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
+import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
@@ -21,7 +20,7 @@ import com.todak_todag.user_service.user.domain.repository.query.UserQueryReposi
 import lombok.RequiredArgsConstructor;
 
 // User 생성 작업 담당 서비스
-@Component
+@Service
 @RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
 public class UserCreateService {
@@ -80,7 +79,7 @@ public class UserCreateService {
 		User user = userCommandRepo.save(signupUser);
 		// List<Consent> saveAll
 		
-		return new UserResult.UserSignupCreatedResult(user.getId(), user.getName());
+		return new UserSignupCreatedResult(user.getId(), user.getName());
 	}
 	
 	public UserAdminCreatedResult createUserAdmin(UserAdminCreateCommand createAdmin) {
@@ -106,7 +105,7 @@ public class UserCreateService {
 		
 		User user = userCommandRepo.save(admin);
 		
-		return new UserResult.UserAdminCreatedResult(user.getId(), user.getName(), region.getProvince(), region.getDistrict());
+		return new UserAdminCreatedResult(user.getId(), user.getName(), region.getProvince(), region.getDistrict());
 	}
 	
 	public void createUserPatient() {

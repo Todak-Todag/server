@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record ServiceOfferingView(
         UUID serviceOfferingId,
+        UUID providerId,
         UUID provideServiceId,
         String provideServiceName,
         Instant createdAt

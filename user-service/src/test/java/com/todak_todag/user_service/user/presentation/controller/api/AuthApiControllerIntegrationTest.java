@@ -32,10 +32,9 @@ import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaAuthRepository;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaUserRepository;
-import com.todak_todag.user_service.user.presentation.request.UserRequest.UserAdminCreateRequest;
-import com.todak_todag.user_service.user.presentation.request.UserRequest.UserLoginRequest;
-import com.todak_todag.user_service.user.presentation.request.UserRequest.UserSignupRequest;
-import com.todak_todag.user_service.user.presentation.request.UserRequest.UserSignupRequest.AgreementRequest;
+import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
+import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
+import com.todak_todag.user_service.user.presentation.request.UserSignupRequest.AgreementRequest;
 
 @SpringBootTest
 @AutoConfigureMockMvc

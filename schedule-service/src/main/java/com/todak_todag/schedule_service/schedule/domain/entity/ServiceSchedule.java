@@ -140,6 +140,13 @@ public class ServiceSchedule extends BaseAuditableEntity {
         this.status = ScheduleStatus.NO_SHOW;
     }
 
+    // 서비스 수행 결과 등록 가능 여부 검증
+    public void assertResultRegistrable() {
+        if (status != ScheduleStatus.COMPLETED && status != ScheduleStatus.NO_SHOW) {
+            throw new BusinessException(ScheduleErrorCode.SERVICE_RESULTS_INVALID_SCHEDULE_STATUS);
+        }
+    }
+
     // 일정 생성에 필요한 필수 식별자 및 일정 시간 정보를 검증
     private static void validateConfirmParameters(
             UUID servicePreferenceId,
