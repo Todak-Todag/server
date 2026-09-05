@@ -14,6 +14,7 @@ import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
+import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
@@ -108,7 +109,17 @@ public class UserApiController implements UserApiSpec {
 			@AuthenticationPrincipal UserContext user
 	) {
 		
-		return null;
+		UserPatientCreatedResult result = userCreateService.createUserPatient(userPatientCreateRequest.toCommand(user));
+		
+		UserPatientCreatedResponse response = new UserPatientCreatedResponse(
+				result.patientId(),
+				result.hospitalStaffId(),
+				result.name(),
+				result.phone(),
+				result.regionId()
+		);
+		
+		return ResponseEntity.status(200).body(ApiResponse.ok("퇴원 예정자 등록 완료", response));
 	}
 	
 	
