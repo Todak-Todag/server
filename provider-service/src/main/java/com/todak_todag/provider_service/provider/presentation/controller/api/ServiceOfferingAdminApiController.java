@@ -4,9 +4,9 @@ import com.todak_todag.provider_service.global.common.PageableFactory;
 import com.todak_todag.provider_service.global.response.ApiResponse;
 import com.todak_todag.provider_service.global.response.PageResponse;
 import com.todak_todag.provider_service.global.security.UserContext;
+import com.todak_todag.provider_service.provider.application.facade.ServiceOfferingFacade;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
-import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
 import com.todak_todag.provider_service.provider.presentation.response.ServiceOfferingRegionSearchResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,7 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ServiceOfferingAdminApiController {
 
-    private final ServiceOfferingQueryService serviceOfferingQueryService;
+    private final ServiceOfferingFacade serviceOfferingFacade;
 
     @GetMapping("/regions/{regionId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MASTER')")
@@ -32,7 +32,7 @@ public class ServiceOfferingAdminApiController {
             @RequestParam(value = "size", required = false) Integer size,
             @RequestParam(value = "sort", required = false) String sort
     ) {
-        Page<ServiceOfferingRegionSearchResult> results = serviceOfferingQueryService.searchByRegion(
+        Page<ServiceOfferingRegionSearchResult> results = serviceOfferingFacade.searchByRegion(
                 new ServiceOfferingRegionSearchQuery(
                         regionId,
                         user.getUserId(),

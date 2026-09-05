@@ -3,9 +3,9 @@ package com.todak_todag.provider_service.provider.presentation.controller.api;
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
+import com.todak_todag.provider_service.provider.application.facade.ServiceOfferingFacade;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
-import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -46,7 +46,7 @@ class ServiceOfferingApiControllerTest {
     private MockMvc mockMvc;
 
     @MockitoBean
-    private ServiceOfferingCommandService serviceOfferingCommandService;
+    private ServiceOfferingFacade serviceOfferingFacade;
 
     @MockitoBean
     private ServiceOfferingQueryService serviceOfferingQueryService;
@@ -67,7 +67,7 @@ class ServiceOfferingApiControllerTest {
             UUID serviceOfferingId = UUID.randomUUID();
             UUID providerId = UUID.randomUUID();
 
-            given(serviceOfferingCommandService.create(any()))
+            given(serviceOfferingFacade.create(any()))
                     .willReturn(new ServiceOfferingCreateResult(serviceOfferingId, providerId, Instant.now()));
 
             mockMvc.perform(post(BASE_URL)
@@ -147,7 +147,7 @@ class ServiceOfferingApiControllerTest {
         @DisplayName("확정된 일정이 있으면 409")
         void delete_scheduleExists() throws Exception {
             doThrow(new BusinessException(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS))
-                    .when(serviceOfferingCommandService).delete(Mockito.any());
+                    .when(serviceOfferingFacade).delete(Mockito.any());
 
             mockMvc.perform(delete(BASE_URL + "/{serviceOfferingId}", serviceOfferingId)
                             .header("X-User-Id", UUID.randomUUID().toString())
@@ -161,7 +161,7 @@ class ServiceOfferingApiControllerTest {
         @DisplayName("존재하지 않으면 404")
         void delete_notFound() throws Exception {
             doThrow(new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND))
-                    .when(serviceOfferingCommandService).delete(Mockito.any());
+                    .when(serviceOfferingFacade).delete(Mockito.any());
 
             mockMvc.perform(delete(BASE_URL + "/{serviceOfferingId}", serviceOfferingId)
                             .header("X-User-Id", UUID.randomUUID().toString())
