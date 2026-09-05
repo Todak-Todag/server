@@ -6,12 +6,15 @@ import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpd
 import com.spring.careplanservice.careplan.application.facade.CarePlanFacade;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
+import com.spring.careplanservice.careplan.application.query.ServicePreferenceSearchQuery;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
+import com.spring.careplanservice.careplan.application.result.ServicePreferenceSearchResult;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
 import com.spring.careplanservice.careplan.application.service.query.CarePlanQueryService;
+import com.spring.careplanservice.careplan.application.service.query.ServicePreferenceQueryService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanCreateRequest;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanStatusUpdateRequest;
@@ -19,6 +22,7 @@ import com.spring.careplanservice.careplan.presentation.response.CarePlanCreateR
 import com.spring.careplanservice.careplan.presentation.response.CarePlanFindResponse;
 import com.spring.careplanservice.careplan.presentation.response.CarePlanSearchResponse;
 import com.spring.careplanservice.careplan.presentation.response.CarePlanStatusUpdateResponse;
+import com.spring.careplanservice.careplan.presentation.response.ServicePreferenceSearchResponse;
 import com.spring.careplanservice.global.response.ApiResponse;
 import com.spring.careplanservice.global.response.PageResponse;
 import com.spring.careplanservice.global.security.UserContext;
@@ -41,6 +45,7 @@ public class CarePlanController {
     private final CarePlanFacade carePlanFacade;
     private final CarePlanQueryService carePlanQueryService;
     private final CarePlanCommandService carePlanCommandService;
+    private final ServicePreferenceQueryService servicePreferenceQueryService;
 
     @PreAuthorize("hasAnyRole('HOSPITAL_STAFF', 'PATIENT')")
     @PostMapping
@@ -161,5 +166,36 @@ public class CarePlanController {
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{carePlanId}/service-preferences")
+    @PreAuthorize("hasAnyRole('HOSPITAL_STAFF', 'SOCIAL_WORKER', 'PATIENT')")
+    public ResponseEntity<ApiResponse<PageResponse<ServicePreferenceSearchResponse>>> searchServicePreferences(
+            @AuthenticationPrincipal UserContext user,
+            @PathVariable UUID carePlanId,
+            @RequestParam(required = false) LocalDate preferredDate,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size
+    ) {
+        ServicePreferenceSearchQuery servicePreferenceSearchQuery = new ServicePreferenceSearchQuery(
+                user.userId(),
+                user.role(),
+                carePlanId,
+                preferredDate,
+                page,
+                size
+        );
+
+        Page<ServicePreferenceSearchResult> resultPage = servicePreferenceQueryService.searchServicePreferences(
+                servicePreferenceSearchQuery
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        HttpStatus.OK.value(),
+                        "서비스 희망 일정 목록 조회 성공",
+                        PageResponse.of(resultPage, ServicePreferenceSearchResponse::from)
+                )
+        );
     }
 }

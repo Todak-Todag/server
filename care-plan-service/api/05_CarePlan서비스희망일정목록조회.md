@@ -4,7 +4,7 @@
 |--------|---------------------------------------------------|
 | Method | `GET`                                              |
 | URL    | `/api/v1/care-plans/{carePlanId}/service-preferences` |
-| 사용자    | 퇴원예정자                                             |
+| 사용자    | 병원 담당자, 사회복지사, 퇴원예정자                                |
 | 카테고리   | 조회                                                |
 | 테이블명   | `p_care_plan_service_preferences`                  |
 
@@ -20,26 +20,16 @@
 - `size`는 `10`/`30`/`50`만 허용하며, 그 외 값이 들어오면 `10`으로 자동 대체한다.
 - 요청자의 `userId`와 `role`은 `X-User-Id`/`X-User-Role` 헤더(Gateway가 인증 후 주입)로 확인한다.
 
-> ⚠️ 확인 필요: 요청자 역할 — Request 표의 `X-User-Role` 예시값이 `SERVICE_PROVIDER`로 되어 있다. `01_서비스 희망 일정 수정.md`,
-> `04_CarePlan희망일정삭제.md` 등 동일 자원(`CarePlanServicePreference`)을 다루는 다른 API들은 모두 이 예시값이 원본 스펙의 오기였고
-> 실제로는 `PATIENT`(퇴원예정자)만 허용되는 것으로 확정된 전례가 있다. 다만 이번 API는 "목록 검색"(퇴원예정자만 허용) 성격과 "상세 조회"(`PATIENT`/
-> `ADMIN`/`SOCIAL_WORKER`/`MASTER` 허용, `care-plan-service.md` 4.6절 참고) 성격 중 어느 쪽에 더 가까운지 원본 스펙만으로는 판단할 수 없어,
-> `PATIENT` 단독 허용인지 다른 역할도 포함되는지 팀 확인이 필요하다.
->
-> ⚠️ 확인 필요: `page` 음수 처리 방식 — Request 표에는 `page`의 제약사항이 "음수 불가능"으로 명시돼 있으나, Status 표에는 이에 대응하는 `400`/`409`
-> 등의 실패 케이스가 없다. 기존 코드 기준으로는 두 가지 서로 다른 처리 방식이 이미 공존한다: (1) `CarePlanQueryService.searchCarePlan()`(목록
-> 검색)처럼 `page < 0`이면 `CARE_PLAN_BAD_REQUEST` 예외를 명시적으로 던지는 방식, (2) `PageableFactory.resolvePage()`처럼 음수 `page`를
-> 예외 없이 조용히 `0`으로 보정하는 방식(`size`가 허용 범위를 벗어났을 때와 동일한 처리). Status 표에 실패 케이스가 없다는 점은 (2)를 시사하지만,
-> Request 표의 "음수 불가능"이라는 문구는 (1)에 가까워 보여 상충한다. 어느 쪽을 따를지 확인이 필요하다.
->
-> ⚠️ 확인 필요: **404(`CARE_PLAN_SERVICE_NOT_FOUND`) 에러 코드** — 원본 스펙 Example의 실패 응답이 `CARE_PLAN_SERVICE_NOT_FOUND`를
-> 사용하고 있으나, 조회 실패 대상은 Path Variable인 `carePlanId`(Care Plan)이지 `planServiceId`(Care Plan 서비스)가 아니다. `01`/`04`
-> 문서에서 동일한 사유로 자원에 맞는 코드를 재사용했던 전례에 따라, 이번에도 기존에 등록된 `CARE_PLAN_NOT_FOUND`(404)를 재사용하는 것을
-> 제안한다.
->
-> ⚠️ 확인 필요: 소유권 검증 여부 — Status 표에 `403`(권한 없음)이 있으나 발생 조건이 명시돼 있지 않다. `care-plan-service.md` 4.6절의 "상세
-> 조회"처럼 조회된 Care Plan의 `patientId`와 요청자 `userId`가 다르면 `AUTH_FORBIDDEN`(403)을 반환하는 소유권 검증(`CarePlanOwnerValidator`
-> 등)이 필요한지, 아니면 역할 기반 필터링만으로 403이 발생하는 구조인지 확인이 필요하다.
+> ✅ 확정 (2026-09-05, 팀 확인 완료):
+> - 요청자는 `HOSPITAL_STAFF`, `SOCIAL_WORKER`, `PATIENT` 세 역할을 허용한다 (Request 표의 `X-User-Role` 예시값 `SERVICE_PROVIDER`는
+>   원본 스펙의 오기였음).
+> - `PATIENT`는 본인 소유 Care Plan(`patientId == X-User-Id`)만 조회할 수 있다 (`AUTH_FORBIDDEN`, 403). `HOSPITAL_STAFF`/
+>   `SOCIAL_WORKER`는 현재 별도의 소유권 검증 조건이 정의되어 있지 않으므로, 역할 검증(`@PreAuthorize`)만 통과하면 조회를 허용한다.
+> - `page`가 음수여도 예외를 던지지 않고, 다른 API와 동일한 공통 페이지네이션 정책(`PageableFactory`)에 따라 `0`으로 보정한다. `size`도
+>   `10`/`30`/`50`만 허용하고 그 외 값은 `10`으로 보정한다 — 기존 `PageableFactory`를 그대로 재사용한다 (`CarePlanQueryService.searchCarePlan()`
+>   처럼 `page < 0`에서 별도 예외(`CARE_PLAN_BAD_REQUEST`)를 던지는 방식은 채택하지 않는다).
+> - 404 에러 코드는 원본 스펙의 `CARE_PLAN_SERVICE_NOT_FOUND` 대신 기존에 등록된 `CARE_PLAN_NOT_FOUND`를 재사용한다 (조회 실패 대상이
+>   `carePlanId`이기 때문).
 
 ## Request
 
@@ -50,7 +40,7 @@
 | page           | 페이지 번호   | Integer      | Query Parameter | 음수 불가능                                        | O        | `0`                                     |
 | size           | 페이지 크기   | Integer      | Query Parameter | `10`, `30`, `50`만 가능하며 기본값은 `10`. 그 외 값이면 `10`으로 자동 변경 | O        | `10`                                    |
 | preferredDate  | 희망 날짜    | LocalDate    | Query Parameter | -                                              | O        | `2026-09-10`                            |
-| X-User-Role    | 요청자 권한   | String(ENUM) | Header          | Gateway가 인증 후 주입, 필수                          | X        | `PATIENT`                               |
+| X-User-Role    | 요청자 권한   | String(ENUM) | Header          | Gateway가 인증 후 주입, 필수. `HOSPITAL_STAFF`/`SOCIAL_WORKER`/`PATIENT`만 허용 | X | `PATIENT` |
 
 ## Response
 
@@ -110,7 +100,7 @@
 | status | response content         |
 |--------|--------------------------|
 | `200`  | 서비스 희망 일정 목록 조회 성공       |
-| `403`  | 권한 없음                    |
+| `403`  | 허용되지 않는 역할이거나, `PATIENT`가 본인 소유가 아닌 Care Plan을 조회 |
 | `404`  | 존재하지 않는 `carePlanId`의 Care Plan |
 
 ## 변경 이력
@@ -118,3 +108,4 @@
 | 날짜         | 변경 내용                                                                                                                                                                                 |
 |------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 2026-09-05 | 최초 작성 — Notion 원본 스펙 반영. 요청자 역할(`X-User-Role` 예시값), `page` 음수 처리 방식(예외 vs 자동 보정), 404 에러 코드(`CARE_PLAN_SERVICE_NOT_FOUND` vs `CARE_PLAN_NOT_FOUND`), 소유권 검증 여부가 원본 스펙에 명확히 명시되어 있지 않아 ⚠️ 확인 필요로 표시 |
+| 2026-09-05 | ✅ 확정 — 요청자는 `HOSPITAL_STAFF`/`SOCIAL_WORKER`/`PATIENT` 허용, `PATIENT`는 본인 소유 Care Plan만 조회 가능(소유권 검증), `HOSPITAL_STAFF`/`SOCIAL_WORKER`는 역할 검증만 적용. `page`/`size`는 기존 `PageableFactory`의 공통 페이지네이션 정책(음수/허용 범위 밖 값은 예외 없이 보정)을 그대로 재사용. 404는 `CARE_PLAN_NOT_FOUND`로 확정 |
