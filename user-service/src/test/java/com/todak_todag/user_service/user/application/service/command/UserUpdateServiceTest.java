@@ -80,8 +80,7 @@ class UserUpdateServiceTest {
 				"admin0123",
 				"$2a$10$hashedvaluehashedvaluehashedvalue",
 				"관리자",
-				"01099998888",
-				UserRole.ADMIN
+				"01099998888"
 		);
 		ReflectionTestUtils.setField(user, "id", ADMIN_ID);
 		return user;

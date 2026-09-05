@@ -20,10 +20,12 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 
 @Import(SecurityConfig.class)
 @WebMvcTest(ProvideWorkApiController.class)
@@ -33,6 +35,9 @@ class ProvideWorkApiControllerTest {
     private static final String BASE_URL = "/api/v1/service-offerings/{serviceOfferingId}/provide-works";
 
     private static final String UPDATE_URL =
+            "/api/v1/service-offerings/{serviceOfferingId}/provide-works/{provideWorkId}";
+
+    private static final String DELETE_URL =
             "/api/v1/service-offerings/{serviceOfferingId}/provide-works/{provideWorkId}";
 
     private final UUID serviceOfferingId = UUID.randomUUID();
@@ -248,5 +253,50 @@ class ProvideWorkApiControllerTest {
                         .content(body("0", "14:00", "18:00")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    }
+
+    @Test
+    @DisplayName("삭제에 성공하면 204를 반환한다")
+    void delete_success() throws Exception {
+        mockMvc.perform(delete(DELETE_URL, serviceOfferingId, UUID.randomUUID())
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    @DisplayName("삭제 시 SERVICE_PROVIDER가 아니면 403")
+    void delete_forbidden() throws Exception {
+        mockMvc.perform(delete(DELETE_URL, serviceOfferingId, UUID.randomUUID())
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "PATIENT"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+    }
+
+    @Test
+    @DisplayName("삭제 시 존재하지 않는 제공 가능 일정이면 404")
+    void delete_notFound() throws Exception {
+        doThrow(new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND))
+                .when(serviceOfferingFacade).deleteProvideWork(any());
+
+        mockMvc.perform(delete(DELETE_URL, serviceOfferingId, UUID.randomUUID())
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("PROVIDE_WORK_NOT_FOUND"));
+    }
+
+    @Test
+    @DisplayName("삭제 시 확정된 일정이 있으면 409")
+    void delete_scheduleExists() throws Exception {
+        doThrow(new BusinessException(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS))
+                .when(serviceOfferingFacade).deleteProvideWork(any());
+
+        mockMvc.perform(delete(DELETE_URL, serviceOfferingId, UUID.randomUUID())
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("PROVIDE_WORK_SCHEDULE_EXISTS"));
     }
 }

@@ -3,7 +3,9 @@ package com.todak_todag.user_service.user.application.service.command;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.user.application.command.RegionCreateCommand;
+import com.todak_todag.user_service.user.application.command.RegionUpdateActiveCommand;
 import com.todak_todag.user_service.user.application.result.RegionCreateResult;
+import com.todak_todag.user_service.user.application.result.RegionUpdateActiveResult;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.repository.command.RegionCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
@@ -45,5 +47,25 @@ public class RegionCommandService {
         );
 
         return RegionCreateResult.from(savedRegion);
+    }
+
+    @Transactional
+    public RegionUpdateActiveResult updateActive(
+            RegionUpdateActiveCommand command
+    ) {
+        Region region = regionQueryRepository.findById(command.regionId())
+                .orElseThrow(() ->
+                        new BusinessException(RegionErrorCode.REGION_NOT_FOUND)
+                );
+
+        region.updateActive(command.isActive());
+
+        log.info(
+                "[Region] 지역 활성화 상태 변경 regionId={} isActive={}",
+                region.getId(),
+                region.isActive()
+        );
+
+        return RegionUpdateActiveResult.from(region);
     }
 }

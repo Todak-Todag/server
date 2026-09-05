@@ -15,6 +15,7 @@ import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
+import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
@@ -22,10 +23,12 @@ import com.todak_todag.user_service.user.application.service.query.UserQueryServ
 import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
+import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
 import com.todak_todag.user_service.user.presentation.response.UserInfoResponse;
+import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
 import jakarta.validation.Valid;
@@ -116,6 +119,26 @@ public class UserApiController implements UserApiSpec {
 		return ResponseEntity
 				.status(200)
 				.body(ApiResponse.ok("내 정보 조회 완료", response));
+
+	}
+	@PostMapping("/users/patient")
+	@PreAuthorize("hasRole('HOSPITAL_STAFF')")
+	public ResponseEntity<ApiResponse<UserPatientCreatedResponse>> createPatient(
+			@Valid @RequestBody UserPatientCreateRequest userPatientCreateRequest,
+			@AuthenticationPrincipal UserContext user
+	) {
+		
+		UserPatientCreatedResult result = userCreateService.createUserPatient(userPatientCreateRequest.toCommand(user));
+		
+		UserPatientCreatedResponse response = new UserPatientCreatedResponse(
+				result.patientId(),
+				result.hospitalStaffId(),
+				result.name(),
+				result.phone(),
+				result.regionId()
+		);
+		
+		return ResponseEntity.status(200).body(ApiResponse.ok("퇴원 예정자 등록 완료", response));
 	}
 	
 	
