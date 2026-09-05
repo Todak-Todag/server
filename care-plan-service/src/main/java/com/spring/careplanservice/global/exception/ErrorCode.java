@@ -109,6 +109,16 @@ public enum ErrorCode {
     CARE_PLAN_SERVICE_ALREADY_DELETED(
             HttpStatus.CONFLICT,
             "이미 취소된 서비스 항목입니다."
+    ),
+
+    SERVICE_PREFERENCE_ALREADY_DELETED(
+            HttpStatus.CONFLICT,
+            "이미 삭제된 희망 일정입니다."
+    ),
+
+    SERVICE_PREFERENCE_DELETE_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "현재 Care Plan 상태에서는 희망 일정을 삭제할 수 없습니다."
     )
     ;
 

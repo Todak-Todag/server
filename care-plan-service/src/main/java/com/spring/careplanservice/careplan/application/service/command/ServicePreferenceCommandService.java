@@ -2,6 +2,7 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceCreateCommand;
+import com.spring.careplanservice.careplan.application.command.ServicePreferenceDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceUpdateCommand;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceUpdateResult;
@@ -133,6 +134,69 @@ public class ServicePreferenceCommandService {
     ) {
         if (carePlan.getStatus() != CarePlanStatus.UNDER_REVIEW) {
             throw new BusinessException(ErrorCode.SERVICE_PREFERENCE_NOT_ALLOWED);
+        }
+    }
+
+    @Transactional
+    public void deleteServicePreference(
+            ServicePreferenceDeleteCommand servicePreferenceDeleteCommand
+    ) {
+        CarePlanServicePreference carePlanServicePreference = servicePreferenceCommandRepository
+                .findByIdIncludingDeleted(servicePreferenceDeleteCommand.servicePreferenceId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.SERVICE_PREFERENCE_NOT_FOUND
+                        )
+                );
+
+        CarePlanService carePlanService = carePlanServiceQueryRepository
+                .findById(carePlanServicePreference.getPlanServiceId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_SERVICE_NOT_FOUND
+                        )
+                );
+
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanService.getCarePlanId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_NOT_FOUND
+                        )
+                );
+
+        carePlanOwnerValidator.validate(
+                servicePreferenceDeleteCommand.userId(),
+                carePlan.getPatientId()
+        );
+        validateNotAlreadyDeleted(carePlanServicePreference);
+
+        validateCarePlanStatusForDelete(carePlan);
+
+        carePlanServicePreference.delete(
+                servicePreferenceDeleteCommand.userId()
+        );
+    }
+
+    // 이미 논리삭제된 희망 일정인지 검사
+    private void validateNotAlreadyDeleted(
+            CarePlanServicePreference carePlanServicePreference
+    ) {
+        if (carePlanServicePreference.getDeletedAt() != null) {
+            throw new BusinessException(
+                    ErrorCode.SERVICE_PREFERENCE_ALREADY_DELETED
+            );
+        }
+    }
+
+    // 삭제 가능한 상태(UNDER_REVIEW)인지 검사
+    private void validateCarePlanStatusForDelete(
+            CarePlan carePlan
+    ) {
+        if (carePlan.getStatus() != CarePlanStatus.UNDER_REVIEW) {
+            throw new BusinessException(
+                    ErrorCode.SERVICE_PREFERENCE_DELETE_NOT_ALLOWED
+            );
         }
     }
 

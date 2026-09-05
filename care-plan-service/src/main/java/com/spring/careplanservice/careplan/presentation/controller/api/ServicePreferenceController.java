@@ -2,6 +2,7 @@ package com.spring.careplanservice.careplan.presentation.controller.api;
 
 
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceCreateCommand;
+import com.spring.careplanservice.careplan.application.command.ServicePreferenceDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.ServicePreferenceUpdateCommand;
 import com.spring.careplanservice.careplan.application.query.ServicePreferenceFindQuery;
 import com.spring.careplanservice.careplan.application.result.ServicePreferenceCreateResult;
@@ -95,6 +96,24 @@ public class ServicePreferenceController {
                         )
                 )
         );
+    }
+
+    @PreAuthorize("hasRole('PATIENT')")
+    @DeleteMapping(
+            "/service-preferences/{servicePreferenceId}"
+    )
+    public ResponseEntity<Void> deleteServicePreference(
+            @AuthenticationPrincipal UserContext user,
+            @PathVariable("servicePreferenceId") UUID servicePreferenceId
+    ) {
+        servicePreferenceCommandService.deleteServicePreference(
+                new ServicePreferenceDeleteCommand(
+                        user.userId(),
+                        servicePreferenceId
+                )
+        );
+
+        return ResponseEntity.noContent().build();
     }
 
     // TODO: (MVP 이후) HOSPITAL_STAFF/SOCIAL_WORKER 관계 검증 API 연동 후 hasAnyRole("PATIENT", "HOSPITAL_STAFF", "SOCIAL_WORKER")로 확장
