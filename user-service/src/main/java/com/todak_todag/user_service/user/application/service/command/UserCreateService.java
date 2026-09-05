@@ -3,7 +3,6 @@ package com.todak_todag.user_service.user.application.service.command;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
@@ -12,6 +11,7 @@ import com.todak_todag.user_service.user.application.command.UserPatientCreateCo
 import com.todak_todag.user_service.user.application.command.UserSignupCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
+import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
 import com.todak_todag.user_service.user.domain.entity.Region;
@@ -96,8 +96,7 @@ public class UserCreateService {
 				createAdmin.username(),
 				passwordHash,
 				createAdmin.name(),
-				createAdmin.phone(),
-				UserRole.ADMIN
+				createAdmin.phone()
 		);
 		
 		User user = userCommandRepo.save(admin);
@@ -105,11 +104,38 @@ public class UserCreateService {
 		return new UserAdminCreatedResult(user.getId(), user.getName(), region.getProvince(), region.getDistrict());
 	}
 	
-	public void createUserPatient(UserPatientCreateCommand createPatient) {
-		// 1. 지역 정보가 있는가? 있으면 검증
+	public UserPatientCreatedResult createUserPatient(UserPatientCreateCommand createPatient) {
+		// 1. 지역 정보 검증
 		addressValidator.patientAddressValidate(createPatient);
 		
-		// 2. 
+		// 2. 중복 username 검증
+		if(userQueryRepo.duplicateUsername(createPatient.username())) {
+			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
+		}
+		
+		// 3. passwordHash
+		String passwordHash = passwordEncoder.encode(createPatient.password());
+		
+		// 4. 퇴원 예정자 생성
+		User patient = User.createPatient(
+				createPatient.regionId(),
+				createPatient.username(),
+				passwordHash,
+				createPatient.name(),
+				createPatient.phone(),
+				createPatient.address()
+		);
+		
+		// 5. 저장
+		User saved = userCommandRepo.save(patient);
+		
+		return new UserPatientCreatedResult(
+				saved.getId(),
+				createPatient.requesterId(),
+				saved.getName(),
+				saved.getPhone(),
+				createPatient.regionId()
+		);
 	}
 
 	// 서버 최초 구동 시 마스터 계정이 없으면 생성한다 (있으면 아무 것도 하지 않음)
