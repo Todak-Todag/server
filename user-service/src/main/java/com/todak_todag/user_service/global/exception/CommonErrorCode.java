@@ -15,6 +15,7 @@ public enum CommonErrorCode implements ErrorCode {
 		SERVICE_ACCESS_DENIED(HttpStatus.FORBIDDEN, "서비스를 이용할 수 있는 권한이 없습니다."),
 		DUPLICATE_REQUEST(HttpStatus.CONFLICT, "요청이 중복 처리되었습니다. 잠시 후 다시 시도해주세요."),
 		DATA_STORE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "일시적으로 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해주세요."),
+		REGION_NOT_SUPPORTED(HttpStatus.CONFLICT, "서비스 이용 가능 지역이 아닙니다."),
 		;
 	
     private final HttpStatus status;

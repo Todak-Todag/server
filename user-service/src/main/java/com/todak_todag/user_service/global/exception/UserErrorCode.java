@@ -28,7 +28,7 @@ public enum UserErrorCode implements ErrorCode {
 	
 	USER_MODIFY_STATE(HttpStatus.CONFLICT, "대상 사용자는 승인/거절이 불가능한 상태입니다."),
 	
-	USER_MATCHABLE_REGION_NOT_FOUND(HttpStatus.NOT_FOUND, "사회복지사 매칭에 필요한 지역 ID가 존재하지 않습니다."),
+	USER_PATIENT_INVALID_REGION(HttpStatus.NOT_FOUND, "사회복지사 매칭에 필요한 지역 ID가 존재하지 않습니다."),
 	;
 	private final HttpStatus status;
   private final String message;

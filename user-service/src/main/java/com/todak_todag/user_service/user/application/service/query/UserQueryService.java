@@ -7,9 +7,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
 import com.todak_todag.user_service.user.domain.entity.user.User;
+import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 public class UserQueryService {
 
     private final UserQueryRepository userQueryRepo;
+    
+    private final RegionQueryRepository regionQueryRepo;
 
     public UserInternalReadResult getUser(UUID userId) {
         User user = userQueryRepo.findActiveById(userId)
@@ -36,9 +40,18 @@ public class UserQueryService {
     	User patient = userQueryRepo.findById(patientId)
     			.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
     	
+    	// 퇴원 예정자의 regionId 유무 검증
     	if(patient.getRegionId() == null || patient.getAddress() == null) {
-    		throw new BusinessException(UserErrorCode.USER_MATCHABLE_REGION_NOT_FOUND);
+    		throw new BusinessException(UserErrorCode.USER_PATIENT_INVALID_REGION);
     	}
+    	
+    	// 퇴원 예정자의 지역이 서비스 지원 지역인지 검증
+    	if(!regionQueryRepo.existsAvailableRegion(patient.getRegionId())) {
+    		throw new BusinessException(CommonErrorCode.REGION_NOT_SUPPORTED);
+    	}
+    	
+    	
+    	
     	
     	return userQueryRepo.findMatchableSocialWorkerIds(patient.getRegionId());
     }
