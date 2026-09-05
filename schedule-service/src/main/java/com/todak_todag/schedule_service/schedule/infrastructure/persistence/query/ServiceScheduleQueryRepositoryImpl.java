@@ -63,6 +63,11 @@ public class ServiceScheduleQueryRepositoryImpl implements ServiceScheduleQueryR
             LocalDate date,
             Pageable pageable
     ) {
+        // 방어 코드 - 적어도 하나의 소유권 필터가 필요
+        if (servicePreferenceIds == null && serviceOfferingIds == null) {
+            throw new IllegalArgumentException("서비스 일정 조회에는 소유권 필터가 최소 하나 필요합니다.");
+        }
+
         QServiceSchedule schedule = QServiceSchedule.serviceSchedule;
 
         List<ServiceSchedule> content = jpaQueryFactory
