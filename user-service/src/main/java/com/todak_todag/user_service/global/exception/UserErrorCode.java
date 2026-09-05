@@ -32,7 +32,9 @@ public enum UserErrorCode implements ErrorCode {
 	
 	USER_INVALID_CREATE_PATINET_ADDRESS(HttpStatus.CONFLICT, "지역 정보가 지정된 경우 주소는 필수입니다."),
 	
-	USER_INVALID_CREATE_PATIENT_REGION_ADDRESS_MISMATCH(HttpStatus.CONFLICT, "주소에 선택한 지역 정보(시/도, 시/군/구)가 올바르게 포함되어 있지 않습니다."),
+	USER_INVALID_CREATE_PATIENT_REGION_ADDRESS_MISMATCH(HttpStatus.CONFLICT, "주소에 선택한 지역 정보(시/도, 시/군/구)가 올바르게 포함되어 있지 않습니다."), 
+	
+	USER_SUSPEND_MODIFY_STATE(HttpStatus.CONFLICT, "대상 사용자를 정지시킬 수 있는 상태가 아닙니다."),
 	
 	
 	;
