@@ -192,9 +192,6 @@ public class User extends BaseAuditableEntity {
 	
 	public void changeRegion(UUID regionId) {
 		this.regionId = regionId;
-		if(this.isApprove()) {
-			this.status = UserStatus.SUSPENDED;
-		}
 	}
 	
 	public void validateCanLogin() {
@@ -223,6 +220,9 @@ public class User extends BaseAuditableEntity {
 	
 	public void suspend(String statusChangeReason) {
 		this.statusChangeReason = statusChangeReason;
+		if(this.isApprove()) {
+			this.status = UserStatus.SUSPENDED;
+		}
 	}
 	
 	public void approvalOrReject(Boolean accept, String rejectReason) {
