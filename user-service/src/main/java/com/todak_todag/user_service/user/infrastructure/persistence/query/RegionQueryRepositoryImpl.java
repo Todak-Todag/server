@@ -1,8 +1,7 @@
-package com.todak_todag.user_service.user.infrastructure.adapter;
+package com.todak_todag.user_service.user.infrastructure.persistence.query;
 
 import com.todak_todag.user_service.user.application.query.RegionFindAdminQuery;
 import com.todak_todag.user_service.user.domain.entity.Region;
-import com.todak_todag.user_service.user.domain.repository.command.RegionCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaRegionRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +15,8 @@ import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
-public class RegionPersistenceAdapter implements RegionQueryRepository, RegionCommandRepository {
+public class RegionQueryRepositoryImpl
+        implements RegionQueryRepository {
 
     private final JpaRegionRepository jpaRepository;
 
@@ -48,12 +48,8 @@ public class RegionPersistenceAdapter implements RegionQueryRepository, RegionCo
     }
 
     @Override
-    public Region save(Region region) {
-        return jpaRepository.save(region);
-    }
-
-    @Override
     public boolean existsByRegionCode(String regionCode) {
-        return jpaRepository.existsByRegionCodeAndDeletedAtIsNull(regionCode);
+        return jpaRepository
+                .existsByRegionCodeAndDeletedAtIsNull(regionCode);
     }
 }
