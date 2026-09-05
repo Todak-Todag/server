@@ -219,6 +219,65 @@ services:
       - todak-network
 
 
+  user-service:
+    build:
+      context: ..
+      dockerfile: user-service/Dockerfile
+      args:
+        JAR_FILE: user-service/build/libs/*.jar
+
+    container_name: todak-user-service
+    restart: unless-stopped
+
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+
+      # Docker 내부 Config Server 주소
+      CONFIG_SERVER_URL: http://config-server:8888
+
+      # Docker 내부 Eureka Server 주소
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+
+      # Docker 내부 PostgreSQL 주소
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # Docker 내부 Redis 주소
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # Docker 내부 Zipkin 주소
+      ZIPKIN_HOST: zipkin
+
+      # 내부 API 인증 정보
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+      # JWT / 인증 관련
+      JWT_SECRET: ${JWT_SECRET}
+      ACCESS_KEY_PREFIX: ${ACCESS_KEY_PREFIX}
+
+      # 초기 마스터 계정 정보
+      MASTER_USERNAME: ${MASTER_USERNAME}
+      MASTER_PASSWORD: ${MASTER_PASSWORD}
+      MASTER_NAME: ${MASTER_NAME}
+
+    ports:
+      - "19000:19000"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19000/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - todak-network
+
+
 networks:
   todak-network:
     external: true
