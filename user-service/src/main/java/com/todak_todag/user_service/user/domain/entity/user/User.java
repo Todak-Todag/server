@@ -1,6 +1,5 @@
 package com.todak_todag.user_service.user.domain.entity.user;
 
-import java.util.Objects;
 import java.util.UUID;
 
 import org.hibernate.annotations.SQLRestriction;
@@ -92,10 +91,8 @@ public class User extends BaseAuditableEntity {
 			String username,
 			String passwordHash,
 			String name,
-			String phone,
-			UserRole role
+			String phone
 	) {
-		validateAdmin(role);
 		
 		User user = new User();
 		
@@ -104,7 +101,7 @@ public class User extends BaseAuditableEntity {
 		user.passwordHash = passwordHash;
 		user.name = name;
 		user.phone = phone;
-		user.role = role;
+		user.role = UserRole.ADMIN;
 		user.status = UserStatus.APPROVED;
 		
 		return user;
@@ -116,10 +113,8 @@ public class User extends BaseAuditableEntity {
 			String passwordHash,
 			String name,
 			String phone,
-			String address,
-			UserRole role
+			String address
 	) {
-		validatePatient(role);
 		
 		User user = new User();
 		
@@ -128,9 +123,9 @@ public class User extends BaseAuditableEntity {
 		user.passwordHash = passwordHash;
 		user.name = name;
 		user.phone = phone;
-		user.role = role;
+		user.role = UserRole.PATIENT;
 		user.address = address;
-		user.status = UserStatus.PENDING;
+		user.status = UserStatus.WITHDRAWN;
 		
 		return user;
 	}
@@ -158,22 +153,6 @@ public class User extends BaseAuditableEntity {
 		// 회원가입 Role 검증
 		switch (role) {
 			case HOSPITAL_STAFF, SERVICE_PROVIDER, SOCIAL_WORKER -> {}
-			default -> { throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_ROLE); }
-		}
-	}
-	
-	private static void validateAdmin(UserRole role) {
-		/// 운영자 등록 Role 검증
-		switch (role) {
-			case ADMIN -> {}
-			default -> { throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_ROLE); }
-		}
-	}
-	
-	private static void validatePatient(UserRole role) {
-		// 퇴원 예정자 등록 Role 검증
-		switch (role) {
-			case PATIENT -> {}
 			default -> { throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_ROLE); }
 		}
 	}

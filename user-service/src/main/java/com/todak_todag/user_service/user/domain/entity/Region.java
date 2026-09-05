@@ -37,4 +37,26 @@ public class Region extends BaseAuditableEntity {
     // 서비스 지원 여부
     @Column(name = "is_active", nullable = false)
     private boolean active;
+
+    // 지역 등록
+    public static Region create(
+            String province,
+            String district,
+            String regionCode
+    ) {
+        Region region = new Region();
+
+        region.id = UUID.randomUUID();
+        region.province = province;
+        region.district = district;
+        region.regionCode = regionCode;
+        region.active = false;
+
+        return region;
+    }
+
+    // 지역 상태 변경 메서드
+    public void updateActive(boolean active) {
+        this.active = active;
+    }
 }

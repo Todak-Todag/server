@@ -65,3 +65,6 @@ eureka:
 logging:
   level:
     com.todak_todag.discharge_service: debug
+
+internal:
+  key: ${INTERNAL_API_KEY}
