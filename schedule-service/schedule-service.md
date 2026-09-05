@@ -243,9 +243,6 @@ Care-Plan-Service가 `CarePlanCompleted` 이벤트(5.2절)를 수신한 뒤, 이
 - **인증**: `X-Internal-Api-Key` 헤더, Interceptor에서 검증 (Controller는 직접 처리하지 않음 — 5.4절과 동일 패턴)
 - 상세 스펙: `10_내부API_서비스수행결과조회.md` 참고
 
-> ⚠️ **확인 필요 (신규, 중요)**: 이 API의 본래 목적은 "존재 검증"인데, 문서화된 Status 코드가 `200`/`401`뿐이라 `serviceResultId`가 존재하지 않을 때의 응답이 정의되어 있지 않다. Care-Plan-Service가 검증 실패를 어떻게 판별하는지(예: `404`) 확인 필요.
->
-
 ---
 
 ## 6. API 목록
@@ -313,8 +310,10 @@ Care-Plan-Service가 `CarePlanCompleted` 이벤트(5.2절)를 수신한 뒤, 이
 | **02번 API의 status 옵션 목록 CHANGED** | ✅ 확정 (2026-09-03): `02_서비스일정상세조회.md`의 Response `status` 옵션 목록에 `CHANGED` 포함 확정 (표에는 이미 있었으나 주석 표기 실수 정정) | ✅ 확정 |
 | **07번 API와 05번 API의 순서 관계** | ✅ 확정 (2026-09-04): 결과 등록 시 서비스 일정의 `status`가 `COMPLETED`/`NO_SHOW`가 아니면 `409` 실패. 05번이 먼저 처리되어 상태가 확정된 이후에만 07번 진행 가능 | ✅ 확정 |
 | **07번 API의 중복 등록 처리** | ✅ 확정 (2026-09-04): 동일 `serviceScheduleId`에 대한 중복 등록 불허, 이미 등록된 경우 재등록 시도는 `409` | ✅ 확정 |
-| **신규 10번 API의 테이블명 오기 (2026-09-04)** | `10_내부API_서비스수행결과조회.md`의 Notion 원본 속성 `테이블명`이 `p_service_schedules`로 되어 있으나 실제 Response 필드는 `p_care_plan_service_results` 테이블 컬럼과 일치. 오기로 판단해 문서에서 정정함 | 정정 완료 |
-| **신규 10번 API의 존재 검증 실패 케이스 부재 (2026-09-04)** | 이 API의 목적이 "serviceResultId 존재 검증"인데 Status 표에 `200`/`401`만 있고 존재하지 않을 때의 응답(예: `404`)이 정의되어 있지 않음. 이 API의 핵심 목적과 직결되는 중요한 누락 | 확인 필요 (중요) |
+| **신규 10번 API의 테이블명 오기** | ✅ 정정 완료 (2026-09-04): Notion 원본 `테이블명` 속성이 `p_care_plan_service_results`로 정정됨 (기존 `p_service_schedules` 오기였음, 문서에도 이미 반영) | ✅ 정정 완료 |
+| **신규 10번 API의 존재 검증 실패 케이스** | ✅ 확정 (2026-09-04): Notion 원본에 `404`(존재하지 않는 수행 결과) 케이스 추가됨. 이 API의 핵심 목적(존재 검증)에 필요한 마지막 사항 해소 | ✅ 확정 |
+| **08번 API의 조인 관계 (신규, 2026-09-05)** | `08_서비스수행결과목록조회.md`가 01번과 같은 ID 목록 기반 필터링을 쓰는데, `p_care_plan_service_results`에는 `service_preference_id`/`service_offering_id` 컬럼이 없어 `p_service_schedules`와의 조인이 필요할 것으로 보임. 문서에 명시되어 있지 않아 확인 필요 | 확인 필요 (신규) |
+| **08번 API의 Response에 serviceScheduleId 부재 (신규, 2026-09-05)** | 목록에서 어떤 서비스 일정에 대한 결과인지 알 수 없음. 의도된 설계일 수 있어 참고로만 남김 | 참고 (영향 미확정) |
 | **07번 문서 설명의 is_performed 잔존** | ✅ 해소 (2026-09-04): Notion 원본 설명이 갱신되어 `is_performed` 언급 제거됨. `07_서비스수행결과등록.md`와 이미 일치 | ✅ 해소 |
 
 ---
@@ -339,3 +338,5 @@ Care-Plan-Service가 `CarePlanCompleted` 이벤트(5.2절)를 수신한 뒤, 이
 | 2026-09-04 | ✅ 확정: `07_서비스수행결과등록.md`에 05번과의 순서 관계(상태가 `COMPLETED`/`NO_SHOW`가 아니면 `409`) 및 중복 등록 금지(`409`) 반영. 8장 해당 항목 확정으로 전환 |
 | 2026-09-04 | **신규 API 발견**: `[내부 API] 서비스 수행 결과 조회`(`GET /internal/v1/service-results/{serviceResultId}`) 문서화 — Care-Plan-Service가 `CarePlanCompleted` 이벤트의 `serviceResultId`를 검증하기 위해 호출. API 목록(6장)에 14번으로 추가, 신규 5.8절 작성. 테이블명 오기 정정, 존재 검증 실패 케이스 부재를 8장에 확인 필요로 추가 |
 | 2026-09-04 | Notion 마스터 문서 갱신 반영 — API 목록(6장) 번호 재정렬: 신규 내부 API를 **10번**으로 배치하고 기존 이벤트 4종(`CarePlanCompleted` 등)을 11~14번으로 이동. 관련 파일명(`14_...` → `10_내부API_서비스수행결과조회.md`)과 8장/5.8절 참조 전부 동기화 |
+| 2026-09-04 | ✅ 확정: `10_내부API_서비스수행결과조회.md`의 Notion 원본에 `테이블명` 정정 및 `404`(존재하지 않는 수행 결과) 케이스 추가 확인. 이 API의 남은 확인 필요 항목 모두 해소, 8장 해당 항목 확정으로 전환 |
+| 2026-09-05 | `08_서비스수행결과목록조회.md` 최신화 반영 — 01번의 ID 목록 기반 조회 패턴 재사용 명시, `p_care_plan_service_results`와 `p_service_schedules` 간 조인 필요성을 신규 확인 필요로 8장에 추가, Response의 `serviceScheduleId` 부재를 참고 사항으로 기록 |
