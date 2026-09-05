@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -18,12 +19,15 @@ import com.todak_todag.user_service.user.application.result.UserPatientCreatedRe
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
+import com.todak_todag.user_service.user.application.service.query.UserQueryService;
+import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
+import com.todak_todag.user_service.user.presentation.response.UserInfoResponse;
 import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
@@ -39,6 +43,8 @@ public class UserApiController implements UserApiSpec {
 	private final UserCreateService userCreateService;
 	
 	private final UserUpdateService userUpdateService;
+	
+	private final UserQueryService userQueryService;
 	
 	@Override
 	@PostMapping("/users/signup")
@@ -102,6 +108,19 @@ public class UserApiController implements UserApiSpec {
 	}
 
 	@Override
+	@GetMapping("/users/me")
+	public ResponseEntity<ApiResponse<UserInfoResponse>> me(
+			@AuthenticationPrincipal UserContext user
+	) {
+		UserInfoResult result = userQueryService.getMe(user.getUserId());
+		
+		UserInfoResponse response = UserInfoResponse.from(result);
+		
+		return ResponseEntity
+				.status(200)
+				.body(ApiResponse.ok("내 정보 조회 완료", response));
+
+	}
 	@PostMapping("/users/patient")
 	@PreAuthorize("hasRole('HOSPITAL_STAFF')")
 	public ResponseEntity<ApiResponse<UserPatientCreatedResponse>> createPatient(

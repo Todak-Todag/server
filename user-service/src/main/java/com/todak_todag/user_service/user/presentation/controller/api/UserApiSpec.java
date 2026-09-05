@@ -10,6 +10,7 @@ import com.todak_todag.user_service.user.presentation.request.UserPatientCreateR
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
+import com.todak_todag.user_service.user.presentation.response.UserInfoResponse;
 import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
@@ -78,6 +79,20 @@ public interface UserApiSpec {
 	);
 	
 	@Operation(
+			summary = "내 정보 조회",
+			description = """
+					내 정보를 조회합니다.
+					
+					사용자 정보는 헤더를 통해 전달됩니다.
+					APPROVED 상태의 사용자만 조회가 가능합니다.			
+			"""
+	)
+	ResponseEntity<ApiResponse<UserInfoResponse>> me(
+			@Parameter(hidden = true)
+			UserContext user
+	);
+	
+	@Operation(
 			summary = "퇴원 예정자 등록",
 			description = """
 					병원 담당자는 퇴원 예정자를 등록할 수 있습니다.
@@ -91,7 +106,6 @@ public interface UserApiSpec {
 			@Parameter(description = "퇴원 예정자 등록 정보", required = true)
 			@Valid
 			UserPatientCreateRequest userPatientCreateRequest,
-			
 			@Parameter(hidden = true)
 			UserContext user
 	);
