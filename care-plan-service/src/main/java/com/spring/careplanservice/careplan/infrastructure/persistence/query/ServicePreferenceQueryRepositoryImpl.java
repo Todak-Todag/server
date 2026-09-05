@@ -86,7 +86,10 @@ public class ServicePreferenceQueryRepositoryImpl implements ServicePreferenceQu
                         carePlanService.deletedAt.isNull(),
                         carePlanServicePreference.deletedAt.isNull()
                 )
-                .orderBy(carePlanServicePreference.preferredDate.asc())
+                .orderBy(
+                        carePlanServicePreference.preferredDate.asc(),
+                        carePlanServicePreference.id.asc()
+                )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
                 .fetch();

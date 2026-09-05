@@ -109,12 +109,14 @@ public class ServicePreferenceQueryService {
                         )
                 );
 
-        if (servicePreferenceFindQuery.role() == UserRole.PATIENT) {
-            carePlanOwnerValidator.validate(
-                    servicePreferenceFindQuery.userId(),
-                    carePlan.getPatientId()
-            );
+        if (servicePreferenceFindQuery.role() != UserRole.PATIENT) {
+            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
         }
+
+        carePlanOwnerValidator.validate(
+                servicePreferenceFindQuery.userId(),
+                carePlan.getPatientId()
+        );
 
         // TODO: (MVP 이후) HOSPITAL_STAFF는 본인이 등록한 퇴원건에 연결된 Care Plan만 조회 가능하도록 검증 필요.
         // carePlan.getDischargeId() 기준 Discharge Service에서 hospitalStaffId == userId 검증.
