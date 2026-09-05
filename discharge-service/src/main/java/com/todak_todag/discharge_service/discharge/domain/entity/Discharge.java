@@ -72,4 +72,8 @@ public class Discharge extends BaseAuditableEntity {
                 scheduledDate
         );
     }
+
+    public void updateScheduledDate(LocalDate scheduledDate) {
+        this.scheduledDate = scheduledDate;
+    }
 }
