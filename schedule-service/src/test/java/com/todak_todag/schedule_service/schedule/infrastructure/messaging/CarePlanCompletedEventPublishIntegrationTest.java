@@ -3,6 +3,7 @@ package com.todak_todag.schedule_service.schedule.infrastructure.messaging;
 import com.todak_todag.schedule_service.global.config.RabbitMqConfig;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceResultRegisterCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
+import com.todak_todag.schedule_service.schedule.application.event.CarePlanCompletionEventAppender;
 import com.todak_todag.schedule_service.schedule.application.facade.ScheduleOutboxRelayFacade;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceResultRegisterResult;
@@ -57,6 +58,9 @@ class CarePlanCompletedEventPublishIntegrationTest {
 
     @Autowired
     private ScheduleOutboxRelayFacade scheduleOutboxRelayFacade;
+
+    @Autowired
+    private CarePlanCompletionEventAppender carePlanCompletionEventAppender;
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
@@ -170,19 +174,48 @@ class CarePlanCompletedEventPublishIntegrationTest {
     }
 
     @Test
-    @DisplayName("모든 일정이 끝난 뒤 앞선 일정의 결과가 뒤늦게 등록되어도 중복 발행되지 않는다")
+    @DisplayName("앞선 일정이 아직 결과 미등록이면 뒤 일정의 결과 등록만으로는 발행되지 않는다")
+    void 결과_미등록_일정이_남아있으면_발행되지_않는다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        ServiceSchedule earlierA = completedSchedule(carePlanId, 3);
+        ServiceSchedule laterB = completedSchedule(carePlanId, 5);
+
+        // when
+        registerResult(laterB);
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        assertThat(receiveAll()).isEmpty();
+
+        // when
+        registerResult(earlierA);
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        List<String> received = receiveAll();
+        assertThat(received).hasSize(1);
+        assertThat(received.getFirst()).contains("\"status\":\"COMPLETED\"");
+        assertThat(received.getFirst()).doesNotContain("\"serviceResultId\":null");
+    }
+
+    @Test
+    @DisplayName("이미 발행된 케어플랜에 완료 판단이 다시 트리거되어도 중복 발행되지 않는다")
     void 이미_발행된_케어플랜은_중복_발행되지_않는다() {
         // given
         UUID carePlanId = UUID.randomUUID();
         ServiceSchedule earlierA = completedSchedule(carePlanId, 3);
         ServiceSchedule laterB = completedSchedule(carePlanId, 5);
 
+        registerResult(earlierA);
         registerResult(laterB);
         scheduleOutboxRelayFacade.relay();
         assertThat(receiveAll()).hasSize(1);
 
         // when
-        registerResult(earlierA);
+        carePlanCompletionEventAppender.appendIfCarePlanCompleted(
+                springDataServiceScheduleRepository.findById(laterB.getId()).orElseThrow()
+        );
         scheduleOutboxRelayFacade.relay();
 
         // then

@@ -34,13 +34,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 // CarePlanCompleted "발행 조건 판단" 단위 테스트
-// 판단 규칙: (1) 진행 중 일정이 0건이고, (2) 이 케어플랜에 CarePlanCompleted가 아직 적재되지 않았을 때만 적재
+// 판단 규칙: (1) 아직 끝나지 않은 일정이 0건이고, (2) 이 케어플랜에 CarePlanCompleted가 아직 적재되지 않았을 때만 적재
+//            "끝나지 않음" = 상태가 SCHEDULED/RESCHEDULING이거나, COMPLETED/NO_SHOW인데 수행 결과 미등록
 @ExtendWith(MockitoExtension.class)
 class CarePlanCompletionEventAppenderTest {
 
-    // 진행 중으로 간주하는 상태 — CarePlanCompletionEventAppender.UNFINISHED_STATUSES와 동일해야 한다
+    // 진행 중으로 간주하는 상태 — CarePlanCompletionEventAppender.UNFINISHED_STATUSES와 동일해야함
     private static final List<ScheduleStatus> UNFINISHED_STATUSES =
             List.of(ScheduleStatus.SCHEDULED, ScheduleStatus.RESCHEDULING);
+
+    // 수행 결과가 등록되어야 끝나는 상태 — CarePlanCompletionEventAppender.RESULT_REQUIRED_STATUSES와 동일해야함
+    private static final List<ScheduleStatus> RESULT_REQUIRED_STATUSES =
+            List.of(ScheduleStatus.COMPLETED, ScheduleStatus.NO_SHOW);
 
     @Mock
     private ServiceScheduleCommandRepository serviceScheduleCommandRepository;
@@ -142,13 +147,35 @@ class CarePlanCompletionEventAppenderTest {
     }
 
     @Test
+    @DisplayName("수행 완료됐지만 아직 결과가 등록되지 않은 일정이 남아있으면 적재하지 않는다")
+    void 결과_미등록_일정이_남아있으면_적재하지_않는다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        ServiceSchedule earlierSchedule = schedule(carePlanId, ScheduleStatus.COMPLETED);
+
+        when(serviceScheduleCommandRepository.countByCarePlanIdAndStatusIn(eq(carePlanId), eq(UNFINISHED_STATUSES)))
+                .thenReturn(0L);
+        when(serviceScheduleCommandRepository.countMissingResult(eq(carePlanId), eq(RESULT_REQUIRED_STATUSES)))
+                .thenReturn(1L);
+
+        // when
+        carePlanCompletionEventAppender.appendIfCarePlanCompleted(earlierSchedule);
+
+        // then
+        verify(serviceScheduleCommandRepository, never()).findLastSchedule(any());
+        verify(scheduleOutboxCommandService, never()).enqueue(anyString(), any(), anyString());
+    }
+
+    @Test
     @DisplayName("이미 적재된 케어플랜이면 다시 적재하지 않는다 — 앞선 일정의 늦은 결과 등록으로 중복 발행되지 않는다")
     void 이미_적재된_케어플랜이면_적재하지_않는다() {
-        // given — 진행 중 일정은 없지만 이 케어플랜의 CarePlanCompleted가 이미 아웃박스에 있다
+        // given
         UUID carePlanId = UUID.randomUUID();
         ServiceSchedule earlierSchedule = schedule(carePlanId, ScheduleStatus.NO_SHOW);
 
         when(serviceScheduleCommandRepository.countByCarePlanIdAndStatusIn(eq(carePlanId), eq(UNFINISHED_STATUSES)))
+                .thenReturn(0L);
+        when(serviceScheduleCommandRepository.countMissingResult(eq(carePlanId), eq(RESULT_REQUIRED_STATUSES)))
                 .thenReturn(0L);
         when(scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(
                 CarePlanCompletedEventPort.EVENT_TYPE, carePlanId)).thenReturn(true);
@@ -156,7 +183,7 @@ class CarePlanCompletionEventAppenderTest {
         // when
         carePlanCompletionEventAppender.appendIfCarePlanCompleted(earlierSchedule);
 
-        // then — 페이로드 구성 조회까지 가지 않고 즉시 종료된다
+        // then
         verify(serviceScheduleCommandRepository, never()).findLastSchedule(any());
         verify(carePlanServiceResultCommandRepository, never()).findByServiceScheduleId(any());
         verify(scheduleOutboxCommandService, never()).enqueue(anyString(), any(), anyString());
@@ -165,8 +192,7 @@ class CarePlanCompletionEventAppenderTest {
     @Test
     @DisplayName("뒤 일정이 먼저 취소되고 앞 일정이 나중에 끝나도 케어플랜 완료 이벤트가 적재된다")
     void 뒤_일정이_먼저_취소되고_앞_일정이_나중에_끝나도_적재한다() {
-        // given — B(뒤 일정)가 먼저 취소되고, 그 뒤 A(앞 일정)의 수행 결과가 등록되는 상황
-        //         B 취소 시점에는 A가 SCHEDULED라 적재되지 않았고, 이제 A가 마지막 트리거다
+        // given
         UUID carePlanId = UUID.randomUUID();
         ServiceSchedule earlierA = schedule(carePlanId, ScheduleStatus.COMPLETED);
         ServiceSchedule laterB = schedule(carePlanId, ScheduleStatus.CANCELED);
@@ -175,24 +201,26 @@ class CarePlanCompletionEventAppenderTest {
         when(carePlanServiceResultCommandRepository.findByServiceScheduleId(laterB.getId()))
                 .thenReturn(Optional.empty());
 
-        // when — 트리거는 A(마지막 일정이 아님)
+        // whe
         carePlanCompletionEventAppender.appendIfCarePlanCompleted(earlierA);
 
-        // then — 케어플랜에 남은 일정이 없으므로 적재되고, 페이로드는 마지막 일정(B) 기준이다
+        // then
         assertThat(capturePayload(carePlanId))
                 .isEqualTo("{\"serviceResultId\":null,\"status\":\"CANCELED\"}");
     }
 
-    // 진행 중 일정이 0건이고, 아직 적재된 적이 없는 상황
+    // 끝나지 않은 일정이 0건이고(진행 중 0건 + 결과 미등록 0건), 아직 적재된 적이 없는 상황
     private void givenLastScheduleWithNoUnfinished(UUID carePlanId, ServiceSchedule lastSchedule) {
         when(serviceScheduleCommandRepository.countByCarePlanIdAndStatusIn(eq(carePlanId), eq(UNFINISHED_STATUSES)))
+                .thenReturn(0L);
+        when(serviceScheduleCommandRepository.countMissingResult(eq(carePlanId), eq(RESULT_REQUIRED_STATUSES)))
                 .thenReturn(0L);
         when(scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(
                 CarePlanCompletedEventPort.EVENT_TYPE, carePlanId)).thenReturn(false);
         when(serviceScheduleCommandRepository.findLastSchedule(carePlanId)).thenReturn(Optional.of(lastSchedule));
     }
 
-    // 아웃박스에 적재된 payload를 꺼낸다 — aggregateId가 carePlanId인지도 함께 검증
+    // 아웃박스에 적재된 payload를 꺼냄 — aggregateId가 carePlanId인지도 함께 검증
     private String capturePayload(UUID carePlanId) {
         ArgumentCaptor<String> payloadCaptor = ArgumentCaptor.forClass(String.class);
         verify(scheduleOutboxCommandService).enqueue(

@@ -40,4 +40,9 @@ public class ServiceScheduleCommandRepositoryImpl implements ServiceScheduleComm
     public long countByCarePlanIdAndStatusIn(UUID carePlanId, Collection<ScheduleStatus> statuses) {
         return springDataServiceScheduleRepository.countByCarePlanIdAndStatusInAndDeletedAtIsNull(carePlanId, statuses);
     }
+
+    @Override
+    public long countMissingResult(UUID carePlanId, Collection<ScheduleStatus> statuses) {
+        return springDataServiceScheduleRepository.countMissingResult(carePlanId, statuses);
+    }
 }

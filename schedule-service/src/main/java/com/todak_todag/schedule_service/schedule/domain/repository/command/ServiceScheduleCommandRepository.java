@@ -20,4 +20,7 @@ public interface ServiceScheduleCommandRepository {
     // 케어플랜에 아직 끝나지 않은 일정이 몇 건인지 — CarePlanCompleted 발행 조건 판단용
     // statuses에는 진행 중 상태(SCHEDULED / RESCHEDULING)를 넘김
     long countByCarePlanIdAndStatusIn(UUID carePlanId, Collection<ScheduleStatus> statuses);
+
+    // 주어진 상태이면서 아직 수행 결과가 등록되지 않은 일정 수
+    long countMissingResult(UUID carePlanId, Collection<ScheduleStatus> statuses);
 }

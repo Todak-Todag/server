@@ -21,10 +21,14 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class  CarePlanCompletionEventAppender {
 
-    // 아직 결말나지 않은(진행 중) 일정 상태
-    // SCHEDULED(예정) / RESCHEDULING(변경 중, 재매칭 진행 중인 중간 상태)만 진행 중
+    // 상태만으로 "아직 진행 중"인 일정
+    // SCHEDULED(예정) / RESCHEDULING(변경 중, 재매칭 진행 중인 중간 상태)
     private static final List<ScheduleStatus> UNFINISHED_STATUSES =
             List.of(ScheduleStatus.SCHEDULED, ScheduleStatus.RESCHEDULING);
+
+    // 상태는 결말났지만 수행 결과가 등록되어야 비로소 끝나는 일정
+    private static final List<ScheduleStatus> RESULT_REQUIRED_STATUSES =
+            List.of(ScheduleStatus.COMPLETED, ScheduleStatus.NO_SHOW);
 
     private final ServiceScheduleCommandRepository serviceScheduleCommandRepository;
     private final CarePlanServiceResultCommandRepository carePlanServiceResultCommandRepository;
@@ -35,8 +39,9 @@ public class  CarePlanCompletionEventAppender {
     // 방금 결말이 난 일정(handledSchedule)을 기준으로 케어플랜이 완료되었는지 판단하고, 완료면 아웃박스에 적재
     //
     // 발행 조건은 두 가지를 모두 만족해야함
-    //   (1) 이 케어플랜에 진행 중(SCHEDULED / RESCHEDULING) 일정이 하나도 남아있지 않음
-    //       → 케어플랜이 끝났다는 것의 정의 그 자체. 어떤 일정이 트리거였는지와 무관하다
+    //   (1) 이 케어플랜에 아직 끝나지 않은 일정이 하나도 없음
+    //       → 케어플랜이 끝났다는 것의 정의 그 자체. 어떤 일정이 트리거였는지와 무관
+    //       → "끝나지 않음"은 상태가 SCHEDULED/RESCHEDULING이거나, COMPLETED/NO_SHOW인데 수행 결과가 아직 없는 경우
     //   (2) 이 케어플랜에 대해 CarePlanCompleted가 아직 적재된 적이 없음
     //       → 이미 결말난 일정들의 수행 결과가 뒤늦게 등록되어도 중복 발행되지 않게 막는 멱등 장치
     public void appendIfCarePlanCompleted(ServiceSchedule handledSchedule) {
@@ -105,8 +110,12 @@ public class  CarePlanCompletionEventAppender {
         );
     }
 
-    // 아직 결말나지 않은 일정이 남아있는지
+    // 아직 끝나지 않은 일정이 남아있는지
     private boolean hasUnfinishedSchedule(UUID carePlanId) {
-        return serviceScheduleCommandRepository.countByCarePlanIdAndStatusIn(carePlanId, UNFINISHED_STATUSES) > 0;
+        if (serviceScheduleCommandRepository.countByCarePlanIdAndStatusIn(carePlanId, UNFINISHED_STATUSES) > 0) {
+            return true;
+        }
+
+        return serviceScheduleCommandRepository.countMissingResult(carePlanId, RESULT_REQUIRED_STATUSES) > 0;
     }
 }
