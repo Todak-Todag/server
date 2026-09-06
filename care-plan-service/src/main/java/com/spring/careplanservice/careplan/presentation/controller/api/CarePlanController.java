@@ -7,22 +7,14 @@ import com.spring.careplanservice.careplan.application.facade.CarePlanFacade;
 import com.spring.careplanservice.careplan.application.query.CarePlanFindQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanSearchQuery;
 import com.spring.careplanservice.careplan.application.query.ServicePreferenceSearchQuery;
-import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanFindResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanSearchResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
-import com.spring.careplanservice.careplan.application.result.ServicePreferenceSearchResult;
+import com.spring.careplanservice.careplan.application.result.*;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
 import com.spring.careplanservice.careplan.application.service.query.CarePlanQueryService;
 import com.spring.careplanservice.careplan.application.service.query.ServicePreferenceQueryService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanCreateRequest;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanStatusUpdateRequest;
-import com.spring.careplanservice.careplan.presentation.response.CarePlanCreateResponse;
-import com.spring.careplanservice.careplan.presentation.response.CarePlanFindResponse;
-import com.spring.careplanservice.careplan.presentation.response.CarePlanSearchResponse;
-import com.spring.careplanservice.careplan.presentation.response.CarePlanStatusUpdateResponse;
-import com.spring.careplanservice.careplan.presentation.response.ServicePreferenceSearchResponse;
+import com.spring.careplanservice.careplan.presentation.response.*;
 import com.spring.careplanservice.global.response.ApiResponse;
 import com.spring.careplanservice.global.response.PageResponse;
 import com.spring.careplanservice.global.security.UserContext;
@@ -41,7 +33,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/care-plans")
-public class CarePlanController {
+public class CarePlanController implements CarePlanApiSpec {
     private final CarePlanFacade carePlanFacade;
     private final CarePlanQueryService carePlanQueryService;
     private final CarePlanCommandService carePlanCommandService;
