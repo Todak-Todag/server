@@ -126,6 +126,34 @@ class MatchingServiceTest {
         }
 
         @Test
+        @DisplayName("제공 가능 시간이 업무 시간을 벗어나면 매칭되지 않는다")
+        void match_outsideBusinessHours() {
+            // 23시 이후 구간은 1시간을 더하면 자정을 넘어 되감기므로 시간 비교가 뒤집힌다
+            List<ServiceOffering> candidates = List.of(offering(offeringIdA));
+            Map<UUID, List<ProvideWork>> works =
+                    Map.of(offeringIdA, List.of(work(offeringIdA, 4, "23:00", "23:59")));
+
+            Optional<MatchingService.Match> match =
+                    matchingService.match(candidates, works, List.of(), THURSDAY, TimeSlot.MORNING);
+
+            assertThat(match).isEmpty();
+        }
+
+        @Test
+        @DisplayName("기존 일정이 업무 시간을 넘겨 끝나도 매칭되지 않는다")
+        void match_occupiedRunsPastBusinessHours() {
+            List<ServiceOffering> candidates = List.of(offering(offeringIdA));
+            Map<UUID, List<ProvideWork>> works =
+                    Map.of(offeringIdA, List.of(work(offeringIdA, 4, "09:00", "13:00")));
+            List<ScheduleSlot> occupied = List.of(slot(offeringIdA, THURSDAY, "09:00", "23:30"));
+
+            Optional<MatchingService.Match> match =
+                    matchingService.match(candidates, works, occupied, THURSDAY, TimeSlot.MORNING);
+
+            assertThat(match).isEmpty();
+        }
+
+        @Test
         @DisplayName("후보가 없으면 매칭되지 않는다")
         void match_noCandidate() {
             Optional<MatchingService.Match> match =
