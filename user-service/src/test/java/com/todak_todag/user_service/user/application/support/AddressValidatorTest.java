@@ -147,7 +147,7 @@ class AddressValidatorTest {
 			assertThatThrownBy(() -> addressValidator.patientAddressValidate(command))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION_ADDRESS_MISMATCH);
+					.isEqualTo(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
 		}
 
 		@Test
@@ -165,7 +165,7 @@ class AddressValidatorTest {
 			assertThatThrownBy(() -> addressValidator.patientAddressValidate(command))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION_ADDRESS_MISMATCH);
+					.isEqualTo(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
 		}
 	}
 }

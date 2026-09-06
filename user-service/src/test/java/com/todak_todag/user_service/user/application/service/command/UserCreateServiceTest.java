@@ -552,7 +552,7 @@ class UserCreateServiceTest {
 		void createUserPatientTest_fail_addressValidation() {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
-			BusinessException addressException = new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION_ADDRESS_MISMATCH);
+			BusinessException addressException = new BusinessException(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
 
 			doThrow(addressException).when(addressValidator).patientAddressValidate(command);
 
@@ -560,7 +560,7 @@ class UserCreateServiceTest {
 			assertThatThrownBy(() -> userCreateService.createUserPatient(command))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION_ADDRESS_MISMATCH);
+					.isEqualTo(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
 
 			verify(userQueryRepo, never()).duplicateUsername(anyString());
 			verify(passwordEncoder, never()).encode(anyString());

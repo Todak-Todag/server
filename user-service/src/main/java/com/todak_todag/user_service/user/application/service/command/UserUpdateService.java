@@ -13,8 +13,11 @@ import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
 import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
 import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
+import com.todak_todag.user_service.user.application.command.UserUpdateCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
+import com.todak_todag.user_service.user.application.result.UserUpdateResult;
+import com.todak_todag.user_service.user.application.support.AddressValidator;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
@@ -25,9 +28,38 @@ import lombok.RequiredArgsConstructor;
 @Transactional(rollbackFor = Exception.class)
 public class UserUpdateService {
 
+	private final AddressValidator addressValidator;
+	
 	private final PasswordEncoderPort passwordEncoder;
 	
 	private final UserQueryRepository userQueryRepo;
+	
+	public UserUpdateResult userUpdate(UserUpdateCommand command) {
+		// 1. 요청자 조회
+		User user = userQueryRepo.findActiveById(command.requesterId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
+		// 2. 요청에 regionId 가 존재하면 검증
+		if(command.regionId() != null) {
+			addressValidator.updateAddressValidate(command);
+		}
+		
+		// 3. 업데이트
+		user.changeMyInfo(
+				command.name(),
+				command.phone(),
+				command.regionId(),
+				command.address()
+		);
+		
+		return new UserUpdateResult(
+				user.getId(),
+				user.getName(),
+				user.getPhone(),
+				user.getRegionId(),
+				user.getAddress()
+		);
+	}
 	
 	public UUID passwordUpdate(UserPasswordUpdateCommand command) {
 		// 1. 요청자 조회

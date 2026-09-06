@@ -6,6 +6,7 @@ import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.UserPatientCreateCommand;
+import com.todak_todag.user_service.user.application.command.UserUpdateCommand;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 
@@ -16,6 +17,22 @@ import lombok.RequiredArgsConstructor;
 public class AddressValidator {
 
 	private final RegionQueryRepository regionQueryRepo;
+	
+	public void updateAddressValidate(UserUpdateCommand userUpdate) {
+		if(userUpdate.regionId() != null) {
+			Region region = regionQueryRepo.findById(userUpdate.regionId())
+	        .orElseThrow(() -> new BusinessException(RegionErrorCode.REGION_NOT_FOUND));
+			
+			if(userUpdate.address() != null && !userUpdate.address().isBlank()) {
+				boolean containsProvince = userUpdate.address().contains(region.getProvince());
+				boolean containsDistrict = userUpdate.address().contains(region.getDistrict());
+				
+				if(!containsProvince || !containsDistrict) {
+					throw new BusinessException(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
+				}
+			}
+		}
+	}
 	
 	public void patientAddressValidate(UserPatientCreateCommand createPatient) {
 		if (createPatient.regionId() == null) {
@@ -39,7 +56,7 @@ public class AddressValidator {
 		
 		if(!containsProvince || !containsDistrict) {
 			// "주소에 선택한 지역 정보(시/도, 시/군/구)가 올바르게 포함되어 있지 않습니다."
-			throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION_ADDRESS_MISMATCH);
+			throw new BusinessException(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
 		}
 	}
 }
