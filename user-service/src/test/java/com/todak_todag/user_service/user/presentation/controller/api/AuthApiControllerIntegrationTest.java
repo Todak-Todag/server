@@ -36,6 +36,8 @@ import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest.AgreementRequest;
 
+import jakarta.servlet.http.Cookie;
+
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
@@ -311,6 +313,93 @@ class AuthApiControllerIntegrationTest {
 
 			Long ttl = redisTemplate.getExpire(redisKey);
 			assertThat(ttl).isPositive();
+		}
+	}
+
+	@Nested
+	@DisplayName("로그아웃")
+	class Logout {
+
+		private MvcResult login(String username) throws Exception {
+			return mockMvc.perform(post("/api/v1/auth/login")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(new UserLoginRequest(username, RAW_PASSWORD))))
+					.andExpect(status().isNoContent())
+					.andReturn();
+		}
+
+		@Test
+		@DisplayName("정상 로그아웃하면 204와 함께 AccessToken/RefreshToken 쿠키가 즉시 만료된다")
+		void logoutTest_success_expiresCookiesImmediately() throws Exception {
+			String username = "logouttest1";
+			User user = saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String accessToken = extractCookieValue(loginResult, "AccessToken");
+
+			MvcResult logoutResult = mockMvc.perform(post("/api/v1/auth/logout")
+					.header("X-User-Id", user.getId().toString())
+					.header("X-User-Role", UserRole.ADMIN.name())
+					.cookie(new Cookie("AccessToken", accessToken)))
+					.andExpect(status().isNoContent())
+					.andReturn();
+
+			String accessCookie = extractSetCookieHeader(logoutResult, "AccessToken");
+			String refreshCookie = extractSetCookieHeader(logoutResult, "RefreshToken");
+
+			assertThat(accessCookie).contains("Max-Age=0");
+			assertThat(refreshCookie).contains("Max-Age=0");
+		}
+
+		@Test
+		@DisplayName("정상 로그아웃하면 DB의 Auth 세션이 종료 처리된다")
+		void logoutTest_success_marksAuthSessionAsLoggedOut() throws Exception {
+			String username = "logouttest2";
+			User user = saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String accessToken = extractCookieValue(loginResult, "AccessToken");
+
+			mockMvc.perform(post("/api/v1/auth/logout")
+					.header("X-User-Id", user.getId().toString())
+					.header("X-User-Role", UserRole.ADMIN.name())
+					.cookie(new Cookie("AccessToken", accessToken)))
+					.andExpect(status().isNoContent());
+
+			Optional<Auth> auth = jpaAuthRepository.findAll().stream()
+					.filter(a -> a.getUserId().equals(user.getId()))
+					.findFirst();
+
+			assertThat(auth).isPresent();
+			assertThat(auth.get().getLogoutAt()).isNotNull();
+		}
+
+		@Test
+		@DisplayName("정상 로그아웃하면 Redis에서 AccessToken 항목이 삭제된다")
+		void logoutTest_success_deletesAccessTokenFromRedis() throws Exception {
+			String username = "logouttest3";
+			User user = saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String accessToken = extractCookieValue(loginResult, "AccessToken");
+			String redisKey = accessKeyPrefix + tokenPort.hashToken(accessToken);
+
+			assertThat(redisTemplate.opsForValue().get(redisKey)).isNotBlank();
+
+			mockMvc.perform(post("/api/v1/auth/logout")
+					.header("X-User-Id", user.getId().toString())
+					.header("X-User-Role", UserRole.ADMIN.name())
+					.cookie(new Cookie("AccessToken", accessToken)))
+					.andExpect(status().isNoContent());
+
+			assertThat(redisTemplate.opsForValue().get(redisKey)).isNull();
+		}
+
+		@Test
+		@DisplayName("인증 정보 없이 요청하면 403을 반환한다")
+		void logoutTest_withoutAuthentication_returnsForbidden() throws Exception {
+			mockMvc.perform(post("/api/v1/auth/logout"))
+					.andExpect(status().isForbidden());
 		}
 	}
 }

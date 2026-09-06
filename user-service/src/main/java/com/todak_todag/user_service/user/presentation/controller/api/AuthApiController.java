@@ -12,11 +12,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.application.command.AuthLogoutCommand;
 import com.todak_todag.user_service.user.application.result.AuthLoginResult;
 import com.todak_todag.user_service.user.application.service.command.AuthCommandService;
 import com.todak_todag.user_service.user.presentation.cookie.CookieProvider;
 import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
@@ -26,9 +28,9 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/api/v1/auth")
 public class AuthApiController implements AuthApiSpec {
 	
-	private static final String ACCESS_TOKEN_COOKIE_NAME = "AccessToken";
+	private final String accessTokenCookieName;
 	
-	private static final String REFRESH_TOKEN_COOKIE_NAME = "RefreshToken";
+	private final String refreshTokenCookieName;
 	
 	private final Duration accessMaxAge;
 	
@@ -41,9 +43,27 @@ public class AuthApiController implements AuthApiSpec {
 	public AuthApiController(
 			@Value("${jwt.access.max-age}") Duration accessMaxAge,
 			@Value("${jwt.refresh.max-age}") Duration refreshMaxAge,
+			@Value("${authentication.access-token.cookie-name}") String accessTokenCookieName,
+			@Value("${authentication.refresh-token.cookie-name}") String refreshTokenCookieName,
 			AuthCommandService authCommandService,
 			CookieProvider cookieProvider
 	) {
+		if(accessTokenCookieName == null || accessTokenCookieName.isBlank()) {
+			log.error(
+					"[User] 설정 값 오류 AccessToken CookieName is null"
+			);
+			
+			throw new IllegalArgumentException("[User] 서버 구동 실패 AccessToken 쿠키 이름 설정 값 누락");
+		}
+		
+		if(refreshTokenCookieName == null || refreshTokenCookieName.isBlank()) {
+			log.error(
+					"[User] 설정 값 오류 RefreshToken CookieName is null"
+			);
+						
+			throw new IllegalArgumentException("[User] 서버 구동 실패 RefreshToken 쿠키 이름 설정 값 누락");
+		}
+		
 		if(accessMaxAge == null || accessMaxAge.isNegative()) {
 			log.error(
 					"[User] 설정 값 오류 jwt.access.max-age={}/s",
@@ -72,6 +92,8 @@ public class AuthApiController implements AuthApiSpec {
 		this.refreshMaxAge = refreshMaxAge;
 		this.authCommandService = authCommandService;
 		this.cookieProvider = cookieProvider;
+		this.accessTokenCookieName = accessTokenCookieName;
+		this.refreshTokenCookieName = refreshTokenCookieName;
 	}
 
 
@@ -87,7 +109,7 @@ public class AuthApiController implements AuthApiSpec {
 		
 		// AccessToken Cookie Set
 		cookieProvider.addCookie(
-				ACCESS_TOKEN_COOKIE_NAME,
+				accessTokenCookieName,
 				accessMaxAge,
 				result.accessToken(),
 				httpServletResponse
@@ -95,7 +117,7 @@ public class AuthApiController implements AuthApiSpec {
 		
 		// RefreshToken Cookie Set
 		cookieProvider.addCookie(
-				REFRESH_TOKEN_COOKIE_NAME,
+				refreshTokenCookieName,
 				refreshMaxAge,
 				result.refreshToken(),
 				httpServletResponse
@@ -110,12 +132,18 @@ public class AuthApiController implements AuthApiSpec {
 	@PostMapping("/logout")
 	public ResponseEntity<ApiResponse<Void>> logout(
 			@AuthenticationPrincipal UserContext user,
-			HttpServletResponse httpServletResponse
+			HttpServletResponse httpServletResponse,
+			HttpServletRequest httpServletRequest
 	) {
 		
+		String accessTokenFromCookie = cookieProvider.getCookieValue(accessTokenCookieName, httpServletRequest);
 		
+		authCommandService.logout(new AuthLogoutCommand(user, accessTokenFromCookie));
 		
-		return null;
+		cookieProvider.addCookie(accessTokenCookieName, Duration.ZERO, "", httpServletResponse);
+		cookieProvider.addCookie(refreshTokenCookieName, Duration.ZERO, "", httpServletResponse);
+		
+		return ResponseEntity.noContent().build();
 	}
 	
 	

@@ -9,6 +9,7 @@ import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
@@ -54,6 +55,9 @@ public interface AuthApiSpec {
 			UserContext user,
 			
 			@Parameter(hidden = true)
-			HttpServletResponse httpServletResponse
+			HttpServletResponse httpServletResponse,
+			
+			@Parameter(hidden = true)
+			HttpServletRequest httpServletRequest
 	);
 }
