@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.UUID;
 
@@ -21,7 +23,8 @@ public class ConsentDocument extends BaseAuditableEntity {
 
     // 개인정보, 민감정보 등 약관의 종류
     @Enumerated(EnumType.STRING)
-    @Column(name = "consent_type", nullable = false, length = 30)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "consent_type", nullable = false)
     private ConsentType consentType;
 
     @Column(name = "title", nullable = false, length = 255)
