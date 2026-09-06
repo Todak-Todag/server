@@ -2,7 +2,9 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.presentation.request.ConsentDocumentCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.ConsentDocumentUpdateRequiredRequest;
+import com.todak_todag.user_service.user.presentation.response.ConsentDocumentCreateResponse;
 import com.todak_todag.user_service.user.presentation.response.ConsentDocumentFindDetailResponse;
 import com.todak_todag.user_service.user.presentation.response.ConsentDocumentFindListResponse;
 import com.todak_todag.user_service.user.presentation.response.ConsentDocumentUpdateRequiredResponse;
@@ -143,5 +145,36 @@ public interface ConsentDocumentApiSpec {
 
             @Parameter(hidden = true)
             UserContext user
+    );
+
+    @Operation(
+            summary = "신규 약관 및 최초 버전 등록",
+            description = "새로운 약관 문서와 최초 약관 버전을 하나의 트랜잭션으로 등록한다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "201",
+                    description = "약관 등록 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Request Validation 실패"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "약관 등록 권한 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "409",
+                    description = "동일한 약관 유형이 이미 존재"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "서버 내부 오류"
+            )
+    })
+    ResponseEntity<ApiResponse<ConsentDocumentCreateResponse>>
+    createConsentDocument(
+            ConsentDocumentCreateRequest request
     );
 }

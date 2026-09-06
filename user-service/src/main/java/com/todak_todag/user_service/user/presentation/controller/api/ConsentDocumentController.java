@@ -1,5 +1,8 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import com.todak_todag.user_service.user.application.result.ConsentDocumentCreateResult;
+import com.todak_todag.user_service.user.presentation.request.ConsentDocumentCreateRequest;
+import com.todak_todag.user_service.user.presentation.response.ConsentDocumentCreateResponse;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
@@ -116,5 +119,29 @@ public class ConsentDocumentController implements ConsentDocumentApiSpec {
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    // 신규 약관 및 최초 버전 등록
+    @Override
+    @PreAuthorize("hasRole('MASTER')")
+    @PostMapping("/admin/consent-documents")
+    public ResponseEntity<ApiResponse<ConsentDocumentCreateResponse>>
+    createConsentDocument(
+            @Valid @RequestBody ConsentDocumentCreateRequest request
+    ) {
+
+        ConsentDocumentCreateResult result =
+                consentDocumentCommandService.create(
+                        request.toCommand()
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(
+                        ApiResponse.created(
+                                "약관 등록 성공",
+                                ConsentDocumentCreateResponse.from(result)
+                        )
+                );
     }
 }

@@ -32,4 +32,9 @@ public interface ConsentDocumentQueryRepository {
     Optional<ConsentDocument> findByIdIncludingDeleted(
             UUID consentDocumentId
     );
+
+    // 사용 중인 동일 유형 약관 존재 여부
+    boolean existsByConsentType(
+            ConsentDocument.ConsentType consentType
+    );
 }
