@@ -154,19 +154,33 @@ public class User extends BaseAuditableEntity {
 		}
 	}
 	
+	public void changePassword(String passwordHash) {
+		validateApproved();
+		
+		this.passwordHash = passwordHash;
+	}
+	
 	public void changeName(String name) {
+		validateApproved();
+		
 		this.name = name;
 	}
 	
 	public void changePhone(String phone) {
+		validateApproved();
+		
 		this.phone = phone;
 	}
 	
 	public void changeAddress(String address) {
+		validateApproved();
+		
 		this.address = address;
 	}
 	
 	public void changeRegion(UUID regionId) {
+		validateApproved();
+		
 		this.regionId = regionId;
 	}
 	
@@ -178,6 +192,13 @@ public class User extends BaseAuditableEntity {
 			
 			case SUSPENDED -> { throw new BusinessException(UserErrorCode.USER_SUSPENDED); }
 			
+			default -> { throw new BusinessException(CommonErrorCode.SERVICE_ACCESS_DENIED); }
+		}
+	}
+	
+	public void validateApproved() {
+		switch (this.status) {
+			case APPROVED -> {}
 			default -> { throw new BusinessException(CommonErrorCode.SERVICE_ACCESS_DENIED); }
 		}
 	}

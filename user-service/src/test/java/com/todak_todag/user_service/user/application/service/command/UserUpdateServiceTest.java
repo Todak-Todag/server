@@ -28,7 +28,9 @@ import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
+import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
 import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
+import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
@@ -56,6 +58,9 @@ class UserUpdateServiceTest {
 
 	@Mock
 	private UserQueryRepository userQueryRepo;
+
+	@Mock
+	private PasswordEncoderPort passwordEncoder;
 
 	@InjectMocks
 	private UserUpdateService userUpdateService;
@@ -123,6 +128,16 @@ class UserUpdateServiceTest {
 		);
 		ReflectionTestUtils.setField(user, "id", TARGET_ID);
 		return user;
+	}
+
+	private static UserPasswordUpdateCommand passwordUpdateCommand(
+			String currentPassword,
+			String newPassword,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
+		return new UserPasswordUpdateCommand(currentPassword, newPassword, requester);
 	}
 
 	private static UserSuspendCommand suspendCommand(
@@ -501,6 +516,95 @@ class UserUpdateServiceTest {
 
 			// Then
 			assertThat(target.getStatusChangeReason()).isEqualTo("약관 위반");
+		}
+	}
+
+	@Nested
+	@DisplayName("비밀번호 변경")
+	class PasswordUpdate {
+
+		@Test
+		@DisplayName("기존 비밀번호가 일치하면 새 비밀번호로 변경되고 대상 식별자를 반환한다")
+		void passwordUpdateTest_success() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+			given(passwordEncoder.encode("newPw123!")).willReturn("$2a$10$newlyhashedvalue");
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			UUID result = userUpdateService.passwordUpdate(command);
+
+			// Then
+			assertThat(result).isEqualTo(TARGET_ID);
+			assertThat(target.getPasswordHash()).isEqualTo("$2a$10$newlyhashedvalue");
+		}
+
+		@Test
+		@DisplayName("matches는 (평문 현재 비밀번호, 저장된 해시) 순서로 호출된다")
+		void passwordUpdateTest_matchesArgumentOrder() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			String storedHash = target.getPasswordHash();
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", storedHash)).willReturn(true);
+			given(passwordEncoder.encode("newPw123!")).willReturn("$2a$10$newlyhashedvalue");
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.passwordUpdate(command);
+
+			// Then - 인자 순서가 뒤바뀌면(해시, 평문) 이 스텁이 매칭되지 않아 matches()가 false를 반환하므로 실패한다
+			verify(passwordEncoder).matches("currentPw123!", storedHash);
+		}
+
+		@Test
+		@DisplayName("기존 비밀번호가 일치하지 않으면 USER_INVALID_CURRENT_PASSWORD 예외가 발생하고 변경되지 않는다")
+		void passwordUpdateTest_fail_mismatched() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			String originalHash = target.getPasswordHash();
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("wrongPw123!", originalHash)).willReturn(false);
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"wrongPw123!", "newPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.passwordUpdate(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
+
+			assertThat(target.getPasswordHash()).isEqualTo(originalHash);
+			verify(passwordEncoder, never()).encode(any());
+		}
+
+		@Test
+		@DisplayName("요청자가 존재하지 않으면 USER_NOT_FOUND 예외가 발생한다")
+		void passwordUpdateTest_fail_requesterNotFound() {
+			// Given
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.empty());
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.passwordUpdate(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+			verify(passwordEncoder, never()).matches(any(), any());
 		}
 	}
 }

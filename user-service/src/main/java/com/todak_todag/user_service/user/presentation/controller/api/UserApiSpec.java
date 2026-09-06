@@ -4,9 +4,11 @@ import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.presentation.request.UserPasswordUpdateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.response.UserInfoResponse;
+import com.todak_todag.user_service.user.presentation.response.UserPasswordUpdateResponse;
 import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 
@@ -71,4 +73,22 @@ public interface UserApiSpec {
 			UserContext user
 	);
 	
+	@Operation(
+			summary = "비밀번호 변경",
+			description = """
+					사용자는 자신의 계정 비밀번호를 변경할 수 있습니다.
+					
+					인증이 완료된 사용자여야 하며 사용자 정보는 인증 객체를 통해 가져오게 됩니다.
+					
+					기존 비밀번호와 현재 비밀번호가 일치하지 않으면 변경되지 않습니다.
+			"""
+	)
+	ResponseEntity<ApiResponse<UserPasswordUpdateResponse>> passwordUpdate(
+			@Parameter(description = "비밀번호 정보", required = true)
+			@Valid
+			UserPasswordUpdateRequest userPasswordUpdateRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user
+	);
 }

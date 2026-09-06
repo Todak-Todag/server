@@ -11,10 +11,11 @@ import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
+import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
 import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
+import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.domain.entity.user.User;
-import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -24,9 +25,29 @@ import lombok.RequiredArgsConstructor;
 @Transactional(rollbackFor = Exception.class)
 public class UserUpdateService {
 
-	private UserCommandRepository userCommandRepo;
+	private final PasswordEncoderPort passwordEncoder;
 	
-	private UserQueryRepository userQueryRepo;
+	private final UserQueryRepository userQueryRepo;
+	
+	public UUID passwordUpdate(UserPasswordUpdateCommand command) {
+		// 1. 요청자 조회
+		User user = userQueryRepo.findActiveById(command.requesterId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
+		// 2. 기존 비번과 새 비번 일치 검증
+		String currentPasswordHash = user.getPasswordHash();
+		if(!passwordEncoder.matches(command.currentPassword(), currentPasswordHash)) {
+			throw new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
+		}
+		
+		// 3. 비번이 같으면 새 비밀번호를 해시한다.
+		String newPasswordHash = passwordEncoder.encode(command.newPassword());
+		
+		// 4. 변경한다.
+		user.changePassword(newPasswordHash);
+		
+		return user.getId();
+	}
 	
 	public UserApprovalResult approval(UserApprovalCommand command) {
 		// 1. 요청자의 신원이 뭐니?
