@@ -99,7 +99,8 @@ public class SecurityConfig {
 						
 						.pathMatchers(HttpMethod.GET,
 								"/api/v1/admin/users/search",
-								"/api/v1/admin/service-offerings/regions/{regionId}"
+								"/api/v1/admin/service-offerings/regions/{regionId}",
+								"/api/v1/admin/care-plans"
 						).hasAnyRole("MASTER", "ADMIN")
 						
 						// ===== MASTER 경로 방어 ===== //
@@ -125,11 +126,6 @@ public class SecurityConfig {
 								"/api/v1/admin/regions/{regionId}",
 								"/api/v1/admin/consent-documents/{consentDocumentId}"
 						).hasRole("MASTER")
-						
-						// ===== ADMIN 경로 방어 ===== //
-						.pathMatchers(HttpMethod.GET,
-								"/api/v1/admin/care-plans"
-						).hasRole("ADMIN")
 						
 						// ===== /admin/** authenticated 처리
 						.pathMatchers("/api/v1/admin/**").authenticated()

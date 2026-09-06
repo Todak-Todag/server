@@ -147,6 +147,12 @@ class AdminAuthorizationRoutingIntegrationTest {
 					Set.of("MASTER", "ADMIN"),
 					"PATIENT"
 			),
+			new AdminEndpoint(
+					HttpMethod.GET,
+					"/api/v1/admin/care-plans",
+					Set.of("MASTER", "ADMIN"),
+					"PATIENT"
+			),
 
 			// ===== 그룹 2: MASTER 전용 (ADMIN 은 반드시 차단되어야 함) =====
 			new AdminEndpoint(HttpMethod.POST, "/api/v1/admin/users", Set.of("MASTER"), "ADMIN"),
@@ -189,10 +195,7 @@ class AdminAuthorizationRoutingIntegrationTest {
 					Set.of("MASTER"),
 					"ADMIN"
 			),
-			new AdminEndpoint(HttpMethod.POST, "/api/v1/admin/provide-services", Set.of("MASTER"), "ADMIN"),
-
-			// ===== 그룹 3: ADMIN 전용 (MASTER 도 role 계층이 아니므로 차단되어야 함) =====
-			new AdminEndpoint(HttpMethod.GET, "/api/v1/admin/care-plans", Set.of("ADMIN"), "MASTER")
+			new AdminEndpoint(HttpMethod.POST, "/api/v1/admin/provide-services", Set.of("MASTER"), "ADMIN")
 	);
 
 	static Stream<Arguments> allowedRoleCases() {
