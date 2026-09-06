@@ -4,6 +4,7 @@ import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceResultRegisterCommand;
+import com.todak_todag.schedule_service.schedule.application.event.CarePlanCompletionEventAppender;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceResultRegisterResult;
 import com.todak_todag.schedule_service.schedule.application.support.ServiceScheduleValidator;
 import com.todak_todag.schedule_service.schedule.domain.entity.CarePlanServiceResult;
@@ -43,6 +44,9 @@ class ServiceResultCommandServiceTest {
 
     @Spy
     private ServiceScheduleValidator serviceScheduleValidator = new ServiceScheduleValidator();
+
+    @Mock
+    private CarePlanCompletionEventAppender carePlanCompletionEventAppender;
 
     @InjectMocks
     private ServiceResultCommandService serviceResultCommandService;

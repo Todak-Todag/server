@@ -6,14 +6,18 @@ import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCompleteCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
+import com.todak_todag.schedule_service.schedule.application.event.CarePlanCompletionEventAppender;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEvent;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
-import com.todak_todag.schedule_service.schedule.application.support.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.application.support.ServiceScheduleValidator;
+import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
+import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceMatchingAttemptCommandRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,9 +35,11 @@ import java.util.UUID;
 public class ServiceScheduleCommandService {
 
     private final ServiceScheduleCommandRepository serviceScheduleCommandRepository;
+    private final ServiceMatchingAttemptCommandRepository serviceMatchingAttemptCommandRepository;
     private final ScheduleOutboxCommandService scheduleOutboxCommandService;
     private final ProviderReMatchEventPayloadSerializer providerReMatchEventPayloadSerializer;
     private final ServiceScheduleValidator serviceScheduleValidator;
+    private final CarePlanCompletionEventAppender carePlanCompletionEventAppender;
 
     // 서비스 일정 변경
     // 트랜잭션 처리 범위: 검증 + status를 RESCHEDULING으로 변경 + ProviderReMatched 이벤트를 아웃박스에 적재
@@ -51,13 +57,19 @@ public class ServiceScheduleCommandService {
 
         // SCHEDULED 상태 검증 및 RESCHEDULING 전이는 엔티티가 스스로 보장
         serviceSchedule.rescheduling();
+
+        // 페이로드에 필요한 regionId/provideServiceId 확보
+        ServiceMatchingAttempt matchingAttempt = findMatchingAttempt(serviceSchedule.getServicePreferenceId());
+
         ServiceSchedule saved = serviceScheduleCommandRepository.save(serviceSchedule);
 
         // ProviderReMatchEvent를 같은 트랜잭션 안에서 아웃박스에 적재 (실제 발행은 릴레이가 트랜잭션 밖에서 수행)
         String payload = providerReMatchEventPayloadSerializer.serialize(
-                new ProviderReMatchEventPort.ProviderReMatchEvent(
-                        saved.getId(),
-                        saved.getServiceOfferingId(),
+                ProviderReMatchEvent.forScheduleChange(
+                        saved.getCarePlanId(),
+                        matchingAttempt.getRegionId(),
+                        matchingAttempt.getProvideServiceId(),
+                        saved.getServicePreferenceId(),
                         rescheduleCommand.date()
                 )
         );
@@ -69,8 +81,15 @@ public class ServiceScheduleCommandService {
         return ServiceScheduleRescheduleResult.from(saved);
     }
 
+    // ProviderReMatched 페이로드에 실을 regionId/provideServiceId의 출처가 되는 매칭 시도 기록 조회
+    private ServiceMatchingAttempt findMatchingAttempt(UUID servicePreferenceId) {
+        return serviceMatchingAttemptCommandRepository.findLatestMatched(servicePreferenceId)
+                .orElseThrow(() -> new BusinessException(ScheduleErrorCode.SERVICE_MATCHING_ATTEMPT_NOT_FOUND));
+    }
+
     // 서비스 일정 취소
     // 트랜잭션 처리 범위: 검증 + status를 CANCELED로 변경
+    //                  + (케어플랜이 완료된 경우) CarePlanCompleted 이벤트를 아웃박스에 적재
     @Transactional
     public ServiceScheduleCancelResult cancel(ServiceScheduleCancelCommand cancelCommand, CarePlanPort.CarePlanRange carePlanRange) {
 
@@ -87,6 +106,9 @@ public class ServiceScheduleCommandService {
         ServiceSchedule saved = serviceScheduleCommandRepository.save(serviceSchedule);
 
         log.info("[Schedule] 서비스 일정 취소 완료 serviceScheduleId={}", saved.getId());
+
+        // 마지막 일정이 취소되면 더 이상 수행될 일정이 없으므로 그 시점에도 케어플랜은 완료
+        carePlanCompletionEventAppender.appendIfCarePlanCompleted(saved);
 
         return ServiceScheduleCancelResult.from(saved);
     }

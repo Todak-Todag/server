@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.infrastructure.persistence;
 
+import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,4 +12,10 @@ public interface SpringDataServiceMatchingAttemptRepository extends JpaRepositor
 
     // 소프트 삭제된 기록은 조회 대상에서 제외
     Optional<ServiceMatchingAttempt> findByIdAndDeletedAtIsNull(UUID id);
+
+    // 해당 희망 일정에서 성사된(MATCHED) 가장 최근 매칭 시도 1건 — 소프트 삭제분은 제외
+    Optional<ServiceMatchingAttempt> findFirstByServicePreferenceIdAndStatusAndDeletedAtIsNullOrderByMatchedAtDescCreatedAtDesc(
+            UUID servicePreferenceId,
+            MatchingAttemptStatus status
+    );
 }

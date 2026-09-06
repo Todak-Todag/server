@@ -1,6 +1,7 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.presentation.request.ConsentDocumentUpdateRequiredRequest;
 import com.todak_todag.user_service.user.presentation.response.ConsentDocumentFindDetailResponse;
 import com.todak_todag.user_service.user.presentation.response.ConsentDocumentFindListResponse;
@@ -101,5 +102,46 @@ public interface ConsentDocumentApiSpec {
             )
             UUID consentDocumentId,
             ConsentDocumentUpdateRequiredRequest request
+    );
+
+    @Operation(
+            summary = "약관 사용 종료",
+            description = "더 이상 서비스에서 사용하지 않는 약관 문서를 논리적으로 삭제한다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "204",
+                    description = "약관 사용 종료 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "잘못된 약관 문서 ID 형식"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "약관 사용 종료 권한 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "약관 문서를 찾을 수 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "409",
+                    description = "이미 사용 종료된 약관"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "서버 내부 오류"
+            )
+    })
+    ResponseEntity<Void> deleteConsentDocument(
+            @Parameter(
+                    description = "약관 문서 ID",
+                    required = true
+            )
+            UUID consentDocumentId,
+
+            @Parameter(hidden = true)
+            UserContext user
     );
 }
