@@ -42,7 +42,9 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/internal/**",
                                 "/actuator/health/**",
-                                "/v3/**"
+                                "/v3/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );

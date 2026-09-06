@@ -31,10 +31,11 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
-public class CarePlanServiceController {
+public class CarePlanServiceController implements CarePlanServiceApiSpec {
     private final CarePlanServiceCommandService carePlanServiceCommandService;
     private final CarePlanServiceQueryService carePlanServiceQueryService;
 
+    @Override
     @PreAuthorize("hasRole('PATIENT')")
     @PostMapping("/care-plans/{carePlanId}/services")
     public ResponseEntity<ApiResponse<CarePlanServiceSelectResponse>> selectCarePlanService(
@@ -64,6 +65,7 @@ public class CarePlanServiceController {
                 );
     }
 
+    @Override
     @PreAuthorize("hasRole('PATIENT')")
     @DeleteMapping("/care-plan-services/{planServiceId}")
     public ResponseEntity<Void> cancelCarePlanService(
@@ -81,6 +83,7 @@ public class CarePlanServiceController {
     }
 
     // TODO: (MVP 이후) HOSPITAL_STAFF, SOCIAL_WORKER 조회 권한 확장
+    @Override
     @PreAuthorize("hasRole('PATIENT')")
     @GetMapping("/care-plans/{carePlanId}/services")
     public ResponseEntity<ApiResponse<PageResponse<CarePlanServiceSearchResponse>>> searchCarePlanServices(
@@ -110,6 +113,7 @@ public class CarePlanServiceController {
     }
 
     // TODO: (MVP 이후) HOSPITAL_STAFF/SOCIAL_WORKER 조회 권한 확장
+    @Override
     @PreAuthorize("hasRole('PATIENT')")
     @GetMapping("/care-plans/{carePlanId}/services/{planServiceId}")
     public ResponseEntity<ApiResponse<CarePlanServiceFindResponse>> findCarePlanService(
