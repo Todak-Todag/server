@@ -13,4 +13,9 @@ public interface JpaConsentDocumentRepository
     Optional<ConsentDocument> findByIdAndDeletedAtIsNull(
             UUID consentDocumentId
     );
+
+    // 사용 중인 동일 유형 약관 존재 여부
+    boolean existsByConsentTypeAndDeletedAtIsNull(
+            ConsentDocument.ConsentType consentType
+    );
 }
