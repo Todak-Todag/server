@@ -1,8 +1,10 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.user.presentation.request.ConsentDocumentUpdateRequiredRequest;
 import com.todak_todag.user_service.user.presentation.response.ConsentDocumentFindDetailResponse;
 import com.todak_todag.user_service.user.presentation.response.ConsentDocumentFindListResponse;
+import com.todak_todag.user_service.user.presentation.response.ConsentDocumentUpdateRequiredResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -63,5 +65,41 @@ public interface ConsentDocumentApiSpec {
                     required = true
             )
             UUID consentDocumentVersionId
+    );
+
+    @Operation(
+            summary = "약관 필수 여부 변경",
+            description = "기존 약관 문서의 필수 또는 선택 동의 여부를 변경한다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "약관 필수 여부 변경 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "Request Validation 실패"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "403",
+                    description = "약관 필수 여부 변경 권한 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "404",
+                    description = "약관 문서를 찾을 수 없음"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "서버 내부 오류"
+            )
+    })
+    ResponseEntity<ApiResponse<ConsentDocumentUpdateRequiredResponse>>
+    updateConsentDocumentRequired(
+            @Parameter(
+                    description = "약관 문서 ID",
+                    required = true
+            )
+            UUID consentDocumentId,
+            ConsentDocumentUpdateRequiredRequest request
     );
 }
