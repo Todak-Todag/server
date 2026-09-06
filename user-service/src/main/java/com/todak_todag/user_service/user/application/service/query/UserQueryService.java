@@ -3,14 +3,20 @@ package com.todak_todag.user_service.user.application.service.query;
 import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.todak_todag.user_service.global.common.PageableFactory;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.user.application.port.UserSearchPort;
+import com.todak_todag.user_service.user.application.query.UserSearchQuery;
 import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
+import com.todak_todag.user_service.user.application.result.UserSearchResult;
 import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
@@ -30,6 +36,8 @@ public class UserQueryService {
     
     private final RegionQueryRepository regionQueryRepo;
 
+    private final UserSearchPort userSearchPort;
+    
     public UserInternalReadResult getUser(UUID userId) {
         User user = userQueryRepo.findActiveById(userId)
                 .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
@@ -94,5 +102,11 @@ public class UserQueryService {
     	}
     	
     	return userQueryRepo.findMatchableSocialWorkerIds(patient.getRegionId());
+    }
+    
+    public Page<UserSearchResult> search(UserSearchQuery query) {
+    	Pageable pageable = PageableFactory.of(query.page(), query.size(), null);
+    	
+    	return userSearchPort.search(query, pageable);
     }
 }

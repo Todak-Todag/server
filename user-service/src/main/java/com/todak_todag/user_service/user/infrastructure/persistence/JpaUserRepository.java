@@ -7,13 +7,12 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 
-public interface JpaUserRepository extends JpaRepository<User, UUID> {
+public interface JpaUserRepository extends JpaRepository<User, UUID>, UserQueryDslRepository {
 
 	boolean existsByUsername(String username);
 
@@ -30,4 +29,5 @@ public interface JpaUserRepository extends JpaRepository<User, UUID> {
 					AND u.status =:status
 	""")
 	Set<UUID> findByRegionIdAndRoleAndStatus(UUID regionId, UserRole socialWorker, UserStatus approved);
+	
 }
