@@ -3,10 +3,12 @@ package com.todak_todag.user_service.user.application.service.query;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -15,20 +17,28 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.user.application.port.UserSearchPort;
+import com.todak_todag.user_service.user.application.query.UserSearchQuery;
 import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
+import com.todak_todag.user_service.user.application.result.UserSearchResult;
 import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
+import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
@@ -40,6 +50,9 @@ class UserQueryServiceTest {
 
     @Mock
     private RegionQueryRepository regionQueryRepository;
+
+    @Mock
+    private UserSearchPort userSearchPort;
 
     @InjectMocks
     private UserQueryService userQueryService;
@@ -365,6 +378,59 @@ class UserQueryServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(exception -> ((BusinessException) exception).getErrorCode())
                     .isEqualTo(UserErrorCode.USER_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("사용자 검색")
+    class Search {
+
+        @Test
+        @DisplayName("UserSearchPort의 조회 결과를 그대로 반환한다")
+        void search_success() {
+            UserSearchQuery query = new UserSearchQuery(0, 10, Set.of(UserRole.PATIENT), UserStatus.APPROVED);
+            Page<UserSearchResult> expected = new PageImpl<>(List.of());
+
+            given(userSearchPort.search(eq(query), any(Pageable.class)))
+                    .willReturn(expected);
+
+            Page<UserSearchResult> result = userQueryService.search(query);
+
+            assertThat(result).isSameAs(expected);
+        }
+
+        @Test
+        @DisplayName("Query의 page/size로 Pageable을 만들어 UserSearchPort에 전달한다")
+        void search_buildsPageableFromQuery() {
+            UserSearchQuery query = new UserSearchQuery(2, 30, null, UserStatus.APPROVED);
+
+            given(userSearchPort.search(eq(query), any(Pageable.class)))
+                    .willReturn(new PageImpl<>(List.of()));
+
+            userQueryService.search(query);
+
+            ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+            then(userSearchPort).should().search(eq(query), pageableCaptor.capture());
+
+            assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(2);
+            assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(30);
+        }
+
+        @Test
+        @DisplayName("page/size가 없으면 기본 Pageable(0페이지, 10건)이 사용된다")
+        void search_defaultPageable() {
+            UserSearchQuery query = new UserSearchQuery(null, null, null, UserStatus.APPROVED);
+
+            given(userSearchPort.search(eq(query), any(Pageable.class)))
+                    .willReturn(new PageImpl<>(List.of()));
+
+            userQueryService.search(query);
+
+            ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+            then(userSearchPort).should().search(eq(query), pageableCaptor.capture());
+
+            assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(0);
+            assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(10);
         }
     }
 }
