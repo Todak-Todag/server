@@ -165,4 +165,12 @@ public class ConsentDocumentQueryRepositoryImpl
                 consentDocumentId
         );
     }
+
+    // 삭제된 raw 포함된 조회
+    @Override
+    public Optional<ConsentDocument> findByIdIncludingDeleted(
+            UUID consentDocumentId
+    ) {
+        return jpaRepo.findById(consentDocumentId);
+    }
 }

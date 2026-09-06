@@ -27,4 +27,9 @@ public interface ConsentDocumentQueryRepository {
 
     // 논리 삭제되지 않은 약관 문서 조회
     Optional<ConsentDocument> findById(UUID consentDocumentId);
+
+    // 삭제 여부를 포함한 약관 문서 조회
+    Optional<ConsentDocument> findByIdIncludingDeleted(
+            UUID consentDocumentId
+    );
 }

@@ -8,7 +8,8 @@ import org.springframework.http.HttpStatus;
 @RequiredArgsConstructor
 public enum ConsentDocumentErrorCode implements ErrorCode {
 
-    CONSENT_DOCUMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 약관을 찾을 수 없습니다.");
+    CONSENT_DOCUMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 약관을 찾을 수 없습니다."),
+    CONSENT_DOCUMENT_ALREADY_DELETED(HttpStatus.CONFLICT, "이미 사용 종료된 약관입니다.");
 
     private final HttpStatus status;
     private final String message;
