@@ -69,7 +69,7 @@ CREATE TYPE schedule_schema.service_matching_attempts_status AS ENUM (
 );
 
 CREATE TABLE schedule_schema.p_service_matching_attempts (
-    matching_attempt_id UUID NOT NULL,
+    matching_attempt_id UUID PRIMARY KEY,
 
     -- 논리 FK -> care_plan_schema.p_care_plans(care_plan_id)
     care_plan_id UUID NOT NULL,
