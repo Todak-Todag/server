@@ -1,6 +1,7 @@
 package com.todak_todag.provider_service.provider.application.service.query;
 
 import com.todak_todag.provider_service.provider.application.result.ProvideServiceSearchResult;
+import com.todak_todag.provider_service.provider.application.result.ProvideServiceInfoResult;
 import com.todak_todag.provider_service.provider.domain.entity.ProvideService;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideServiceQueryRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -50,6 +51,14 @@ class ProvideServiceQueryServiceTest {
         return provideService;
     }
 
+    private ProvideService mockProvideServiceInfo(UUID id, String name, String content) {
+        ProvideService provideService = mock(ProvideService.class);
+        when(provideService.getId()).thenReturn(id);
+        when(provideService.getName()).thenReturn(name);
+        when(provideService.getContent()).thenReturn(content);
+        return provideService;
+    }
+
     @Test
     @DisplayName("조회 결과를 provideServiceName 필드로 매핑해 반환한다")
     void search_mapsToResult() {
@@ -92,5 +101,60 @@ class ProvideServiceQueryServiceTest {
         provideServiceQueryService.search(pageable);
 
         verify(provideServiceQueryRepository).findAll(pageable);
+    }
+
+    @Test
+    @DisplayName("ID 목록으로 조회한 결과를 매핑해 반환한다")
+    void findAllByIds_mapsToResult() {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+
+        ProvideService firstService = mockProvideServiceInfo(first, NAME, CONTENT);
+        ProvideService secondService =
+                mockProvideServiceInfo(second, "가사지원", "청소, 세탁 등 일상 가사 활동을 지원합니다.");
+
+        given(provideServiceQueryRepository.findAllByIdIn(List.of(first, second)))
+                .willReturn(List.of(firstService, secondService));
+
+        List<ProvideServiceInfoResult> results =
+                provideServiceQueryService.findAllByIds(List.of(first, second));
+
+        assertThat(results).hasSize(2);
+        assertThat(results.get(0).provideServiceId()).isEqualTo(first);
+        assertThat(results.get(0).name()).isEqualTo(NAME);
+        assertThat(results.get(0).content()).isEqualTo(CONTENT);
+        assertThat(results.get(1).name()).isEqualTo("가사지원");
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 ID가 섞여 있으면 조회된 것만 반환한다")
+    void findAllByIds_ignoresMissingId() {
+        UUID existing = UUID.randomUUID();
+        UUID missing = UUID.randomUUID();
+
+        ProvideService existingService = mockProvideServiceInfo(existing, NAME, CONTENT);
+
+        given(provideServiceQueryRepository.findAllByIdIn(List.of(existing, missing)))
+                .willReturn(List.of(existingService));
+
+        List<ProvideServiceInfoResult> results =
+                provideServiceQueryService.findAllByIds(List.of(existing, missing));
+
+        assertThat(results).hasSize(1);
+        assertThat(results.get(0).provideServiceId()).isEqualTo(existing);
+    }
+
+    @Test
+    @DisplayName("조회된 서비스 종류가 없으면 빈 목록을 반환한다")
+    void findAllByIds_empty() {
+        UUID provideServiceId = UUID.randomUUID();
+
+        given(provideServiceQueryRepository.findAllByIdIn(List.of(provideServiceId)))
+                .willReturn(List.of());
+
+        List<ProvideServiceInfoResult> results =
+                provideServiceQueryService.findAllByIds(List.of(provideServiceId));
+
+        assertThat(results).isEmpty();
     }
 }
