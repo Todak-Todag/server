@@ -11,4 +11,6 @@ public interface ProvideWorkQueryRepository {
     Optional<ProvideWork> findById(UUID provideWorkId);
 
     List<ProvideWork> findAllByServiceOfferingId(UUID serviceOfferingId);
+
+    List<ProvideWork> findAllByServiceOfferingIdIn(List<UUID> serviceOfferingIds);
 }
