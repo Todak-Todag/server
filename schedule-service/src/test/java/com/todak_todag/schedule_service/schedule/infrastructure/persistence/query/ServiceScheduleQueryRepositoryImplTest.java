@@ -27,6 +27,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -488,6 +489,21 @@ class ServiceScheduleQueryRepositoryImplTest {
             assertThat(result.getContent()).extracting(ServiceSchedule::getId)
                     .containsExactly(active.getId())
                     .doesNotContain(deleted.getId());
+        }
+
+        @Test
+        @DisplayName("소유권 필터가 모두 null이면 전체 조회를 막고 예외를 던진다")
+        void search_withoutAnyOwnershipFilter_throwsException() {
+            // given
+            persistSchedule(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1));
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when & then
+            assertThatThrownBy(() -> serviceScheduleRepository.search(
+                    null, null, null, null, PageRequest.of(0, 10)
+            )).isInstanceOf(IllegalArgumentException.class);
         }
     }
 

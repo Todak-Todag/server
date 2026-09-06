@@ -193,6 +193,21 @@ public class User extends BaseAuditableEntity {
 		return this.status == UserStatus.PENDING;
 	}
 	
+	public boolean isRegion() {
+		return this.regionId != null;
+	}
+	
+	public boolean isApprove() {
+		return this.status == UserStatus.APPROVED;
+	}
+	
+	public void suspend(String statusChangeReason) {
+		this.statusChangeReason = statusChangeReason;
+		if(this.isApprove()) {
+			this.status = UserStatus.SUSPENDED;
+		}
+	}
+	
 	public void approvalOrReject(Boolean accept, String rejectReason) {
 		// 승인
 		if(accept == true) {
