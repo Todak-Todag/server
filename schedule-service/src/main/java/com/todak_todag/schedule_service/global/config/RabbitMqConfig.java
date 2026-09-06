@@ -12,20 +12,32 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMqConfig {
 
-    // 공통 Exchange
+    // 발행용 공통 Exchange
     public static final String SCHEDULE_EXCHANGE = "schedule.exchange";
 
-    // CarePlanCompleted
+    // 수신용 Exchange — Provider-Service가 발행 주체
+    public static final String PROVIDER_EXCHANGE = "provider.exchange";
+
+    // CarePlanCompleted (발행)
     public static final String CARE_PLAN_COMPLETED_ROUTING_KEY = "schedule.completed.key";
     public static final String CARE_PLAN_SCHEDULE_COMPLETED_QUEUE = "care-plan.schedule-completed.queue";
 
-    // ProviderReMatched
+    // ProviderReMatched (발행)
     public static final String PROVIDER_RE_MATCHED_ROUTING_KEY = "schedule.rematched.key";
     public static final String PROVIDER_SCHEDULE_REMATCHED_QUEUE = "provider.schedule-rematched.queue";
+
+    // ProviderMatched (수신)
+    public static final String PROVIDER_MATCHED_ROUTING_KEY = "provider.matched.key";
+    public static final String SCHEDULE_PROVIDER_MATCHED_QUEUE = "schedule.provider-matched.queue";
 
     @Bean
     public DirectExchange scheduleExchange() {
         return new DirectExchange(SCHEDULE_EXCHANGE);
+    }
+
+    @Bean
+    public DirectExchange providerExchange() {
+        return new DirectExchange(PROVIDER_EXCHANGE);
     }
 
     @Bean
@@ -56,6 +68,23 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(providerScheduleRematchedQueue)
                 .to(scheduleExchange)
                 .with(PROVIDER_RE_MATCHED_ROUTING_KEY);
+    }
+
+    // ProviderMatched를 수신할 큐
+    // 재시도 3회는 리스너 컨테이너 설정(spring.rabbitmq.listener.simple.retry)으로 처리
+    @Bean
+    public Queue scheduleProviderMatchedQueue() {
+        return new Queue(SCHEDULE_PROVIDER_MATCHED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding scheduleProviderMatchedBinding(
+            DirectExchange providerExchange,
+            Queue scheduleProviderMatchedQueue
+    ) {
+        return BindingBuilder.bind(scheduleProviderMatchedQueue)
+                .to(providerExchange)
+                .with(PROVIDER_MATCHED_ROUTING_KEY);
     }
 
     // 페이로드를 JSON으로 주고받기 위한 변환기

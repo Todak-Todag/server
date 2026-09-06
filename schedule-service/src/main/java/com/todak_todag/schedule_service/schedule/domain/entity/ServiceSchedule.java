@@ -14,8 +14,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-// Table 명세서상 created_at/by(Not Null) + updated_at/by(Not Null) + deleted_at/by(Nullable)를 모두 가지므로
-// 4종 Base 중 감사 필드 전체를 포함하는 BaseAuditableEntity를 상속한다
 @Entity
 @Getter
 @Table(name = "p_service_schedules", schema = "schedule_schema")
@@ -27,12 +25,6 @@ public class ServiceSchedule extends BaseAuditableEntity {
     @Column(name = "service_schedule_id", nullable = false, updatable = false)
     private UUID id;
 
-    // Table 명세서(schedule-service.md 2장)의 p_service_schedules.care_plan_id — 논리 FK(→ p_care_plans.care_plan_id), Not Null
-    // DB가 서비스별로 분리되어 있어 FK 제약 없이 UUID 값만 보관한다
-    // ⚠️ 03/04번(서비스 일정 변경/취소)은 servicePreferenceId 기준으로 care-plan-service Internal API를 호출해
-    //    carePlanId/finishDate/patientId를 조회하도록 이미 구현되어 있다(5.5절). 이 필드가 생겨도
-    //    finishDate(일정 범위 검증)와 patientId(소유권 검증)는 여전히 원격 조회가 필요하므로 그 호출은 그대로 유지한다
-    //    — 즉 이 필드는 03/04번 로직을 대체하지 않고, Table 명세서와의 스키마 정합성을 맞추기 위한 것이다
     @Column(name = "care_plan_id", nullable = false)
     private UUID carePlanId;
 
@@ -117,6 +109,15 @@ public class ServiceSchedule extends BaseAuditableEntity {
         }
 
         this.status = ScheduleStatus.RESCHEDULING;
+    }
+
+    // 재매칭이 성사되어 이 일정이 새 일정으로 대체됨
+    public void markChanged() {
+        if (status != ScheduleStatus.RESCHEDULING) {
+            throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_CHANGED);
+        }
+
+        this.status = ScheduleStatus.CHANGED;
     }
 
     // 예정된 일정을 취소

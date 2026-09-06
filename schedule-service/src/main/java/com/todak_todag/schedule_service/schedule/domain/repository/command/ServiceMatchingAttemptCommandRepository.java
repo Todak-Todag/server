@@ -2,6 +2,8 @@ package com.todak_todag.schedule_service.schedule.domain.repository.command;
 
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,4 +13,13 @@ public interface ServiceMatchingAttemptCommandRepository {
 
     // 해당 서비스 희망 일정(servicePreferenceId)을 성사시킨 가장 최근 매칭 시도 1건
     Optional<ServiceMatchingAttempt> findLatestMatched(UUID servicePreferenceId);
+
+    // 동일한 ProviderMatched를 이미 기록했는지 (중복 수신 방어용)
+    // 같은 매칭 결과를 가리키는 값들의 조합을 대체 키로 사용
+    boolean existsMatched(
+            UUID servicePreferenceId,
+            UUID serviceOfferingId,
+            LocalDate date,
+            Instant matchedAt
+    );
 }
