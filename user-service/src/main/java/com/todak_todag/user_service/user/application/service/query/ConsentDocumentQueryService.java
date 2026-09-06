@@ -1,5 +1,8 @@
 package com.todak_todag.user_service.user.application.service.query;
 
+import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.ConsentDocumentErrorCode;
+import com.todak_todag.user_service.user.application.result.ConsentDocumentFindDetailResult;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentFindResult;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentQueryRepository;
 import lombok.RequiredArgsConstructor;
@@ -47,5 +50,19 @@ public class ConsentDocumentQueryService {
                 .stream()
                 .map(ConsentDocumentFindResult::from)
                 .toList();
+    }
+
+    // 약관 버전 상세 조회
+    public ConsentDocumentFindDetailResult findConsentDocumentDetail(
+            UUID consentDocumentVersionId
+    ) {
+        return consentDocumentQueryRepository
+                .findDetailByVersionId(consentDocumentVersionId)
+                .map(ConsentDocumentFindDetailResult::from)
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ConsentDocumentErrorCode.CONSENT_DOCUMENT_NOT_FOUND
+                        )
+                );
     }
 }

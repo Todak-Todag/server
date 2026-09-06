@@ -2,6 +2,7 @@ package com.todak_todag.user_service.user.domain.repository.query;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ConsentDocumentQueryRepository {
@@ -15,5 +16,10 @@ public interface ConsentDocumentQueryRepository {
     List<ConsentDocumentCurrentView> findAllCurrentByVersionIds(
             List<UUID> consentDocumentVersionIds,
             LocalDateTime now
+    );
+
+    // 약관 버전 상세 조회
+    Optional<ConsentDocumentDetailView> findDetailByVersionId(
+            UUID consentDocumentVersionId
     );
 }
