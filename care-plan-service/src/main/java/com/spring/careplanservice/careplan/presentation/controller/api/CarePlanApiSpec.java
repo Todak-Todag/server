@@ -143,6 +143,4 @@ public interface CarePlanApiSpec {
             )
             UUID carePlanId
     );
-
-
 }

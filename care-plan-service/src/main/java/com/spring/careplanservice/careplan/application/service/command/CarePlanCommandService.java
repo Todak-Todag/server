@@ -111,6 +111,10 @@ public class CarePlanCommandService {
                 carePlanStatusUpdateCommand.status()
         );
 
+        validateStatusUpdateRole(
+                carePlanStatusUpdateCommand
+        );
+
         carePlan.updateStatus(
                 carePlanStatusUpdateCommand.status()
         );
@@ -316,6 +320,7 @@ public class CarePlanCommandService {
                 .toList();
     }
 
+    // TODO : validate 분리 시급
     private void validateCompletedEvent(
             CarePlanCompletedEvent event
     ) {
@@ -327,6 +332,31 @@ public class CarePlanCommandService {
             throw new BusinessException(
                     ErrorCode.CARE_PLAN_COMPLETED_EVENT_INVALID
             );
+        }
+    }
+
+    private void validateStatusUpdateRole(
+            CarePlanStatusUpdateCommand command
+    ) {
+        UserRole userRole = command.userRole();
+        CarePlanStatus nextStatus = command.status();
+
+        if (userRole == UserRole.ADMIN || userRole == UserRole.MASTER) {
+            return;
+        }
+
+        if (nextStatus == CarePlanStatus.CONFIRMED
+                && userRole != UserRole.PATIENT) {
+            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
+        }
+
+        if (nextStatus == CarePlanStatus.IN_PROGRESS
+                && userRole != UserRole.SERVICE_PROVIDER) {
+            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
+        }
+
+        if (nextStatus == CarePlanStatus.COMPLETED) {
+            throw new BusinessException(ErrorCode.CARE_PLAN_BAD_REQUEST);
         }
     }
 }
