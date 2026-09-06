@@ -31,7 +31,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
-public class CarePlanServiceController {
+public class CarePlanServiceController implements CarePlanServiceApiSpec {
     private final CarePlanServiceCommandService carePlanServiceCommandService;
     private final CarePlanServiceQueryService carePlanServiceQueryService;
 
