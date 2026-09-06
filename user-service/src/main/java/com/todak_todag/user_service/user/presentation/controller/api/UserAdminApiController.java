@@ -2,17 +2,18 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
@@ -20,11 +21,13 @@ import com.todak_todag.user_service.global.response.PageResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
+import com.todak_todag.user_service.user.application.result.UserSearchResult;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
+import com.todak_todag.user_service.user.presentation.request.UserSearchRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSuspendRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
@@ -110,18 +113,21 @@ public class UserAdminApiController implements UserAdminApiSpec {
 				.body(ApiResponse.ok("해당 사용자가 일시 정지 되었습니다.", response));
 	}
 	
+	@Override
 	@GetMapping("/search")
 	@PreAuthorize("hasAnyRole('MASTER', 'ADMIN')")
 	public ResponseEntity<ApiResponse<PageResponse<UserSearchResponse>>> search(
-			@RequestParam(value = "page", required = false) Integer page,
-			@RequestParam(value = "size", required = false) Integer size,
-			@RequestParam(value = "role", required = false) Integer role,
-			@RequestParam(value = "state", required = false) Integer state,
+			@Valid @ModelAttribute UserSearchRequest userSearchRequest,
 			@AuthenticationPrincipal UserContext user
 	) {
+		Page<UserSearchResult> result = userQueryService.search(userSearchRequest.toQuery());
 		
-		
-		return null;
+		return ResponseEntity
+				.status(200)
+				.body(ApiResponse.ok(
+						"사용자 검색 성공",
+						PageResponse.of(result, UserSearchResponse::from))
+				);
 	}
 	
 }

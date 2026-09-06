@@ -5,12 +5,15 @@ import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.global.response.PageResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserApprovalRequest;
+import com.todak_todag.user_service.user.presentation.request.UserSearchRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSuspendRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
+import com.todak_todag.user_service.user.presentation.response.UserSearchResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSuspendedResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -74,6 +77,23 @@ public interface UserAdminApiSpec {
 			@Parameter(description = "정지 사유", required = true)
 			@Valid
 			UserSuspendRequest userSuspendRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user
+	);
+	
+	@Operation(
+			summary = "운영용 사용자 검색",
+			description = """
+					관리자와 운영자는 조건(권한, 상태)에 맞는 사용자를 검색할 수 있습니다.
+					
+					role, status는 내부 권한 체계를 노출하지 않기 위해 숫자 코드를 전달합니다.		
+			"""
+	)
+	ResponseEntity<ApiResponse<PageResponse<UserSearchResponse>>> search(
+			@Parameter(description = "검색 조건 (page, size, role, status)")
+			@Valid
+			UserSearchRequest userSearchRequest,
 			
 			@Parameter(hidden = true)
 			UserContext user
