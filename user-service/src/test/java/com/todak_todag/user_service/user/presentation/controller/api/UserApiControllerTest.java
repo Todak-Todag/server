@@ -249,7 +249,7 @@ class UserApiControllerTest {
 		void passwordUpdateTest_fail_mismatched() throws Exception {
 			// given
 			given(userUpdateService.passwordUpdate(any()))
-					.willThrow(new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED));
+					.willThrow(new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD));
 
 			// when & then
 			mockMvc.perform(patch(PASSWORD_URI)
@@ -264,7 +264,7 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().isConflict())
 					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.error.errorCode").value("USER_LOGIN_MISMATCHED"));
+					.andExpect(jsonPath("$.error.errorCode").value("USER_INVALID_CURRENT_PASSWORD"));
 		}
 	}
 }

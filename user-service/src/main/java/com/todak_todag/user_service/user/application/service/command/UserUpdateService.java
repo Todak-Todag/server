@@ -37,7 +37,7 @@ public class UserUpdateService {
 		// 2. 기존 비번과 새 비번 일치 검증
 		String currentPasswordHash = user.getPasswordHash();
 		if(!passwordEncoder.matches(command.currentPassword(), currentPasswordHash)) {
-			throw new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
+			throw new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
 		}
 		
 		// 3. 비번이 같으면 새 비밀번호를 해시한다.

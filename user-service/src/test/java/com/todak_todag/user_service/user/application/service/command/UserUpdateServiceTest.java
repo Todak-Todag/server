@@ -566,7 +566,7 @@ class UserUpdateServiceTest {
 		}
 
 		@Test
-		@DisplayName("기존 비밀번호가 일치하지 않으면 USER_LOGIN_MISMATCHED 예외가 발생하고 변경되지 않는다")
+		@DisplayName("기존 비밀번호가 일치하지 않으면 USER_INVALID_CURRENT_PASSWORD 예외가 발생하고 변경되지 않는다")
 		void passwordUpdateTest_fail_mismatched() {
 			// Given
 			User target = approvedTarget(REGION_ID);
@@ -582,7 +582,7 @@ class UserUpdateServiceTest {
 			assertThatThrownBy(() -> userUpdateService.passwordUpdate(command))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(UserErrorCode.USER_LOGIN_MISMATCHED);
+					.isEqualTo(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
 
 			assertThat(target.getPasswordHash()).isEqualTo(originalHash);
 			verify(passwordEncoder, never()).encode(any());
