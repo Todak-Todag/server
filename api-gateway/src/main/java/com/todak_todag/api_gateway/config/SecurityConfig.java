@@ -90,10 +90,16 @@ public class SecurityConfig {
 								"/api/v1/consent-documents/**"
 						).permitAll()
 						
-						// 관리자
-						.pathMatchers(
-								"/api/v1/admin/**"
-						).authenticated()
+						// ===== MASTER + ADMIN 경로 방어 ===== //
+						.pathMatchers().hasAnyRole("MASTER", "ADMIN")
+						
+						
+						// ===== MASTER 경로 방어 ===== //
+						.pathMatchers().hasRole("MASTER")
+						
+						// ===== ADMIN 경로 방어 ===== //
+						.pathMatchers().hasRole("ADMIN")
+						
 								
 								// User-Service
 								.pathMatchers(
