@@ -1,7 +1,11 @@
 package com.todak_todag.user_service.user.application.service.query;
 
+import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.ConsentDocumentErrorCode;
+import com.todak_todag.user_service.user.application.result.ConsentDocumentFindDetailResult;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentFindResult;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentCurrentView;
+import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentDetailView;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentQueryRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -14,9 +18,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -154,6 +160,92 @@ class ConsentDocumentQueryServiceTest {
             then(consentDocumentQueryRepository)
                     .should(never())
                     .findAllCurrentByVersionIds(any(), any());
+        }
+    }
+
+    @Nested
+    @DisplayName("약관 상세 조회")
+    class FindConsentDocumentDetail {
+
+        @Test
+        @DisplayName("약관 버전 ID로 상세 조회에 성공한다")
+        void findConsentDocumentDetail_success() {
+            // given
+            UUID documentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+            LocalDateTime effectiveAt =
+                    LocalDateTime.of(2026, 9, 1, 0, 0);
+
+            ConsentDocumentDetailView view =
+                    new ConsentDocumentDetailView(
+                            documentId,
+                            versionId,
+                            "TERMS_OF_SERVICE",
+                            "서비스 이용약관",
+                            "v2",
+                            "약관 본문입니다.",
+                            true,
+                            effectiveAt
+                    );
+
+            given(
+                    consentDocumentQueryRepository.findDetailByVersionId(
+                            versionId
+                    )
+            ).willReturn(Optional.of(view));
+
+            // when
+            ConsentDocumentFindDetailResult result =
+                    consentDocumentQueryService
+                            .findConsentDocumentDetail(versionId);
+
+            // then
+            assertThat(result.consentDocumentId())
+                    .isEqualTo(documentId);
+            assertThat(result.consentDocumentVersionId())
+                    .isEqualTo(versionId);
+            assertThat(result.consentType())
+                    .isEqualTo("TERMS_OF_SERVICE");
+            assertThat(result.title())
+                    .isEqualTo("서비스 이용약관");
+            assertThat(result.version())
+                    .isEqualTo("v2");
+            assertThat(result.content())
+                    .isEqualTo("약관 본문입니다.");
+            assertThat(result.required())
+                    .isTrue();
+            assertThat(result.effectiveAt())
+                    .isEqualTo(effectiveAt);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 약관 버전이면 예외가 발생한다")
+        void findConsentDocumentDetail_notFound() {
+            // given
+            UUID versionId = UUID.randomUUID();
+
+            given(
+                    consentDocumentQueryRepository.findDetailByVersionId(
+                            versionId
+                    )
+            ).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() ->
+                    consentDocumentQueryService
+                            .findConsentDocumentDetail(versionId)
+            )
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(exception -> {
+                        BusinessException businessException =
+                                (BusinessException) exception;
+
+                        assertThat(businessException.getErrorCode())
+                                .isEqualTo(
+                                        ConsentDocumentErrorCode
+                                                .CONSENT_DOCUMENT_NOT_FOUND
+                                );
+                    });
         }
     }
 }
