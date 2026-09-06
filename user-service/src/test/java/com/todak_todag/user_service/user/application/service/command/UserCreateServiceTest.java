@@ -137,11 +137,16 @@ class UserCreateServiceTest {
 	@DisplayName("회원가입")
 	class CreateUserSignup {
 
+		private void givenAvailableRegion() {
+			given(regionQueryRepo.existsAvailableRegion(REGION_ID)).willReturn(true);
+		}
+
 		@Test
 		@DisplayName("유효한 회원가입 요청이면 User 를 저장하고 저장된 식별자와 이름을 반환한다")
 		void createUserSignupTest_success() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
+			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
 			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
@@ -160,6 +165,7 @@ class UserCreateServiceTest {
 		void createUserSignupTest_statusIsPending() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.SOCIAL_WORKER);
+			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
 			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
@@ -179,6 +185,7 @@ class UserCreateServiceTest {
 		void createUserSignupTest_passwordIsHashed() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.SERVICE_PROVIDER);
+			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
 			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
@@ -202,6 +209,7 @@ class UserCreateServiceTest {
 		void createUserSignupTest_fieldMapping() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
+			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
 			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
@@ -227,6 +235,7 @@ class UserCreateServiceTest {
 		void createUserSignupTest_fail_duplicateUsername() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
+			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(true);
 
 			// When & Then
@@ -244,6 +253,7 @@ class UserCreateServiceTest {
 		void createUserSignupTest_fail_invalidRole(UserRole deniedRole) {
 			// Given
 			UserSignupCommand command = signupCommand(deniedRole);
+			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
 			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 
@@ -261,6 +271,7 @@ class UserCreateServiceTest {
 		void createUserSignupTest_fail_duplicateUsernameSkipsHashing() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
+			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(true);
 
 			// When
@@ -272,10 +283,11 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("정상 흐름은 중복 검증 - 비밀번호 해시 - 저장 순서로 수행된다")
+		@DisplayName("정상 흐름은 지역 검증 - 중복 검증 - 비밀번호 해시 - 저장 순서로 수행된다")
 		void createUserSignupTest_executionOrder() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
+			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
 			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
@@ -284,7 +296,8 @@ class UserCreateServiceTest {
 			userCreateService.createUserSignup(command);
 
 			// Then
-			InOrder inOrder = inOrder(userQueryRepo, passwordEncoder, userCommandRepo);
+			InOrder inOrder = inOrder(regionQueryRepo, userQueryRepo, passwordEncoder, userCommandRepo);
+			inOrder.verify(regionQueryRepo).existsAvailableRegion(REGION_ID);
 			inOrder.verify(userQueryRepo).duplicateUsername(USERNAME);
 			inOrder.verify(passwordEncoder).encode(RAW_PASSWORD);
 			inOrder.verify(userCommandRepo).save(any(User.class));

@@ -3,6 +3,7 @@ package com.todak_todag.user_service.user.application.support;
 import org.springframework.stereotype.Component;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.UserPatientCreateCommand;
@@ -23,6 +24,10 @@ public class AddressValidator {
 			Region region = regionQueryRepo.findById(userUpdate.regionId())
 	        .orElseThrow(() -> new BusinessException(RegionErrorCode.REGION_NOT_FOUND));
 			
+			if(!region.isActive()) {
+				throw new BusinessException(CommonErrorCode.REGION_NOT_SUPPORTED);
+			}
+			
 			if(userUpdate.address() != null && !userUpdate.address().isBlank()) {
 				boolean containsProvince = userUpdate.address().contains(region.getProvince());
 				boolean containsDistrict = userUpdate.address().contains(region.getDistrict());
@@ -31,6 +36,12 @@ public class AddressValidator {
 					throw new BusinessException(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
 				}
 			}
+			
+			return;
+		}
+		
+		if(userUpdate.address() != null && !userUpdate.address().isBlank()) {
+			throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION);
 		}
 	}
 	
