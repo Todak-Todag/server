@@ -129,7 +129,7 @@ public class CarePlanController implements CarePlanApiSpec {
 
     @Override
     @PatchMapping("/{carePlanId}/status")
-    @PreAuthorize("hasAnyRole('PATIENT', 'SOCIAL_WORKER', 'ADMIN', 'MASTER')")
+    @PreAuthorize("hasAnyRole('PATIENT', 'SERVICE_PROVIDER', 'ADMIN', 'MASTER')")
     public ResponseEntity<ApiResponse<CarePlanStatusUpdateResponse>> updateCarePlanStatus(
             @AuthenticationPrincipal UserContext user,
             @PathVariable UUID carePlanId,
