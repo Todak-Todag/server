@@ -193,6 +193,10 @@ public class User extends BaseAuditableEntity {
 		return this.status == UserStatus.PENDING;
 	}
 	
+	public boolean isRegion() {
+		return this.regionId != null;
+	}
+	
 	public boolean isApprove() {
 		return this.status == UserStatus.APPROVED;
 	}
