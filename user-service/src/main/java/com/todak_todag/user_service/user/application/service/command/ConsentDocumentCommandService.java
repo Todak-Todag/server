@@ -5,8 +5,10 @@ import com.todak_todag.user_service.global.exception.ConsentDocumentErrorCode;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentCreateCommand;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentDeleteCommand;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentUpdateRequiredCommand;
+import com.todak_todag.user_service.user.application.command.ConsentDocumentVersionCreateCommand;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentCreateResult;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentUpdateRequiredResult;
+import com.todak_todag.user_service.user.application.result.ConsentDocumentVersionCreateResult;
 import com.todak_todag.user_service.user.domain.entity.ConsentDocument;
 import com.todak_todag.user_service.user.domain.entity.ConsentDocumentVersion;
 import com.todak_todag.user_service.user.domain.repository.command.ConsentDocumentCommandRepository;
@@ -139,6 +141,65 @@ public class ConsentDocumentCommandService {
 
         return ConsentDocumentCreateResult.of(
                 savedDocument,
+                savedVersion
+        );
+    }
+
+    /**
+     * 1. 문서 존재 확인
+     * 2. 버전 중복 확인
+     * 3. Version Entity 생성
+     * 4. 저장
+     */
+    @Transactional
+    public ConsentDocumentVersionCreateResult createVersion(
+            ConsentDocumentVersionCreateCommand command
+    ) {
+
+        // 사용 중인 약관 문서인지 확인
+        consentDocumentQueryRepository
+                .findById(command.consentDocumentId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ConsentDocumentErrorCode
+                                        .CONSENT_DOCUMENT_NOT_FOUND
+                        )
+                );
+
+        // 동일 약관 내 같은 버전은 등록할 수 없다.
+        if (consentDocumentQueryRepository.existsVersion(
+                command.consentDocumentId(),
+                command.version()
+        )) {
+            throw new BusinessException(
+                    ConsentDocumentErrorCode
+                            .CONSENT_DOCUMENT_VERSION_ALREADY_EXISTS
+            );
+        }
+
+        ConsentDocumentVersion consentDocumentVersion =
+                ConsentDocumentVersion.create(
+                        command.consentDocumentId(),
+                        command.version(),
+                        command.content(),
+                        command.effectiveAt()
+                );
+
+        // 영속 상태의 엔티티를 수정하는 것이 아니니
+        // save로 저장
+        ConsentDocumentVersion savedVersion =
+                consentDocumentVersionCommandRepository.save(
+                        consentDocumentVersion
+                );
+
+        log.info(
+                "[ConsentDocument] 약관 버전 등록 consentDocumentId={} consentDocumentVersionId={} version={}",
+                command.consentDocumentId(),
+                savedVersion.getId(),
+                savedVersion.getVersion()
+        );
+
+        return ConsentDocumentVersionCreateResult.from(
                 savedVersion
         );
     }

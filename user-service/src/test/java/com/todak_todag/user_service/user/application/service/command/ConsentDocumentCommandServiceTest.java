@@ -5,8 +5,10 @@ import com.todak_todag.user_service.global.exception.ConsentDocumentErrorCode;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentCreateCommand;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentDeleteCommand;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentUpdateRequiredCommand;
+import com.todak_todag.user_service.user.application.command.ConsentDocumentVersionCreateCommand;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentCreateResult;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentUpdateRequiredResult;
+import com.todak_todag.user_service.user.application.result.ConsentDocumentVersionCreateResult;
 import com.todak_todag.user_service.user.domain.entity.ConsentDocument;
 import com.todak_todag.user_service.user.domain.entity.ConsentDocumentVersion;
 import com.todak_todag.user_service.user.domain.repository.command.ConsentDocumentCommandRepository;
@@ -29,8 +31,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ConsentDocumentCommandServiceTest {
@@ -59,7 +63,7 @@ class ConsentDocumentCommandServiceTest {
             UUID consentDocumentId = UUID.randomUUID();
 
             ConsentDocument consentDocument =
-                    org.mockito.Mockito.mock(ConsentDocument.class);
+                    mock(ConsentDocument.class);
 
             ConsentDocumentUpdateRequiredCommand command =
                     new ConsentDocumentUpdateRequiredCommand(
@@ -144,7 +148,7 @@ class ConsentDocumentCommandServiceTest {
             UUID deletedBy = UUID.randomUUID();
 
             ConsentDocument consentDocument =
-                    org.mockito.Mockito.mock(
+                    mock(
                             ConsentDocument.class
                     );
 
@@ -224,7 +228,7 @@ class ConsentDocumentCommandServiceTest {
             UUID deletedBy = UUID.randomUUID();
 
             ConsentDocument consentDocument =
-                    org.mockito.Mockito.mock(
+                    mock(
                             ConsentDocument.class
                     );
 
@@ -292,12 +296,12 @@ class ConsentDocumentCommandServiceTest {
                     );
 
             ConsentDocument savedDocument =
-                    org.mockito.Mockito.mock(
+                    mock(
                             ConsentDocument.class
                     );
 
             ConsentDocumentVersion savedVersion =
-                    org.mockito.Mockito.mock(
+                    mock(
                             ConsentDocumentVersion.class
                     );
 
@@ -398,6 +402,175 @@ class ConsentDocumentCommandServiceTest {
 
             then(consentDocumentVersionCommandRepository)
                     .shouldHaveNoInteractions();
+        }
+    }
+
+    @Nested
+    @DisplayName("신규 약관 버전 등록")
+    class CreateConsentDocumentVersion {
+
+        @Test
+        @DisplayName("기존 약관 문서에 신규 버전을 등록한다")
+        void createVersion_success() {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+            UUID consentDocumentVersionId = UUID.randomUUID();
+
+            ConsentDocumentVersionCreateCommand command =
+                    new ConsentDocumentVersionCreateCommand(
+                            consentDocumentId,
+                            "1.1",
+                            "변경된 약관 내용",
+                            LocalDateTime.of(2026, 9, 10, 0, 0)
+                    );
+
+            ConsentDocument consentDocument =
+                    ConsentDocument.create(
+                            ConsentType.PERSONAL_INFORMATION,
+                            "개인정보 처리 동의",
+                            true
+                    );
+
+            ConsentDocumentVersion savedVersion =
+                    mock(ConsentDocumentVersion.class);
+
+            given(
+                    consentDocumentQueryRepository.findById(
+                            consentDocumentId
+                    )
+            ).willReturn(Optional.of(consentDocument));
+
+            given(
+                    consentDocumentQueryRepository.existsVersion(
+                            consentDocumentId,
+                            "1.1"
+                    )
+            ).willReturn(false);
+
+            given(
+                    consentDocumentVersionCommandRepository.save(
+                            any(ConsentDocumentVersion.class)
+                    )
+            ).willReturn(savedVersion);
+
+            given(savedVersion.getId())
+                    .willReturn(consentDocumentVersionId);
+
+            given(savedVersion.getVersion())
+                    .willReturn("1.1");
+
+            // when
+            ConsentDocumentVersionCreateResult result =
+                    consentDocumentCommandService.createVersion(command);
+
+            // then
+            assertThat(result.consentDocumentVersionId())
+                    .isEqualTo(consentDocumentVersionId);
+
+            verify(consentDocumentQueryRepository)
+                    .findById(consentDocumentId);
+
+            verify(consentDocumentQueryRepository)
+                    .existsVersion(
+                            consentDocumentId,
+                            "1.1"
+                    );
+
+            verify(consentDocumentVersionCommandRepository)
+                    .save(any(ConsentDocumentVersion.class));
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 약관 문서에는 버전을 등록할 수 없다")
+        void createVersion_documentNotFound() {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+
+            ConsentDocumentVersionCreateCommand command =
+                    new ConsentDocumentVersionCreateCommand(
+                            consentDocumentId,
+                            "1.1",
+                            "변경된 약관 내용",
+                            LocalDateTime.of(2026, 9, 10, 0, 0)
+                    );
+
+            given(
+                    consentDocumentQueryRepository.findById(
+                            consentDocumentId
+                    )
+            ).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(
+                    () -> consentDocumentCommandService
+                            .createVersion(command)
+            )
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage(
+                            ConsentDocumentErrorCode
+                                    .CONSENT_DOCUMENT_NOT_FOUND
+                                    .getMessage()
+                    );
+
+            verify(
+                    consentDocumentQueryRepository,
+                    never()
+            ).existsVersion(any(), anyString());
+
+            verifyNoInteractions(
+                    consentDocumentVersionCommandRepository
+            );
+        }
+
+        @Test
+        @DisplayName("동일 약관에 같은 버전이 존재하면 등록할 수 없다")
+        void createVersion_duplicateVersion() {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+
+            ConsentDocumentVersionCreateCommand command =
+                    new ConsentDocumentVersionCreateCommand(
+                            consentDocumentId,
+                            "1.1",
+                            "변경된 약관 내용",
+                            LocalDateTime.of(2026, 9, 10, 0, 0)
+                    );
+
+            ConsentDocument consentDocument =
+                    ConsentDocument.create(
+                            ConsentType.PERSONAL_INFORMATION,
+                            "개인정보 처리 동의",
+                            true
+                    );
+
+            given(
+                    consentDocumentQueryRepository.findById(
+                            consentDocumentId
+                    )
+            ).willReturn(Optional.of(consentDocument));
+
+            given(
+                    consentDocumentQueryRepository.existsVersion(
+                            consentDocumentId,
+                            "1.1"
+                    )
+            ).willReturn(true);
+
+            // when & then
+            assertThatThrownBy(
+                    () -> consentDocumentCommandService
+                            .createVersion(command)
+            )
+                    .isInstanceOf(BusinessException.class)
+                    .hasMessage(
+                            ConsentDocumentErrorCode
+                                    .CONSENT_DOCUMENT_VERSION_ALREADY_EXISTS
+                                    .getMessage()
+                    );
+
+            verifyNoInteractions(
+                    consentDocumentVersionCommandRepository
+            );
         }
     }
 }
