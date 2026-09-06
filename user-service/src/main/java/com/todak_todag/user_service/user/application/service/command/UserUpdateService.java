@@ -35,8 +35,8 @@ public class UserUpdateService {
 				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 		
 		// 2. 기존 비번과 새 비번 일치 검증
-		String currentPassword = user.getPasswordHash();
-		if(!passwordEncoder.matches(currentPassword, command.currentPassword())) {
+		String currentPasswordHash = user.getPasswordHash();
+		if(!passwordEncoder.matches(command.currentPassword(), currentPasswordHash)) {
 			throw new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
 		}
 		

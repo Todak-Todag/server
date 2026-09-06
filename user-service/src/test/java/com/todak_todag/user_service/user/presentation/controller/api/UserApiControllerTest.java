@@ -10,6 +10,7 @@ import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.aop.AopAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -28,6 +29,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -155,6 +157,114 @@ class UserApiControllerTest {
 					.andExpect(status().isNotFound())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.error.errorCode").value("USER_NOT_FOUND"));
+		}
+	}
+
+	@Nested
+	@DisplayName("비밀번호 변경")
+	class PasswordUpdate {
+
+		private static final String PASSWORD_URI = "/api/v1/users/me/password";
+
+		@Test
+		@DisplayName("정상 요청이면 200과 함께 사용자 식별자를 반환한다")
+		void passwordUpdateTest_success() throws Exception {
+			// given
+			given(userUpdateService.passwordUpdate(any())).willReturn(USER_ID);
+
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.success").value(true))
+					.andExpect(jsonPath("$.message").value("비밀번호가 변경되었습니다."))
+					.andExpect(jsonPath("$.data.userId").value(USER_ID.toString()));
+		}
+
+		@Test
+		@DisplayName("새 비밀번호가 정책(영문/숫자/특수문자 8자 이상)에 맞지 않으면 400을 반환하고 서비스를 호출하지 않는다")
+		void passwordUpdateTest_fail_invalidPattern() throws Exception {
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "short1!"
+									}
+									"""))
+					.andExpect(status().isBadRequest());
+
+			then(userUpdateService).should(never()).passwordUpdate(any());
+		}
+
+		@Test
+		@DisplayName("기존 비밀번호가 비어있으면 400을 반환하고 서비스를 호출하지 않는다")
+		void passwordUpdateTest_fail_blankCurrentPassword() throws Exception {
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isBadRequest());
+
+			then(userUpdateService).should(never()).passwordUpdate(any());
+		}
+
+		@Test
+		@DisplayName("인증 헤더 없이 요청하면 인증에 실패하고 서비스를 호출하지 않는다")
+		void passwordUpdateTest_fail_unauthenticated() throws Exception {
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().is4xxClientError());
+
+			then(userUpdateService).should(never()).passwordUpdate(any());
+		}
+
+		@Test
+		@DisplayName("기존 비밀번호가 일치하지 않으면 409 에러 응답을 반환한다")
+		void passwordUpdateTest_fail_mismatched() throws Exception {
+			// given
+			given(userUpdateService.passwordUpdate(any()))
+					.willThrow(new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED));
+
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "wrongPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isConflict())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.error.errorCode").value("USER_LOGIN_MISMATCHED"));
 		}
 	}
 }
