@@ -8,11 +8,13 @@ import com.todak_todag.schedule_service.schedule.application.command.ServiceSche
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCompletionStatus;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
+import com.todak_todag.schedule_service.schedule.application.event.CarePlanCompletionEventAppender;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEvent;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
-import com.todak_todag.schedule_service.schedule.application.support.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.application.support.ServiceScheduleValidator;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
@@ -56,6 +58,9 @@ class ServiceScheduleCommandServiceTest {
     @Spy
     private ServiceScheduleValidator serviceScheduleValidator = new ServiceScheduleValidator();
 
+    @Mock
+    private CarePlanCompletionEventAppender carePlanCompletionEventAppender;
+
     @InjectMocks
     private ServiceScheduleCommandService serviceScheduleCommandService;
 
@@ -85,7 +90,7 @@ class ServiceScheduleCommandServiceTest {
             assertThat(schedule.getStatus()).isEqualTo(ScheduleStatus.RESCHEDULING);
             assertThat(result.status()).isEqualTo(ScheduleStatus.RESCHEDULING);
             verify(providerReMatchEventPayloadSerializer).serialize(
-                    new ProviderReMatchEventPort.ProviderReMatchEvent(schedule.getId(), schedule.getServiceOfferingId(), requestedDate)
+                    new ProviderReMatchEvent(schedule.getId(), schedule.getServiceOfferingId(), requestedDate)
             );
             verify(scheduleOutboxCommandService).enqueue(ProviderReMatchEventPort.EVENT_TYPE, schedule.getId(), SERIALIZED_PAYLOAD);
         }

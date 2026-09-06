@@ -1,10 +1,15 @@
 package com.todak_todag.schedule_service.schedule.application.facade;
 
+import com.todak_todag.schedule_service.schedule.application.event.CarePlanCompletedEvent;
+import com.todak_todag.schedule_service.schedule.application.event.CarePlanCompletedEventPayloadSerializer;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEvent;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEventPayloadSerializer;
+import com.todak_todag.schedule_service.schedule.application.port.CarePlanCompletedEventPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import com.todak_todag.schedule_service.schedule.application.result.ScheduleOutboxEventResult;
+import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.application.service.command.ScheduleOutboxCommandService;
 import com.todak_todag.schedule_service.schedule.application.service.query.ScheduleOutboxQueryService;
-import com.todak_todag.schedule_service.schedule.application.support.ProviderReMatchEventPayloadSerializer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -40,6 +45,12 @@ class ScheduleOutboxRelayFacadeTest {
     @Mock
     private ProviderReMatchEventPort providerReMatchEventPort;
 
+    @Mock
+    private CarePlanCompletedEventPayloadSerializer carePlanCompletedEventPayloadSerializer;
+
+    @Mock
+    private CarePlanCompletedEventPort carePlanCompletedEventPort;
+
     @InjectMocks
     private ScheduleOutboxRelayFacade scheduleOutboxRelayFacade;
 
@@ -65,8 +76,8 @@ class ScheduleOutboxRelayFacadeTest {
         ScheduleOutboxEventResult pending = new ScheduleOutboxEventResult(
                 outboxEventId, ProviderReMatchEventPort.EVENT_TYPE, serviceScheduleId, "{}"
         );
-        ProviderReMatchEventPort.ProviderReMatchEvent event =
-                new ProviderReMatchEventPort.ProviderReMatchEvent(serviceScheduleId, UUID.randomUUID(), LocalDate.now().plusDays(1));
+        ProviderReMatchEvent event =
+                new ProviderReMatchEvent(serviceScheduleId, UUID.randomUUID(), LocalDate.now().plusDays(1));
 
         given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(pending));
         given(providerReMatchEventPayloadSerializer.deserialize("{}")).willReturn(event);
@@ -91,8 +102,8 @@ class ScheduleOutboxRelayFacadeTest {
         ScheduleOutboxEventResult succeeding = new ScheduleOutboxEventResult(
                 succeedingId, ProviderReMatchEventPort.EVENT_TYPE, UUID.randomUUID(), "{}"
         );
-        ProviderReMatchEventPort.ProviderReMatchEvent succeedingEvent =
-                new ProviderReMatchEventPort.ProviderReMatchEvent(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1));
+        ProviderReMatchEvent succeedingEvent =
+                new ProviderReMatchEvent(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1));
 
         given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(failing, succeeding));
         willThrow(new IllegalStateException("역직렬화 실패"))
@@ -118,8 +129,8 @@ class ScheduleOutboxRelayFacadeTest {
         ScheduleOutboxEventResult pending = new ScheduleOutboxEventResult(
                 outboxEventId, ProviderReMatchEventPort.EVENT_TYPE, UUID.randomUUID(), "{}"
         );
-        ProviderReMatchEventPort.ProviderReMatchEvent event =
-                new ProviderReMatchEventPort.ProviderReMatchEvent(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1));
+        ProviderReMatchEvent event =
+                new ProviderReMatchEvent(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1));
 
         given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(pending));
         given(providerReMatchEventPayloadSerializer.deserialize("{}")).willReturn(event);
@@ -148,6 +159,56 @@ class ScheduleOutboxRelayFacadeTest {
         // then
         verify(providerReMatchEventPayloadSerializer, never()).deserialize(anyString());
         verify(providerReMatchEventPort, never()).publish(any());
+        verify(carePlanCompletedEventPort, never()).publish(any());
         verify(scheduleOutboxCommandService).recordFailure(eq(outboxEventId), anyString());
+    }
+
+    @Test
+    void CarePlanCompleted_타입은_CarePlanCompletedEventPort로_발행하고_SENT로_표시한다() {
+        // given
+        UUID outboxEventId = UUID.randomUUID();
+        UUID carePlanId = UUID.randomUUID();
+        UUID serviceResultId = UUID.randomUUID();
+        String payload = "{\"serviceResultId\":\"" + serviceResultId + "\",\"status\":\"COMPLETED\"}";
+
+        ScheduleOutboxEventResult pending = new ScheduleOutboxEventResult(
+                outboxEventId, CarePlanCompletedEventPort.EVENT_TYPE, carePlanId, payload
+        );
+        CarePlanCompletedEvent event =
+                new CarePlanCompletedEvent(serviceResultId, ScheduleStatus.COMPLETED);
+
+        given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(pending));
+        given(carePlanCompletedEventPayloadSerializer.deserialize(payload)).willReturn(event);
+
+        // when
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        verify(carePlanCompletedEventPort).publish(event);
+        verify(providerReMatchEventPort, never()).publish(any());
+        verify(scheduleOutboxCommandService).markSent(outboxEventId);
+        verify(scheduleOutboxCommandService, never()).recordFailure(any(), anyString());
+    }
+
+    @Test
+    void CarePlanCompleted_발행이_실패하면_recordFailure로_기록한다() {
+        // given
+        UUID outboxEventId = UUID.randomUUID();
+        ScheduleOutboxEventResult pending = new ScheduleOutboxEventResult(
+                outboxEventId, CarePlanCompletedEventPort.EVENT_TYPE, UUID.randomUUID(), "{}"
+        );
+        CarePlanCompletedEvent event =
+                new CarePlanCompletedEvent(UUID.randomUUID(), ScheduleStatus.CANCELED);
+
+        given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(pending));
+        given(carePlanCompletedEventPayloadSerializer.deserialize("{}")).willReturn(event);
+        willThrow(new RuntimeException("broker unavailable")).given(carePlanCompletedEventPort).publish(event);
+
+        // when
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        verify(scheduleOutboxCommandService).recordFailure(eq(outboxEventId), anyString());
+        verify(scheduleOutboxCommandService, never()).markSent(outboxEventId);
     }
 }

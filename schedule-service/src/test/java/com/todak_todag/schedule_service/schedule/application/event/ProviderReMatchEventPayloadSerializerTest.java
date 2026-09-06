@@ -1,8 +1,7 @@
-package com.todak_todag.schedule_service.schedule.application.support;
+package com.todak_todag.schedule_service.schedule.application.event;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -19,13 +18,13 @@ class ProviderReMatchEventPayloadSerializerTest {
     @Test
     void 직렬화한_뒤_역직렬화하면_원래_이벤트와_동일하다() {
         // given
-        ProviderReMatchEventPort.ProviderReMatchEvent event = new ProviderReMatchEventPort.ProviderReMatchEvent(
+        ProviderReMatchEvent event = new ProviderReMatchEvent(
                 UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1)
         );
 
         // when
         String payload = serializer.serialize(event);
-        ProviderReMatchEventPort.ProviderReMatchEvent restored = serializer.deserialize(payload);
+        ProviderReMatchEvent restored = serializer.deserialize(payload);
 
         // then
         assertThat(restored).isEqualTo(event);
