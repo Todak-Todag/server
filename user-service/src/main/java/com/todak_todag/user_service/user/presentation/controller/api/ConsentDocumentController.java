@@ -1,6 +1,8 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.application.command.ConsentDocumentDeleteCommand;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentFindDetailResult;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentFindResult;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentUpdateRequiredResult;
@@ -93,5 +95,25 @@ public class ConsentDocumentController implements ConsentDocumentApiSpec {
                                 ConsentDocumentUpdateRequiredResponse.from(result)
                         )
                 );
+    }
+
+    // 약관 사용 종료 (논리 삭제)
+    @Override
+    @PreAuthorize("hasRole('MASTER')")
+    @DeleteMapping(
+            "/admin/consent-documents/{consentDocumentId}"
+    )
+    public ResponseEntity<Void> deleteConsentDocument(
+            @PathVariable UUID consentDocumentId,
+            @AuthenticationPrincipal UserContext user
+    ) {
+        consentDocumentCommandService.delete(
+                new ConsentDocumentDeleteCommand(
+                        consentDocumentId,
+                        user.getUserId()
+                )
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }
