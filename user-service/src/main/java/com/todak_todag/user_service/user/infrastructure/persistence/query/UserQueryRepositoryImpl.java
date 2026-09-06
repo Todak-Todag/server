@@ -23,27 +23,27 @@ public class UserQueryRepositoryImpl implements UserQueryRepository {
 
 	@Override
 	public Optional<User> findById(UUID userId) {
-		return jpaRepo.findById(userId);
+		return jpaRepo.findByIdAndDeletedAtIsNull(userId);
 	}
 
 	@Override
 	public Optional<User> findLoginByUsername(String username) {
-		return jpaRepo.findByUsernameAndStatusIn(username, List.of(UserStatus.APPROVED, UserStatus.WITHDRAWN, UserStatus.PENDING));
+		return jpaRepo.findByUsernameAndStatusInAndDeletedAtIsNull(username, List.of(UserStatus.APPROVED, UserStatus.WITHDRAWN, UserStatus.PENDING));
 	}
 
 	@Override
 	public Optional<User> findActiveById(UUID userId) {
-		return jpaRepo.findByIdAndStatus(userId, UserStatus.APPROVED);
+		return jpaRepo.findByIdAndStatusAndDeletedAtIsNull(userId, UserStatus.APPROVED);
 	}
 
 	@Override
 	public boolean duplicateUsername(String username) {
-		return jpaRepo.existsByUsername(username);
+		return jpaRepo.existsByUsernameAndDeletedAtIsNull(username);
 	}
-	
+
 	@Override
 	public Optional<User> findAdminById(UUID userId) {
-		return jpaRepo.findByIdAndRole(userId, UserRole.ADMIN);
+		return jpaRepo.findByIdAndRoleAndDeletedAtIsNull(userId, UserRole.ADMIN);
 	}
 
 	@Override
