@@ -77,7 +77,7 @@ class ScheduleOutboxRelayFacadeTest {
                 outboxEventId, ProviderReMatchEventPort.EVENT_TYPE, serviceScheduleId, "{}"
         );
         ProviderReMatchEvent event =
-                new ProviderReMatchEvent(serviceScheduleId, UUID.randomUUID(), LocalDate.now().plusDays(1));
+                providerReMatchEvent();
 
         given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(pending));
         given(providerReMatchEventPayloadSerializer.deserialize("{}")).willReturn(event);
@@ -103,7 +103,7 @@ class ScheduleOutboxRelayFacadeTest {
                 succeedingId, ProviderReMatchEventPort.EVENT_TYPE, UUID.randomUUID(), "{}"
         );
         ProviderReMatchEvent succeedingEvent =
-                new ProviderReMatchEvent(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1));
+                providerReMatchEvent();
 
         given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(failing, succeeding));
         willThrow(new IllegalStateException("역직렬화 실패"))
@@ -130,7 +130,7 @@ class ScheduleOutboxRelayFacadeTest {
                 outboxEventId, ProviderReMatchEventPort.EVENT_TYPE, UUID.randomUUID(), "{}"
         );
         ProviderReMatchEvent event =
-                new ProviderReMatchEvent(UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1));
+                providerReMatchEvent();
 
         given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(pending));
         given(providerReMatchEventPayloadSerializer.deserialize("{}")).willReturn(event);
@@ -210,5 +210,11 @@ class ScheduleOutboxRelayFacadeTest {
         // then
         verify(scheduleOutboxCommandService).recordFailure(eq(outboxEventId), anyString());
         verify(scheduleOutboxCommandService, never()).markSent(outboxEventId);
+    }
+
+    private ProviderReMatchEvent providerReMatchEvent() {
+        return ProviderReMatchEvent.forScheduleChange(
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), LocalDate.now().plusDays(1)
+        );
     }
 }
