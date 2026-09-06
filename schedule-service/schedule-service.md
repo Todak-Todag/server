@@ -29,7 +29,7 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 | service_offering_id | UUID |  | 논리 참조 → p_provide_service_offerings | O | 제공자별 서비스 ID |
 | date | LocalDate |  |  | X | 원하는 매칭 일시 |
 | preferred_time_slot | ENUM |  |  | O | `MORNING` / `AFTERNOON` |
-| status | ENUM |  |  | X | `MATCHED` / `FAILED` |
+| status | ENUM |  |  | X | `MATCHED` / `FAILED`  |
 | failure_reason | TEXT |  |  | O | 매칭 실패 사유 |
 | matched_at | TIMESTAMPZ |  |  | O | 매칭 성공 일시 |
 | failed_at | TIMESTAMPZ |  |  | O | 매칭 실패 일시 |
@@ -77,10 +77,7 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 | updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X | 수정 정보 |
 | deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O | 논리 삭제 정보 |
 
-> ⚠️ **확인 완료 (2026-09-01)**: 초기 API 문서에는 이 테이블에 `is_performed`(수행 여부) 필드가 언급되어 있었으나, 실제 테이블 스키마에는 해당 컬럼이 없어 팀 확인 결과 **`isPerformed` 필드는 전체 제거**하기로 확정했다. 등록 API의 Request/Response, 목록 조회 Response 어디에도 포함하지 않는다.
->
->
-> 참고: 이 테이블에는 `service_preference_id`/`service_offering_id`가 없어 08/09번 문서에서 소유권 검증을 위해 `p_service_schedules`와 조인이 필요할 것으로 추정했었다(8장 참고). `p_service_schedules`가 `care_plan_id`를 직접 갖게 됨을 이번에 확인했으나, 08/09번이 필요로 하는 것은 `service_offering_id`/`service_preference_id`이므로 이 조인 필요성 자체는 해소되지 않는다.
+> ⚠️  참고: 이 테이블에는 `service_preference_id`/`service_offering_id`가 없어 08/09번 문서에서 소유권 검증을 위해 `p_service_schedules`와 조인이 필요할 것으로 추정했었다(8장 참고). `p_service_schedules`가 `care_plan_id`를 직접 갖게 됨을 이번에 확인했으나, 08/09번이 필요로 하는 것은 `service_offering_id`/`service_preference_id`이므로 이 조인 필요성 자체는 해소되지 않는다.
 >
 
 ---
@@ -99,10 +96,20 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 >
 >
 >
-> ⚠️ **확인 필요 (미해소)**:
+> ```
+> [신규 생성]
+> CarePlanConfirmed → Provider-Service 매칭 → ProviderMatched 발행 → Schedule-Service 수신
+>   → p_service_matching_attempts, p_service_schedules에 새 레코드 생성 (SCHEDULED)
+> 
+> [기존 건 갱신] (03_서비스일정변경.md 또는 "재매칭 시도 API"를 통한 요청)
+> SCHEDULED → RESCHEDULING → ProviderRematched 발행 (Schedule-Service → Provider-Service)
+>   → Provider-Service가 매칭 가능 Provider 조회
+>   → 성공 시 → ProviderMatched 발행 → Schedule-Service 수신 → CHANGED
+>   → 실패 시 → ProviderMatchFailed 발행 → Schedule-Service 수신 → CANCELED
+> ```
 >
-> 1. `ProviderReMatched`는 현재 "Schedule-Service가 발행만 함"으로 기록되어 있는데(11번 문서), 재매칭 결과를 Schedule-Service가 다시 알아야 `CHANGED`/`SCHEDULED` 전환이 가능하다. 이 결과를 어떤 이벤트로 수신하는지 불명확하다 (임의로 만들어내지 않음, 11번 문서 참고).
-> 2. **문서 간 상충**: `03_서비스일정변경.md`(2026-09-02 갱신, 최신 확정본)는 "재매칭 실패 시 `SCHEDULED`로 복구"라고 명시하는데, `13_이벤트수신_ProviderMatchFailed.md`(기존)는 "매칭 실패 시 `CANCELED`로 변경"이라고 되어 있다. 두 문서 모두 임의로 통일하지 않았으니 팀 확인 필요.
+> ⚠️ **확인 필요 (신규)**: `ProviderMatchFailed` 이벤트 처리 결과에 "일정 상태를 `CANCELED`로 변경하고 **note**에 매칭 실패 사유를 기록한다"고 되어 있으나, `p_service_schedules`에는 `note` 컬럼이 없고 `cancel_reason`만 존재한다(2장 도메인 모델 참고). `cancel_reason`을 쓰는 것으로 추정되나 문서 표현이 아직 부정확해 확인 필요.
+>
 
 ---
 
@@ -158,34 +165,57 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 ```
 Care-Plan-Service (CarePlanConfirmed 발행)
         ↓
-Provider-Service (매칭 가능 Provider 조회 시, 내부 API로 Schedule-Service 호출)
+Provider-Service (매칭 가능 Provider 조회 시, 내부 API로 Schedule-Service 호출, 5.4절)
         ↓
-Provider-Service (ProviderMatched 발행) ──▶ Schedule-Service 수신 ──▶ 일정 생성 (SCHEDULED)
+Provider-Service (ProviderMatched 발행) ──▶ Schedule-Service 수신
+   ──▶ p_service_matching_attempts, p_service_schedules에 새 레코드 생성 (SCHEDULED)
         ↓ (매칭 실패 시)
-Provider-Service (ProviderMatchFailed 발행) ──▶ Schedule-Service 수신 ──▶ 일정 상태 변경
+Provider-Service (ProviderMatchFailed 발행) ──▶ Schedule-Service 수신
+   ──▶ p_service_schedules 상태를 CANCELED로 변경 (cancel_reason에 실패 사유 기록 추정)
 
-Schedule-Service (일정 연기, 퇴원예정자 요청)
-   → Care-Plan-Service Internal API 호출 (carePlanId/finishDate 조회, 5.5절)
-   → ProviderReMatched 발행 ──▶ Provider-Service 재매칭
+Schedule-Service (일정 연기, 03번 API 또는 "재매칭 시도 API"를 통한 요청)
+   → (03번인 경우) Care-Plan-Service Internal API 호출 (carePlanId/finishDate/patientId 조회, 5.5절)
+   → ProviderRematched 발행 ──▶ Provider-Service 재매칭
+   → 재매칭 결과는 초기 매칭과 동일하게 ProviderMatched(성공→CHANGED)/
+     ProviderMatchFailed(실패→CANCELED)로 수신
 
-Schedule-Service (모든 서비스 수행 완료) ──▶ CarePlanCompleted 발행 ──▶ Care-Plan-Service 수신 (p_care_plans.status → COMPLETED)
+Schedule-Service (모든 서비스 수행 완료) ──▶ CarePlanCompleted 발행
+   ──▶ Care-Plan-Service 수신 → 10번 Internal API로 serviceResultId 존재 검증 → p_care_plans.status를 COMPLETED로 변경
 ```
+
+> ⚠️ **확인 필요 (신규, 중요)**: 위 흐름에서 언급된 **"재매칭 시도 API"** — Care Plan 확정 후 첫 매칭이 실패했을 때 사용자가 희망 일정/시간대를 다시 선택해 재매칭을 시작하는 API — 는 지금까지 확인된 01~10번 API 어디에도 해당하지 않는 **완전히 새로운, 아직 문서화되지 않은 API**다. `ProviderRematched` 발행 시나리오 2가지 중 하나가 이 API에 의존하므로, 이 API의 실제 명세(Method/URL/Request/Response)를 별도로 확인해야 한다.
+>
 
 ### 5.2 발행(Publish) 이벤트
 
-| 이벤트명 | 발행 시점 | 상세 문서 |
-| --- | --- | --- |
-| `CarePlanCompleted` | 서비스 수행 결과 등록으로 케어플랜의 서비스가 모두 완료되었을 때 | `api/10_이벤트발행_CarePlanCompleted.md` |
-| `ProviderReMatched` | 서비스 일정이 연기(변경)되었을 때 (**기존 건 갱신 전담**, `RESCHEDULING`→`CHANGED`) | `api/11_이벤트발행_ProviderReMatched.md` |
+| 이벤트명 | 발행 시점 | Exchange / Routing Key / Queue | 상세 문서 |
+| --- | --- | --- | --- |
+| `CarePlanCompleted` | 서비스 수행 결과 등록으로 케어플랜의 마지막 일정까지 수행 결과가 기록되었을 때 (재매칭 실패로 취소된 경우 마지막으로 수행된 결과 기준) | `schedule.exchange` / `schedule.completed.key` / `care-plan.schedule-completed.queue` | CarePlanCompleted |
+| `ProviderRematched` | ① Care Plan 확정 후 첫 매칭 실패 시 사용자의 재매칭 시도(위 확인 필요 API), ② 확정된 일정을 변경(03번 API)할 때 | `schedule.exchange` / `schedule.rematched.key` / `provider.schedule-rematched.queue` | ProviderRematched |
+
+>
+>
+>
+> **발행 시점**: 아웃박스 패턴 사용. `CarePlanCompleted`는 수행 결과 등록 트랜잭션 커밋 시점, `ProviderRematched`는 일정 변경/재매칭 시도 API 로직 내에서 발행.
+>
+> **`ProviderRematched` 페이로드**: `carePlanId`, `regionId`, `provideServiceId`, `servicePreferenceId`, `date`, `preferredTimeSlot`(Nullable — 03번의 "일정 변경"으로 발행될 때는 시간대를 재선택하지 않으므로 `null`로 전송, 재매칭 시도 API로 발행될 때만 값이 있음).
+>
 
 ### 5.3 수신(Consume) 이벤트
 
-| 이벤트명 | 처리 내용 | 상세 문서 |
-| --- | --- | --- |
-| `ProviderMatched` | Provider-Service의 매칭 결과를 수신하여 `p_service_schedules`에 **새 일정 생성 전담** (신규 생성만, 확정) | `api/12_이벤트수신_ProviderMatched.md` |
-| `ProviderMatchFailed` | Provider-Service의 매칭 실패를 수신하여 일정 상태를 변경 | `api/13_이벤트수신_ProviderMatchFailed.md` |
+| 이벤트명 | 처리 내용 | Exchange / Routing Key / Queue | 상세 문서 |
+| --- | --- | --- | --- |
+| `ProviderMatched` | 매칭 성공 수신 → `p_service_matching_attempts` + `p_service_schedules`에 새 레코드 생성 (`status: SCHEDULED`). 초기 매칭/재매칭 공통 | `provider.exchange` / `provider.matched.key` / `schedule.provider-matched.queue` | ProviderMatched |
+| `ProviderMatchFailed` | 매칭 실패 수신 → `p_service_schedules` 상태를 `CANCELED`로 변경 | `provider.exchange` / `provider.match-failed.key` / `schedule.provider-match-failed.queue` | ProviderMatchFailed |
 
-> ⚠️ **이벤트 전체 미확정 (2026-09-01 팀 확인)**: 4개 이벤트의 실제 페이로드 필드, Exchange/Queue/Routing Key 이름, 재시도·DLQ 정책, 멱등성 처리 방식은 **모두 미확정 상태**다. 특히 `ProviderMatched` 수신 이벤트는 `p_service_schedules`의 NOT NULL 컬럼(`date`, `started_at`, `finished_at`)에 대응하는 필드가 페이로드에 없어, 실제 개발 착수 전 Provider-Service 팀과 페이로드를 재정의해야 한다. 각 이벤트 문서에 TBD로 표시했다.
+>
+>
+>
+> ⚠️ **확인 필요 (신규)**: `ProviderMatched` 페이로드(`carePlanId`, `regionId`, `provideServiceId`, `servicePreferenceId`, `serviceOfferingId`, `date`, `startedAt`, `matchedAt`)에 `p_service_schedules`의 NOT NULL 컬럼인 **`finishedAt`이 여전히 빠져 있다**. `date`/`startedAt`은 추가되어 해소됐으나 `finishedAt` 하나가 남음 — Provider-Service 팀과 확인 필요.
+>
+> ⚠️ **확인 필요 (신규)**: `ProviderMatchFailed` 처리 결과에 "note에 매칭 실패 사유를 기록"한다고 되어 있으나 `p_service_schedules`에는 `note` 컬럼이 없고 `cancel_reason`만 있다. `cancel_reason`을 쓰는 것으로 추정되나 문서 표현이 정확하지 않아 확인 필요 (기존에도 있던 항목, 이번 재확인으로 재확인됨).
+>
+> ⚠️ **참고 (사소)**: `ProviderMatchFailed` 문서의 Example JSON에 `providerServiceId`(오타, r 추가)로 잘못 표기되어 있음 — 페이로드 표 자체는 `provideServiceId`로 올바르게 되어 있어 Example만의 오타로 보임.
 >
 
 ### 5.4 내부(Internal) API — Provider-Service → Schedule-Service (수신 방향)
@@ -193,7 +223,7 @@ Schedule-Service (모든 서비스 수행 완료) ──▶ CarePlanCompleted �
 Schedule-Service는 Provider-Service가 매칭 가능 Provider를 판단할 때 호출하는 동기 내부 API를 제공한다.
 
 - **엔드포인트**: `GET /internal/v1/service-schedules`
-- **인증**: `X-Internal-Api-Key` 헤더 (서비스별 환경변수로 보유한 Key와 대조하여 검증). 검증은 **Interceptor**에서 수행하며 Controller는 이 헤더를 직접 처리하지 않는다.
+- **인증**: `X-Internal-Api-Key` 헤더 (서비스별 환경변수로 보유한 Key와 대조하여 검증).
 - **설계 근거**: 서비스 간 관계가 모두 "논리 FK"로만 연결되어 있어 DB가 분리되어 있다. Provider-Service의 `p_provide_works`는 "제공 가능한 요일/시간대"만 알고 있고, 실제 예약 현황은 Schedule-Service의 `p_service_schedules`에만 있어 SQL JOIN이 불가능하므로 동기 내부 호출로 대체한다.
 - **응답 설계 원칙**: 이 API는 "가능/불가능" boolean을 직접 판단하지 않고 해당 기간의 기존 일정 목록을 그대로 반환한다. 시간대 겹침 판단은 Provider-Service가 직접 수행한다(책임 분리).
 - **조회 대상 상태** : `SCHEDULED`, `RESCHEDULING` 상태 일정만 반환 (기존엔 `SCHEDULED`만이었으나 확장됨). `COMPLETED`/`NO_SHOW`/`CANCELED`는 향후 일정과 충돌하지 않아 제외.
@@ -292,10 +322,10 @@ Care-Plan-Service가 `CarePlanCompleted` 이벤트(5.2절)를 수신한 뒤, 이
 | 08 | 서비스 수행 결과 목록 조회 | GET | `/api/v1/service-results` | 08 |
 | 09 | 서비스 수행 결과 상세 조회 | GET | `/api/v1/service-results/{serviceResultId}` | 09 |
 | 10 | \[내부 API\] 서비스 수행 결과 조회 | GET | `/internal/v1/service-results/{serviceResultId}` | 10 |
-| 11 | \[이벤트 발행\] CarePlanCompleted | - | RabbitMQ Publish | 11 |
-| 12 | \[이벤트 발행\] ProviderReMatched | - | RabbitMQ Publish | 12 |
-| 13 | \[이벤트 수신\] ProviderMatched | - | RabbitMQ Consume | 13 |
-| 14 | \[이벤트 수신\] ProviderMatchFailed | - | RabbitMQ Consume | 14 |
+| 11 | \[이벤트 발행\] CarePlanCompleted | - | RabbitMQ Publish | `11_이벤트발행_CarePlanCompleted.md` |
+| 12 | \[이벤트 발행\] ProviderRematched | - | RabbitMQ Publish | `12_이벤트발행_ProviderRematched.md` |
+| 13 | \[이벤트 수신\] ProviderMatched | - | RabbitMQ Consume | `13_이벤트수신_ProviderMatched.md` |
+| 14 | \[이벤트 수신\] ProviderMatchFailed | - | RabbitMQ Consume | `14_이벤트수신_ProviderMatchFailed.md` |
 
 > ⚠️ 참고: API 목록에는 Schedule-Service가 **호출하는** Care-Plan-Service Internal API(5.5절, `carePlanId`/`finishDate`/`patientId` 단건 조회), Provider-Service Internal API(5.6절, `providerId` 단건 조회), 그리고 목록 조회용 ID 목록 반환 API(5.7절)가 아직 별도 번호로 등록되어 있지 않다. 세 API 모두 상대 서비스 쪽 명세이므로 이 목록에는 포함하지 않되, 각각 03/04번, 05번, 01번 문서와 5.5/5.6/5.7절에서 연동 대상으로 참조만 한다.
 >
