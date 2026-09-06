@@ -2,7 +2,6 @@ package com.todak_todag.user_service.user.presentation.response;
 
 import java.util.UUID;
 
-import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.user.application.result.UserSearchResult;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 
@@ -14,7 +13,7 @@ public record UserSearchResponse(
 		String district,
 		UUID regionId,
 		UserStatus status,
-		UserRole role,
+		String role,
 		boolean isDeleted
 ) {
 
@@ -27,7 +26,7 @@ public record UserSearchResponse(
 				result.district(),
 				result.regionId(),
 				result.status(),
-				result.role(),
+				result.role().getKoreaName(),
 				result.isDeleted()
 		);
 	}

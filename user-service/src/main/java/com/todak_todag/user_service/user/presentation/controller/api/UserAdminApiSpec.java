@@ -86,8 +86,10 @@ public interface UserAdminApiSpec {
 			summary = "운영용 사용자 검색",
 			description = """
 					관리자와 운영자는 조건(권한, 상태)에 맞는 사용자를 검색할 수 있습니다.
-					
-					role, status는 내부 권한 체계를 노출하지 않기 위해 숫자 코드를 전달합니다.		
+
+					role, status는 내부 권한 체계를 노출하지 않기 위해 숫자 코드를 전달합니다.
+
+					운영자(ADMIN)는 자신의 담당 지역내 사용자만 검색됩니다.
 			"""
 	)
 	ResponseEntity<ApiResponse<PageResponse<UserSearchResponse>>> search(

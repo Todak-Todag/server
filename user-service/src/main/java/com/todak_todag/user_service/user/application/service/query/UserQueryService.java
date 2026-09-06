@@ -9,10 +9,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.common.PageableFactory;
+import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.port.UserSearchPort;
 import com.todak_todag.user_service.user.application.query.UserSearchQuery;
 import com.todak_todag.user_service.user.application.result.UserInternalReadResult;
@@ -104,9 +106,31 @@ public class UserQueryService {
     	return userQueryRepo.findMatchableSocialWorkerIds(patient.getRegionId());
     }
     
-    public Page<UserSearchResult> search(UserSearchQuery query) {
-    	Pageable pageable = PageableFactory.of(query.page(), query.size(), null);
-    	
-    	return userSearchPort.search(query, pageable);
+    public Page<UserSearchResult> search(UserSearchQuery query, UserContext requester) {
+    	UUID regionScope = resolveRegionScope(requester);
+
+    	UserSearchQuery scopedQuery = new UserSearchQuery(
+    			query.page(),
+    			query.size(),
+    			query.roles(),
+    			query.status(),
+    			regionScope
+    	);
+
+    	Pageable pageable = PageableFactory.of(scopedQuery.page(), scopedQuery.size(), null);
+
+    	return userSearchPort.search(scopedQuery, pageable);
+    }
+
+    // ADMIN은 자신의 담당 지역내 사용자만 검색 가능 - MASTER는 제한 없음
+    private UUID resolveRegionScope(UserContext requester) {
+    	if(requester.getRole() != UserRole.ADMIN) {
+    		return null;
+    	}
+
+    	User admin = userQueryRepo.findAdminById(requester.getUserId())
+    			.orElseThrow(() -> new BusinessException(CommonErrorCode.FORBIDDEN));
+
+    	return admin.getRegionId();
     }
 }

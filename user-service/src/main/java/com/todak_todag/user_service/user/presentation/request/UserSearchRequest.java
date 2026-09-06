@@ -18,7 +18,8 @@ public record UserSearchRequest(
 				page,
 				size,
 				resolveRoles(role),
-				resolveStatus(status)
+				resolveStatus(status),
+				null // regionId는 요청자 권한에 따라 서비스 계층에서 채워짐
 		);
 	}
 

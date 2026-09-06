@@ -69,7 +69,11 @@ public class UserQueryDslRepositoryImpl implements UserQueryDslRepository {
 		if(query.status() != null) {
 			builder.and(user.status.eq(query.status()));
 		}
-		
+
+		if(query.regionId() != null) {
+			builder.and(user.regionId.eq(query.regionId()));
+		}
+
 		return builder;
 	}
 	

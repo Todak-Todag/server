@@ -120,7 +120,7 @@ public class UserAdminApiController implements UserAdminApiSpec {
 			@Valid @ModelAttribute UserSearchRequest userSearchRequest,
 			@AuthenticationPrincipal UserContext user
 	) {
-		Page<UserSearchResult> result = userQueryService.search(userSearchRequest.toQuery());
+		Page<UserSearchResult> result = userQueryService.search(userSearchRequest.toQuery(), user);
 		
 		return ResponseEntity
 				.status(200)
