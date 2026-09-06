@@ -11,17 +11,44 @@ API 상세 스펙은 `api/` 하위 개별 문서를 참고한다.
 
 Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일정(예약)을 관리**하는 도메인 서비스다. Care-Plan-Service에서 Care Plan이 확정되면 Provider-Service의 매칭 결과를 이벤트로 수신하여 일정을 생성하고, 퇴원 예정자의 일정 변경/취소, 서비스 제공자의 수행 완료 처리, 수행 결과 등록·조회를 담당한다.
 
-담당 테이블: `p_service_schedules`(서비스 일정), `p_care_plan_service_results`(서비스 수행 결과)
+담당 테이블: `p_service_schedules`(서비스 일정), `p_care_plan_service_results`(서비스 수행 결과), `p_service_matching_attempts`(서비스 매칭 결과)
 
 ---
 
 ## 2. 도메인 모델
+
+### `p_service_matching_attempts` — 서비스 매칭 결과
+
+| 컬럼명 | 타입 | PK | FK/참조 | Nullable | 설명 |
+| --- | --- | --- | --- | --- | --- |
+| matching_attempt_id | UUID | O |  | X | 매칭 시도 ID |
+| care_plan_id | UUID |  | 논리 참조 → Care Plan | X | 케어플랜 ID |
+| region_id | UUID |  | 논리 참조 → p_regions | X | 지역 ID |
+| provide_service_id | UUID |  | 논리 참조 → p_provide_services | X | 제공 서비스 ID |
+| service_preference_id | UUID |  | 논리 참조 → p_care_plan_service_preferences | X | 서비스 희망 ID |
+| service_offering_id | UUID |  | 논리 참조 → p_provide_service_offerings | O | 제공자별 서비스 ID |
+| date | LocalDate |  |  | X | 원하는 매칭 일시 |
+| preferred_time_slot | ENUM |  |  | O | `MORNING` / `AFTERNOON` |
+| status | ENUM |  |  | X | `MATCHED` / `FAILED` |
+| failure_reason | TEXT |  |  | O | 매칭 실패 사유 |
+| matched_at | TIMESTAMPZ |  |  | O | 매칭 성공 일시 |
+| failed_at | TIMESTAMPZ |  |  | O | 매칭 실패 일시 |
+| created_at / created_by | TIMESTAMPZ / UUID |  |  | X | 생성 정보 |
+| updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X | 수정 정보 |
+| deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O | 논리 삭제 정보 |
+
+> 참고 (2026-09-05, 2026-09-06 갱신): `region_id`/`provide_service_id`(둘 다 Not Null)는 매칭을 시도할 때 검색 조건(지역, 서비스 종류)으로 쓰인 값을 그대로 기록해두는 컬럼으로 보이고, `service_offering_id`(Nullable로 재확인됨)는 그 조건으로 검색해서 **실제로 매칭된 구체적인 제공자·서비스 관계**를 담는 컬럼으로 보인다 — 매칭 실패(`FAILED`) 시에는 구체적으로 매칭된 대상이 없으므로 `service_offering_id`가 비어있고, 검색 조건(`region_id`/`provide_service_id`)만 남는 구조로 추정된다. 이번 Nullable 재배치(`provide_service_id`는 필수로, `service_offering_id`는 선택으로)가 이 추정과 일치해 신뢰도가 높아졌으나, 여전히 실제 매칭 로직 문서는 없어 추정임을 밝혀둔다.
+>
+
+> ⚠️ **확인 필요 (신규, 중요)**: 이 테이블은 `status`가 `MATCHED`/`FAILED`뿐이라 초기 매칭(`ProviderMatched`/`ProviderMatchFailed`)의 결과만 기록하는 용도인지, 아니면 일정 변경 시의 **재매칭**(`ProviderReMatched`) 시도 결과도 이 테이블에 함께 기록하는지 문서에 명시되어 있지 않다. 만약 재매칭 결과도 이 테이블에 기록된다면, 그동안 8장에서 미해소로 남아있던 **"`ProviderReMatched`의 수신(확인) 측이 없다"는 문제가 이 테이블을 통해 해소될 가능성**이 있다 — 즉 Schedule-Service가 별도 이벤트 수신 없이 이 테이블을 폴링하거나, 이 테이블에 대한 쓰기 자체가 Provider-Service의 콜백 역할을 하는 구조일 수 있다. 다만 이는 추정이며, 실제 매칭/재매칭 흐름에서 이 테이블에 누가(Schedule-Service 자신인지 Provider-Service인지) 언제 쓰는지가 확인되지 않아 임의로 결론짓지 않는다.
+>
 
 ### `p_service_schedules` — 서비스 일정
 
 | 컬럼명 | 타입 | PK | FK/참조 | Nullable | 제약조건/기본값 | 설명 |
 | --- | --- | --- | --- | --- | --- | --- |
 | service_schedule_id | UUID | O |  | X |  | 서비스 일정 ID |
+| care_plan_id | UUID |  | 논리 FK → p_care_plans.care_plan_id | X |  | 케어플랜 ID |
 | service_preference_id | UUID |  | 논리 FK → p_care_plan_service_preferences.service_preference_id | X |  | 서비스 희망 ID |
 | service_offering_id | UUID |  | 논리 FK → p_provide_service_offerings.service_offering_id | X |  | 제공 서비스 ID |
 | status | ENUM |  |  | X | SCHEDULED / RESCHEDULING / CHANGED / COMPLETED / CANCELED / NO_SHOW, 기본값 SCHEDULED | 일정 상태 |
@@ -33,6 +60,9 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 | created_at / created_by | TIMESTAMPZ / UUID |  |  | X |  | 생성 정보 |
 | updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X |  | 수정 정보 |
 | deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O |  | 논리 삭제 정보 |
+
+> ⚠️ **확인 필요 (신규, 중요)**: `p_service_schedules`에 `care_plan_id`가 이미 로컬 컬럼으로 존재하는데, 03/04번 문서(`schedule-service.md` 5.5절)에서는 "`servicePreferenceId`를 기준으로 care-plan-service Internal API를 호출하여 **`carePlanId`**, `finishDate`, `patientId`를 조회한다"고 되어 있다. `carePlanId`가 이미 로컬에 있다면 Internal API로 다시 조회할 필요가 없어 보이는데(비효율), 왜 API 응답에 `carePlanId`가 포함되어 있는지, 혹시 Internal API 호출 기준을 `servicePreferenceId`가 아니라 **로컬에 이미 있는 `care_plan_id`로 직접 호출하는 것이 맞는지** 확인이 필요하다 — 03/04번 문서와 이 Table 명세서 사이의 잠재적 설계 불일치이므로 임의로 어느 한쪽에 맞춰 고치지 않았다.
+>
 
 ### `p_care_plan_service_results` — 서비스 수행 결과
 
@@ -46,6 +76,12 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 | created_at / created_by | TIMESTAMPZ / UUID |  |  | X | 생성 정보 |
 | updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X | 수정 정보 |
 | deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O | 논리 삭제 정보 |
+
+> ⚠️ **확인 완료 (2026-09-01)**: 초기 API 문서에는 이 테이블에 `is_performed`(수행 여부) 필드가 언급되어 있었으나, 실제 테이블 스키마에는 해당 컬럼이 없어 팀 확인 결과 **`isPerformed` 필드는 전체 제거**하기로 확정했다. 등록 API의 Request/Response, 목록 조회 Response 어디에도 포함하지 않는다.
+>
+>
+> 참고: 이 테이블에는 `service_preference_id`/`service_offering_id`가 없어 08/09번 문서에서 소유권 검증을 위해 `p_service_schedules`와 조인이 필요할 것으로 추정했었다(8장 참고). `p_service_schedules`가 `care_plan_id`를 직접 갖게 됨을 이번에 확인했으나, 08/09번이 필요로 하는 것은 `service_offering_id`/`service_preference_id`이므로 이 조인 필요성 자체는 해소되지 않는다.
+>
 
 ---
 

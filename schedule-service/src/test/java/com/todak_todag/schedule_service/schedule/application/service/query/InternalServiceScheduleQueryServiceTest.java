@@ -111,7 +111,7 @@ class InternalServiceScheduleQueryServiceTest {
         LocalDateTime startedAt = date.atTime(9, 0);
         LocalDateTime finishedAt = date.atTime(10, 0);
 
-        ServiceSchedule schedule = ServiceSchedule.confirm(UUID.randomUUID(), serviceOfferingId, date, startedAt, finishedAt);
+        ServiceSchedule schedule = ServiceSchedule.confirm(UUID.randomUUID(), UUID.randomUUID(), serviceOfferingId, date, startedAt, finishedAt);
         UUID scheduleId = UUID.randomUUID();
         setId(schedule, scheduleId);
 
