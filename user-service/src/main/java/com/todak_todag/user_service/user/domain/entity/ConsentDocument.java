@@ -1,12 +1,7 @@
 package com.todak_todag.user_service.user.domain.entity;
 
 import com.todak_todag.user_service.global.common.BaseAuditableEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,8 +20,9 @@ public class ConsentDocument extends BaseAuditableEntity {
     private UUID id;
 
     // 개인정보, 민감정보 등 약관의 종류
+    @Enumerated(EnumType.STRING)
     @Column(name = "consent_type", nullable = false, length = 30)
-    private String consentType;
+    private ConsentType consentType;
 
     @Column(name = "title", nullable = false, length = 255)
     private String title;
@@ -38,5 +34,11 @@ public class ConsentDocument extends BaseAuditableEntity {
     // 약관 필수/선택 여부 변경
     public void updateRequired(boolean required) {
         this.required = required;
+    }
+
+    public enum ConsentType {
+        PERSONAL_INFORMATION,
+        SENSITIVE_INFORMATION,
+        MARKETING_INFORMATION
     }
 }
