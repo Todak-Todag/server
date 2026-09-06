@@ -6,14 +6,17 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.global.response.PageResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
@@ -25,6 +28,7 @@ import com.todak_todag.user_service.user.presentation.request.UserApprovalReques
 import com.todak_todag.user_service.user.presentation.request.UserSuspendRequest;
 import com.todak_todag.user_service.user.presentation.response.UserAdminCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserApprovalResponse;
+import com.todak_todag.user_service.user.presentation.response.UserSearchResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSuspendedResponse;
 
 import jakarta.validation.Valid;
@@ -43,7 +47,7 @@ public class UserAdminApiController implements UserAdminApiSpec {
 	private final UserQueryService userQueryService;
 
 	@Override
-	@PostMapping("/admin/users")
+	@PostMapping
 	@PreAuthorize("hasRole('MASTER')")
 	public ResponseEntity<ApiResponse<UserAdminCreatedResponse>> createAdmin(
 			@Valid @RequestBody UserAdminCreateRequest userAdminCreateRequest
@@ -63,7 +67,7 @@ public class UserAdminApiController implements UserAdminApiSpec {
 	}
 
 	@Override
-	@PatchMapping("/admin/users/status")
+	@PatchMapping("/status")
 	@PreAuthorize("hasAnyRole('MASTER', 'ADMIN')")
 	public ResponseEntity<ApiResponse<UserApprovalResponse>> approval(
 			@Valid @RequestBody UserApprovalRequest userApprovalRequest,
@@ -90,7 +94,7 @@ public class UserAdminApiController implements UserAdminApiSpec {
 	}
 
 	@Override
-	@PatchMapping("/admin/users/{userId}/suspend")
+	@PatchMapping("/{userId}/suspend")
 	@PreAuthorize("hasAnyRole('MASTER', 'ADMIN')")
 	public ResponseEntity<ApiResponse<UserSuspendedResponse>> suspend(
 			@PathVariable("userId") UUID userId,
@@ -106,6 +110,18 @@ public class UserAdminApiController implements UserAdminApiSpec {
 				.body(ApiResponse.ok("해당 사용자가 일시 정지 되었습니다.", response));
 	}
 	
-	
+	@GetMapping("/search")
+	@PreAuthorize("hasAnyRole('MASTER', 'ADMIN')")
+	public ResponseEntity<ApiResponse<PageResponse<UserSearchResponse>>> search(
+			@RequestParam(value = "page", required = false) Integer page,
+			@RequestParam(value = "size", required = false) Integer size,
+			@RequestParam(value = "role", required = false) Integer role,
+			@RequestParam(value = "state", required = false) Integer state,
+			@AuthenticationPrincipal UserContext user
+	) {
+		
+		
+		return null;
+	}
 	
 }
