@@ -2,8 +2,10 @@ package com.todak_todag.schedule_service.schedule.application.service.command;
 
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderMatchFailedEvent;
 import com.todak_todag.schedule_service.schedule.application.event.ProviderMatchedEvent;
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
+import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
@@ -186,6 +188,116 @@ class ServiceMatchingCommandServiceTest {
                 .isEqualTo(ScheduleErrorCode.SERVICE_SCHEDULE_MULTIPLE_RESCHEDULING);
 
         verify(serviceScheduleCommandRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("재매칭 실패면 기존 RESCHEDULING 일정이 SCHEDULED로 복구된다")
+    void 재매칭_실패면_일정이_복구된다() {
+        // given
+        UUID servicePreferenceId = UUID.randomUUID();
+        LocalDate originalDate = LocalDate.now().plusDays(3);
+        ServiceSchedule existing = reschedulingSchedule(servicePreferenceId, originalDate);
+
+        ProviderMatchFailedEvent event = failedEvent(servicePreferenceId, originalDate.plusDays(1));
+
+        when(serviceMatchingAttemptCommandRepository.existsFailed(any(), any(), any())).thenReturn(false);
+        when(serviceScheduleCommandRepository.findRescheduling(servicePreferenceId)).thenReturn(List.of(existing));
+
+        // when
+        serviceMatchingCommandService.applyMatchFailed(event);
+
+        // then
+        assertThat(existing.getStatus()).isEqualTo(ScheduleStatus.SCHEDULED);
+        assertThat(existing.getDate()).isEqualTo(originalDate);
+
+        assertThat(existing.getCancelReason()).isNull();
+        assertThat(existing.getCanceledAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("초기 매칭 실패면 복구할 일정이 없어 매칭 이력만 기록된다")
+    void 초기_매칭_실패면_이력만_기록된다() {
+        // given
+        UUID servicePreferenceId = UUID.randomUUID();
+        ProviderMatchFailedEvent event = failedEvent(servicePreferenceId, LocalDate.now().plusDays(3));
+
+        when(serviceMatchingAttemptCommandRepository.existsFailed(any(), any(), any())).thenReturn(false);
+        when(serviceScheduleCommandRepository.findRescheduling(servicePreferenceId)).thenReturn(List.of());
+
+        // when
+        serviceMatchingCommandService.applyMatchFailed(event);
+
+        // then
+        verify(serviceMatchingAttemptCommandRepository).save(any());
+        verify(serviceScheduleCommandRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("매칭 실패 결과가 기록되며 serviceOfferingId는 null이다")
+    void 매칭_실패_결과가_기록된다() {
+        // given
+        UUID servicePreferenceId = UUID.randomUUID();
+        ProviderMatchFailedEvent event = failedEvent(servicePreferenceId, LocalDate.now().plusDays(3));
+
+        when(serviceMatchingAttemptCommandRepository.existsFailed(any(), any(), any())).thenReturn(false);
+        when(serviceScheduleCommandRepository.findRescheduling(servicePreferenceId)).thenReturn(List.of());
+
+        // when
+        serviceMatchingCommandService.applyMatchFailed(event);
+
+        // then
+        ArgumentCaptor<ServiceMatchingAttempt> captor = ArgumentCaptor.forClass(ServiceMatchingAttempt.class);
+        verify(serviceMatchingAttemptCommandRepository).save(captor.capture());
+
+        ServiceMatchingAttempt attempt = captor.getValue();
+
+        assertThat(attempt.getCarePlanId()).isEqualTo(event.carePlanId());
+        assertThat(attempt.getRegionId()).isEqualTo(event.regionId());
+        assertThat(attempt.getProvideServiceId()).isEqualTo(event.provideServiceId());
+        assertThat(attempt.getServicePreferenceId()).isEqualTo(servicePreferenceId);
+        assertThat(attempt.getDate()).isEqualTo(event.date());
+        assertThat(attempt.getStatus()).isEqualTo(MatchingAttemptStatus.FAILED);
+        assertThat(attempt.getFailureReason()).isEqualTo(event.failureReason());
+        assertThat(attempt.getFailedAt()).isEqualTo(event.failedAt());
+        assertThat(attempt.getPreferredTimeSlot()).isEqualTo(PreferredTimeSlot.MORNING);
+
+        assertThat(attempt.getServiceOfferingId()).isNull();
+        assertThat(attempt.getMatchedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("이미 처리한 실패 이벤트를 다시 받으면 아무것도 하지 않는다")
+    void 중복_실패_수신은_처리되지_않는다() {
+        // given
+        UUID servicePreferenceId = UUID.randomUUID();
+        ProviderMatchFailedEvent event = failedEvent(servicePreferenceId, LocalDate.now().plusDays(3));
+
+        when(serviceMatchingAttemptCommandRepository.existsFailed(
+                event.servicePreferenceId(),
+                event.date(),
+                event.failedAt()
+        )).thenReturn(true);
+
+        // when
+        serviceMatchingCommandService.applyMatchFailed(event);
+
+        // then
+        verify(serviceMatchingAttemptCommandRepository, never()).save(any());
+        verify(serviceScheduleCommandRepository, never()).findRescheduling(any());
+    }
+
+    // ProviderMatchFailed 이벤트
+    private ProviderMatchFailedEvent failedEvent(UUID servicePreferenceId, LocalDate date) {
+        return new ProviderMatchFailedEvent(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                servicePreferenceId,
+                date,
+                PreferredTimeSlot.MORNING,
+                "해당 지역에 가능한 서비스 제공자가 없습니다.",
+                Instant.parse("2026-08-29T10:00:00Z")
+        );
     }
 
     private ServiceSchedule capturedSchedule() {
