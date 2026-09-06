@@ -34,4 +34,9 @@ public class ConsentDocument extends BaseAuditableEntity {
     // 회원가입 시 필수 동의 여부를 판단하는 기준
     @Column(name = "is_required", nullable = false)
     private boolean required;
+
+    // 약관 필수/선택 여부 변경
+    public void updateRequired(boolean required) {
+        this.required = required;
+    }
 }

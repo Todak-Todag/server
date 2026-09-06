@@ -14,6 +14,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+// Table 명세서상 created_at/by(Not Null) + updated_at/by(Not Null) + deleted_at/by(Nullable)를 모두 가지므로
+// 4종 Base 중 감사 필드 전체를 포함하는 BaseAuditableEntity를 상속한다
 @Entity
 @Getter
 @Table(name = "p_service_schedules", schema = "schedule_schema")
@@ -24,6 +26,15 @@ public class ServiceSchedule extends BaseAuditableEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "service_schedule_id", nullable = false, updatable = false)
     private UUID id;
+
+    // Table 명세서(schedule-service.md 2장)의 p_service_schedules.care_plan_id — 논리 FK(→ p_care_plans.care_plan_id), Not Null
+    // DB가 서비스별로 분리되어 있어 FK 제약 없이 UUID 값만 보관한다
+    // ⚠️ 03/04번(서비스 일정 변경/취소)은 servicePreferenceId 기준으로 care-plan-service Internal API를 호출해
+    //    carePlanId/finishDate/patientId를 조회하도록 이미 구현되어 있다(5.5절). 이 필드가 생겨도
+    //    finishDate(일정 범위 검증)와 patientId(소유권 검증)는 여전히 원격 조회가 필요하므로 그 호출은 그대로 유지한다
+    //    — 즉 이 필드는 03/04번 로직을 대체하지 않고, Table 명세서와의 스키마 정합성을 맞추기 위한 것이다
+    @Column(name = "care_plan_id", nullable = false)
+    private UUID carePlanId;
 
     @Column(name = "service_preference_id", nullable = false)
     private UUID servicePreferenceId;
@@ -51,12 +62,14 @@ public class ServiceSchedule extends BaseAuditableEntity {
     private LocalDateTime canceledAt;
 
     private ServiceSchedule(
+            UUID carePlanId,
             UUID servicePreferenceId,
             UUID serviceOfferingId,
             LocalDate date,
             LocalDateTime startedAt,
             LocalDateTime finishedAt
     ) {
+        this.carePlanId = carePlanId;
         this.servicePreferenceId = servicePreferenceId;
         this.serviceOfferingId = serviceOfferingId;
         this.date = date;
@@ -68,6 +81,7 @@ public class ServiceSchedule extends BaseAuditableEntity {
     // ProviderMatched 이벤트를 수신해 제공자 매칭이 확정
     // 일정이 확정되었기 때문에 상태는 SCHEDULED로 고정
     public static ServiceSchedule confirm(
+            UUID carePlanId,
             UUID servicePreferenceId,
             UUID serviceOfferingId,
             LocalDate date,
@@ -77,6 +91,7 @@ public class ServiceSchedule extends BaseAuditableEntity {
 
         // 일정 생성에 필요한 필수 식별자 및 일정 시간 정보를 검증
         validateConfirmParameters(
+                carePlanId,
                 servicePreferenceId,
                 serviceOfferingId,
                 date,
@@ -85,6 +100,7 @@ public class ServiceSchedule extends BaseAuditableEntity {
         );
 
         return new ServiceSchedule(
+                carePlanId,
                 servicePreferenceId,
                 serviceOfferingId,
                 date,
@@ -149,6 +165,7 @@ public class ServiceSchedule extends BaseAuditableEntity {
 
     // 일정 생성에 필요한 필수 식별자 및 일정 시간 정보를 검증
     private static void validateConfirmParameters(
+            UUID carePlanId,
             UUID servicePreferenceId,
             UUID serviceOfferingId,
             LocalDate date,
@@ -156,8 +173,8 @@ public class ServiceSchedule extends BaseAuditableEntity {
             LocalDateTime finishedAt
     ) {
 
-        // 서비스 희망 일정 ID와 서비스 제공 ID는 필수
-        if (servicePreferenceId == null || serviceOfferingId == null) {
+        // 케어플랜 ID, 서비스 희망 일정 ID, 서비스 제공 ID는 모두 Not Null 컬럼이므로 필수
+        if (carePlanId == null || servicePreferenceId == null || serviceOfferingId == null) {
             throw new BusinessException(CommonErrorCode.INVALID_PARAMETER);
         }
 

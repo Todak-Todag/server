@@ -2,8 +2,6 @@ package com.todak_todag.user_service.user.domain.entity.user;
 
 import java.util.UUID;
 
-import org.hibernate.annotations.SQLRestriction;
-
 import com.todak_todag.user_service.global.common.BaseAuditableEntity;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
@@ -25,7 +23,6 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "p_users")
 @Getter
-@SQLRestriction("deleted_at is null")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseAuditableEntity {
 
@@ -193,6 +190,25 @@ public class User extends BaseAuditableEntity {
 		return this.status == UserStatus.PENDING;
 	}
 	
+	public boolean isRegion() {
+		return this.regionId != null;
+	}
+	
+	public boolean isApprove() {
+		return this.status == UserStatus.APPROVED;
+	}
+	
+	public void suspend(String statusChangeReason) {
+		this.statusChangeReason = statusChangeReason;
+		if(this.isApprove()) {
+			this.status = UserStatus.SUSPENDED;
+		}
+	}
+	
+	public boolean isPatient() {
+		return this.role == UserRole.PATIENT;
+	}
+	
 	public void approvalOrReject(Boolean accept, String rejectReason) {
 		// 승인
 		if(accept == true) {
@@ -223,21 +239,4 @@ public class User extends BaseAuditableEntity {
 		throw new BusinessException(UserErrorCode.USER_MODIFY_STATE);
 	}
 	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	public boolean isPatient() {
-		return this.role == UserRole.PATIENT;
-	}
 }

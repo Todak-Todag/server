@@ -29,7 +29,7 @@ class ServiceScheduleCommandRepositoryImplTest {
         // given
         LocalDate date = LocalDate.now().plusDays(1);
         ServiceSchedule schedule = ServiceSchedule.confirm(
-                UUID.randomUUID(), UUID.randomUUID(), date, date.atTime(9, 0), date.atTime(10, 0)
+                UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), date, date.atTime(9, 0), date.atTime(10, 0)
         );
         when(springDataServiceScheduleRepository.save(schedule)).thenReturn(schedule);
 

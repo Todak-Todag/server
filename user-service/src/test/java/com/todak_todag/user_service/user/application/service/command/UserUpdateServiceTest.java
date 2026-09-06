@@ -17,8 +17,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.Mock;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -28,6 +28,7 @@ import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
+import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
@@ -94,6 +95,43 @@ class UserUpdateServiceTest {
 	) {
 		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
 		return new UserApprovalCommand(TARGET_ID, accept, rejectReason, requester);
+	}
+
+	// 정지 대상으로 사용할 승인 완료 상태의 유저를 흉내낸다
+	private static User approvedTarget(UUID regionId) {
+		User user = User.createSignup(
+				regionId,
+				"target0123",
+				"$2a$10$hashedvaluehashedvaluehashedvalue",
+				"김환자",
+				"01012345678",
+				UserRole.HOSPITAL_STAFF
+		);
+		user.approvalOrReject(true, null);
+		ReflectionTestUtils.setField(user, "id", TARGET_ID);
+		return user;
+	}
+
+	// 정지 대상이 운영자인 경우를 흉내낸다
+	private static User adminTarget(UUID regionId) {
+		User user = User.createAdmin(
+				regionId,
+				"admintarget0123",
+				"$2a$10$hashedvaluehashedvaluehashedvalue",
+				"운영자대상",
+				"01088887777"
+		);
+		ReflectionTestUtils.setField(user, "id", TARGET_ID);
+		return user;
+	}
+
+	private static UserSuspendCommand suspendCommand(
+			String suspendReason,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
+		return new UserSuspendCommand(TARGET_ID, suspendReason, requester);
 	}
 
 	@Nested
@@ -321,6 +359,148 @@ class UserUpdateServiceTest {
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
 					.isEqualTo(UserErrorCode.USER_MODIFY_STATE);
+		}
+	}
+
+	@Nested
+	@DisplayName("일시 정지")
+	class Suspend {
+
+		@Test
+		@DisplayName("MASTER 요청자가 승인된 사용자를 정지시키면 대상 식별자를 반환한다")
+		void suspendTest_success_master() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When
+			UUID result = userUpdateService.suspend(command);
+
+			// Then
+			assertThat(result).isEqualTo(TARGET_ID);
+			verify(userQueryRepo, never()).findActiveById(any());
+		}
+
+		@Test
+		@DisplayName("정지 대상이 존재하지 않으면 USER_NOT_FOUND 예외가 발생한다")
+		void suspendTest_fail_targetNotFound() {
+			// Given
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.empty());
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+			verify(userQueryRepo, never()).findActiveById(any());
+		}
+
+		@Test
+		@DisplayName("대상이 승인(APPROVED) 상태가 아니면 USER_SUSPEND_MODIFY_STATE 예외가 발생한다")
+		void suspendTest_fail_notApproved() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_SUSPEND_MODIFY_STATE);
+		}
+
+		@Test
+		@DisplayName("요청자가 ADMIN이고 대상도 ADMIN이면 UNAUTHORIZED_INTERNAL_REQUEST 예외가 발생한다")
+		void suspendTest_fail_targetIsAdmin() {
+			// Given
+			User target = adminTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+
+			verify(userQueryRepo, never()).findActiveById(any());
+		}
+
+		@Test
+		@DisplayName("요청자가 ADMIN인데 활성 상태로 조회되지 않으면 UNAUTHORIZED_INTERNAL_REQUEST 예외가 발생한다")
+		void suspendTest_fail_requesterAdminNotFound() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findActiveById(ADMIN_ID)).willReturn(Optional.empty());
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+		}
+
+		@Test
+		@DisplayName("요청자가 대상과 같은 지역의 ADMIN이면 정상적으로 정지 처리된다")
+		void suspendTest_success_sameRegionAdmin() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			User adminUser = admin(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findActiveById(ADMIN_ID)).willReturn(Optional.of(adminUser));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When
+			UUID result = userUpdateService.suspend(command);
+
+			// Then
+			assertThat(result).isEqualTo(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("요청자가 대상과 다른 지역의 ADMIN이면 UNAUTHORIZED_INTERNAL_REQUEST 예외가 발생한다")
+		void suspendTest_fail_differentRegionAdmin() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			User adminUser = admin(OTHER_REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findActiveById(ADMIN_ID)).willReturn(Optional.of(adminUser));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+		}
+
+		@Test
+		@DisplayName("정지 사유가 대상 User에 그대로 반영된다")
+		void suspendTest_success_reasonIsSaved() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When
+			userUpdateService.suspend(command);
+
+			// Then
+			assertThat(target.getStatusChangeReason()).isEqualTo("약관 위반");
 		}
 	}
 }

@@ -8,6 +8,7 @@ import com.todak_todag.user_service.user.application.service.query.RegionQuerySe
 import com.todak_todag.user_service.user.presentation.request.RegionCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.RegionFindAdminRequest;
 import com.todak_todag.user_service.user.presentation.request.RegionUpdateActiveRequest;
+import com.todak_todag.user_service.user.presentation.request.RegionUpdateRequest;
 import com.todak_todag.user_service.user.presentation.response.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -126,5 +127,28 @@ public class RegionController implements RegionApiSpec {
                         RegionUpdateActiveResponse.from(result)
                 )
         );
+    }
+
+    // 지역 정보 수정(관리자)
+    @Override
+    @PreAuthorize("hasRole('MASTER')")
+    @PatchMapping("/admin/regions/{regionId}")
+    public ResponseEntity<ApiResponse<RegionUpdateResponse>> updateRegion(
+            @PathVariable UUID regionId,
+            @Valid @RequestBody RegionUpdateRequest request
+    ) {
+        RegionUpdateResult result =
+                regionCommandService.updateRegion(
+                        request.toCommand(regionId)
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.OK)
+                .body(
+                        ApiResponse.ok(
+                                "지역 정보 수정 성공",
+                                RegionUpdateResponse.from(result)
+                        )
+                );
     }
 }
