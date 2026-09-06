@@ -19,4 +19,7 @@ public interface ServiceOfferingQueryRepository {
     List<UUID> findIdsByProviderId(UUID providerId);
 
     Page<ServiceOfferingView> searchByRegionId(UUID regionId, Pageable pageable);
+
+    // 매칭 후보 조회 — 지역과 서비스 종류가 모두 일치해야 한다
+    List<ServiceOffering> findAllByRegionIdAndProvideServiceId(UUID regionId, UUID provideServiceId);
 }

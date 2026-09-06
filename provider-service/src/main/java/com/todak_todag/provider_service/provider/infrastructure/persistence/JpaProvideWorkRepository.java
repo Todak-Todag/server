@@ -9,4 +9,7 @@ import java.util.UUID;
 public interface JpaProvideWorkRepository extends JpaRepository<ProvideWork, UUID> {
 
     List<ProvideWork> findAllByServiceOfferingId(UUID serviceOfferingId);
+
+    List<ProvideWork> findAllByServiceOfferingIdIn(List<UUID> serviceOfferingIds);
+
 }

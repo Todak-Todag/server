@@ -25,4 +25,9 @@ public class ProvideWorkQueryRepositoryImpl implements ProvideWorkQueryRepositor
     public List<ProvideWork> findAllByServiceOfferingId(UUID serviceOfferingId) {
         return jpaProvideWorkRepository.findAllByServiceOfferingId(serviceOfferingId);
     }
+
+    @Override
+    public List<ProvideWork> findAllByServiceOfferingIdIn(List<UUID> serviceOfferingIds) {
+        return jpaProvideWorkRepository.findAllByServiceOfferingIdIn(serviceOfferingIds);
+    }
 }
