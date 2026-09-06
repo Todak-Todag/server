@@ -1,6 +1,8 @@
 package com.spring.careplanservice.careplan.infrastructure.persistence.repository;
 
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -18,5 +20,10 @@ public interface JpaCarePlanServiceRepository extends JpaRepository<CarePlanServ
 
     List<CarePlanService> findAllByCarePlanIdAndDeletedAtIsNull(
             UUID carePlanId
+    );
+
+    Page<CarePlanService> findAllByCarePlanIdAndDeletedAtIsNull(
+            UUID carePlanId,
+            Pageable pageable
     );
 }

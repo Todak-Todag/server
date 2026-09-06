@@ -119,6 +119,11 @@ public enum ErrorCode {
     SERVICE_PREFERENCE_DELETE_NOT_ALLOWED(
             HttpStatus.CONFLICT,
             "현재 Care Plan 상태에서는 희망 일정을 삭제할 수 없습니다."
+    ),
+
+    PROVIDER_SERVICE_DATA_MISMATCH(
+            HttpStatus.BAD_GATEWAY,
+            "Provider-Service의 서비스 정보와 Care Plan 데이터가 일치하지 않습니다."
     )
     ;
 
