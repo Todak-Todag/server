@@ -13,7 +13,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -39,8 +40,15 @@ public class ServiceMatchingAttempt extends BaseAuditableEntity {
     @Column(name = "service_preference_id", nullable = false)
     private UUID servicePreferenceId;
 
-    @Column(name = "service_offering_id", nullable = false)
+    @Column(name = "service_offering_id")
     private UUID serviceOfferingId;
+
+    @Column(name = "date", nullable = false)
+    private LocalDate date;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "preferred_time_slot")
+    private PreferredTimeSlot preferredTimeSlot;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
@@ -50,10 +58,10 @@ public class ServiceMatchingAttempt extends BaseAuditableEntity {
     private String failureReason;
 
     @Column(name = "matched_at")
-    private LocalDateTime matchedAt;
+    private Instant matchedAt;
 
     @Column(name = "failed_at")
-    private LocalDateTime failedAt;
+    private Instant failedAt;
 
     private ServiceMatchingAttempt(
             UUID carePlanId,
@@ -61,16 +69,20 @@ public class ServiceMatchingAttempt extends BaseAuditableEntity {
             UUID provideServiceId,
             UUID servicePreferenceId,
             UUID serviceOfferingId,
+            LocalDate date,
+            PreferredTimeSlot preferredTimeSlot,
             MatchingAttemptStatus status,
             String failureReason,
-            LocalDateTime matchedAt,
-            LocalDateTime failedAt
+            Instant matchedAt,
+            Instant failedAt
     ) {
         this.carePlanId = carePlanId;
         this.regionId = regionId;
         this.provideServiceId = provideServiceId;
         this.servicePreferenceId = servicePreferenceId;
         this.serviceOfferingId = serviceOfferingId;
+        this.date = date;
+        this.preferredTimeSlot = preferredTimeSlot;
         this.status = status;
         this.failureReason = failureReason;
         this.matchedAt = matchedAt;
@@ -84,10 +96,12 @@ public class ServiceMatchingAttempt extends BaseAuditableEntity {
             UUID provideServiceId,
             UUID servicePreferenceId,
             UUID serviceOfferingId,
+            LocalDate date,
+            PreferredTimeSlot preferredTimeSlot,
             MatchingAttemptStatus status,
             String failureReason,
-            LocalDateTime matchedAt,
-            LocalDateTime failedAt
+            Instant matchedAt,
+            Instant failedAt
     ) {
         return new ServiceMatchingAttempt(
                 carePlanId,
@@ -95,6 +109,8 @@ public class ServiceMatchingAttempt extends BaseAuditableEntity {
                 provideServiceId,
                 servicePreferenceId,
                 serviceOfferingId,
+                date,
+                preferredTimeSlot,
                 status,
                 failureReason,
                 matchedAt,
