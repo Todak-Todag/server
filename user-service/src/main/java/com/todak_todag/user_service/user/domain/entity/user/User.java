@@ -208,6 +208,10 @@ public class User extends BaseAuditableEntity {
 		}
 	}
 	
+	public boolean isPatient() {
+		return this.role == UserRole.PATIENT;
+	}
+	
 	public void approvalOrReject(Boolean accept, String rejectReason) {
 		// 승인
 		if(accept == true) {
@@ -238,21 +242,4 @@ public class User extends BaseAuditableEntity {
 		throw new BusinessException(UserErrorCode.USER_MODIFY_STATE);
 	}
 	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	public boolean isPatient() {
-		return this.role == UserRole.PATIENT;
-	}
 }
