@@ -64,4 +64,21 @@ class ScheduleOutboxEventCommandRepositoryImplTest {
         // then
         assertThat(result).isEmpty();
     }
+
+    @Test
+    void existsByEventTypeAndAggregateId를_호출하면_SpringData_존재_확인으로_위임한다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        when(springDataScheduleOutboxEventRepository
+                .existsByEventTypeAndAggregateId("CarePlanCompleted", carePlanId)).thenReturn(true);
+
+        // when
+        boolean result = scheduleOutboxEventCommandRepositoryImpl
+                .existsByEventTypeAndAggregateId("CarePlanCompleted", carePlanId);
+
+        // then
+        verify(springDataScheduleOutboxEventRepository)
+                .existsByEventTypeAndAggregateId("CarePlanCompleted", carePlanId);
+        assertThat(result).isTrue();
+    }
 }

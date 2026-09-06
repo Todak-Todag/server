@@ -24,4 +24,9 @@ public class ScheduleOutboxEventCommandRepositoryImpl implements ScheduleOutboxE
     public Optional<ScheduleOutboxEvent> findById(UUID outboxEventId) {
         return springDataScheduleOutboxEventRepository.findById(outboxEventId);
     }
+
+    @Override
+    public boolean existsByEventTypeAndAggregateId(String eventType, UUID aggregateId) {
+        return springDataScheduleOutboxEventRepository.existsByEventTypeAndAggregateId(eventType, aggregateId);
+    }
 }

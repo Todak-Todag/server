@@ -6,6 +6,7 @@ import com.todak_todag.schedule_service.schedule.domain.entity.CarePlanServiceRe
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.CarePlanServiceResultCommandRepository;
+import com.todak_todag.schedule_service.schedule.domain.repository.command.ScheduleOutboxEventCommandRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,31 +28,37 @@ public class  CarePlanCompletionEventAppender {
 
     private final ServiceScheduleCommandRepository serviceScheduleCommandRepository;
     private final CarePlanServiceResultCommandRepository carePlanServiceResultCommandRepository;
+    private final ScheduleOutboxEventCommandRepository scheduleOutboxEventCommandRepository;
     private final CarePlanCompletedEventPayloadSerializer carePlanCompletedEventPayloadSerializer;
     private final ScheduleOutboxCommandService scheduleOutboxCommandService;
 
     // 방금 결말이 난 일정(handledSchedule)을 기준으로 케어플랜이 완료되었는지 판단하고, 완료면 아웃박스에 적재
     //
     // 발행 조건은 두 가지를 모두 만족해야함
-    //   (1) handledSchedule이 이 케어플랜의 "마지막 일정"
-    //       → 앞선 일정의 수행 결과가 뒤늦게 등록되어도 마지막 일정은 여전히 그대로이므로 중복 발행되지 않음
-    //   (2) 이 케어플랜에 진행 중(SCHEDULED / RESCHEDULING) 일정이 하나도 남아있지 않음
-    //       → 마지막 일정이 RESCHEDULING이면 (1)에서 이미 걸러지지만, 앞선 일정이 아직 안 끝난 채
-    //         마지막 일정만 먼저 결말나는 경우를 (2)가 막아 조급한 발행을 방지
+    //   (1) 이 케어플랜에 진행 중(SCHEDULED / RESCHEDULING) 일정이 하나도 남아있지 않음
+    //       → 케어플랜이 끝났다는 것의 정의 그 자체. 어떤 일정이 트리거였는지와 무관하다
+    //   (2) 이 케어플랜에 대해 CarePlanCompleted가 아직 적재된 적이 없음
+    //       → 이미 결말난 일정들의 수행 결과가 뒤늦게 등록되어도 중복 발행되지 않게 막는 멱등 장치
     public void appendIfCarePlanCompleted(ServiceSchedule handledSchedule) {
         UUID carePlanId = handledSchedule.getCarePlanId();
-
-        if (!isLastSchedule(carePlanId, handledSchedule.getId())) {
-            return;
-        }
 
         if (hasUnfinishedSchedule(carePlanId)) {
             return;
         }
 
+        if (alreadyAppended(carePlanId)) {
+            return;
+        }
+
+        // 페이로드 기준이 되는 일정은 트리거(handledSchedule)가 아니라 케어플랜의 마지막 일정
+        // 트리거가 마지막 일정이 아닐 수 있으므로 여기서 다시 조회
+        // 마지막 일정 선정 규칙 — finished_at DESC, created_at DESC / CHANGED 제외
+        ServiceSchedule lastSchedule = serviceScheduleCommandRepository.findLastSchedule(carePlanId)
+                .orElse(handledSchedule);
+
         CarePlanCompletedEvent event = new CarePlanCompletedEvent(
-                resolveServiceResultId(handledSchedule),
-                handledSchedule.getStatus()
+                resolveServiceResultId(lastSchedule),
+                lastSchedule.getStatus()
         );
 
         // aggregateId는 이 이벤트가 대변하는 대상인 케어플랜
@@ -63,7 +70,7 @@ public class  CarePlanCompletionEventAppender {
 
         log.info(
                 "[Schedule] CarePlanCompleted 이벤트 아웃박스 적재 carePlanId={} serviceResultId={} status={} lastServiceScheduleId={}",
-                carePlanId, event.serviceResultId(), event.status(), handledSchedule.getId()
+                carePlanId, event.serviceResultId(), event.status(), lastSchedule.getId()
         );
     }
 
@@ -90,11 +97,12 @@ public class  CarePlanCompletionEventAppender {
         return serviceResultId;
     }
 
-    // handledScheduleId가 이 케어플랜의 마지막 일정인지
-    private boolean isLastSchedule(UUID carePlanId, UUID handledScheduleId) {
-        return serviceScheduleCommandRepository.findLastSchedule(carePlanId)
-                .map(lastSchedule -> lastSchedule.getId().equals(handledScheduleId))
-                .orElse(false);
+    // 이 케어플랜에 대해 CarePlanCompleted가 이미 적재된 적이 있는지 (중복 발행 방지)
+    // 적재 시 aggregateId를 carePlanId로 넣고 있으므로 그대로 조회 키로 사용
+    private boolean alreadyAppended(UUID carePlanId) {
+        return scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(
+                CarePlanCompletedEventPort.EVENT_TYPE, carePlanId
+        );
     }
 
     // 아직 결말나지 않은 일정이 남아있는지

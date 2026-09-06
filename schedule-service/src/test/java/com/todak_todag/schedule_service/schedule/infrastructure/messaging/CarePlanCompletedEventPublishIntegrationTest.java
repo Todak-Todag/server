@@ -141,6 +141,54 @@ class CarePlanCompletedEventPublishIntegrationTest {
         assertThat(received.getFirst()).isEqualTo("{\"serviceResultId\":null,\"status\":\"CANCELED\"}");
     }
 
+    @Test
+    @DisplayName("뒤 일정이 먼저 취소되고 앞 일정이 나중에 끝나도 케어플랜 완료가 발행된다")
+    void 결말_순서가_날짜_순서와_어긋나도_발행된다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        ServiceSchedule earlierA = scheduledSchedule(carePlanId, 3);
+        ServiceSchedule laterB = scheduledSchedule(carePlanId, 5);
+
+        serviceScheduleCommandService.cancel(
+                new ServiceScheduleCancelCommand(laterB.getId(), "개인 사정", patientId),
+                new CarePlanPort.CarePlanRange(carePlanId, LocalDate.now().plusDays(10), patientId)
+        );
+        scheduleOutboxRelayFacade.relay();
+        assertThat(receiveAll()).isEmpty();
+
+        // when
+        earlierA.complete();
+        springDataServiceScheduleRepository.save(earlierA);
+        registerResult(earlierA);
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        List<String> received = receiveAll();
+        assertThat(received).hasSize(1);
+        assertThat(received.getFirst()).isEqualTo("{\"serviceResultId\":null,\"status\":\"CANCELED\"}");
+    }
+
+    @Test
+    @DisplayName("모든 일정이 끝난 뒤 앞선 일정의 결과가 뒤늦게 등록되어도 중복 발행되지 않는다")
+    void 이미_발행된_케어플랜은_중복_발행되지_않는다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        ServiceSchedule earlierA = completedSchedule(carePlanId, 3);
+        ServiceSchedule laterB = completedSchedule(carePlanId, 5);
+
+        registerResult(laterB);
+        scheduleOutboxRelayFacade.relay();
+        assertThat(receiveAll()).hasSize(1);
+
+        // when
+        registerResult(earlierA);
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        assertThat(receiveAll()).isEmpty();
+    }
+
     // 수행 결과 등록
     private ServiceResultRegisterResult registerResult(ServiceSchedule schedule) {
         UUID providerId = UUID.randomUUID();

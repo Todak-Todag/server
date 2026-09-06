@@ -13,4 +13,7 @@ public interface SpringDataScheduleOutboxEventRepository extends JpaRepository<S
 
     // 릴레이 폴링용 조회 — 같은 상태(PENDING) 내에서 오래 대기한 이벤트부터 처리되도록 생성 순서로 정렬
     List<ScheduleOutboxEvent> findByStatusOrderByCreatedAtAsc(OutboxEventStatus status, Pageable pageable);
+
+    // 중복 적재 방지용 존재 확인 — 상태와 무관하게 레코드 존재 자체만 확인
+    boolean existsByEventTypeAndAggregateId(String eventType, UUID aggregateId);
 }
