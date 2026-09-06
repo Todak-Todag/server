@@ -2,12 +2,15 @@ package com.spring.careplanservice.careplan.presentation.controller.api;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanServiceCancelCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanServiceSelectCommand;
+import com.spring.careplanservice.careplan.application.query.CarePlanServiceFindQuery;
 import com.spring.careplanservice.careplan.application.query.CarePlanServiceSearchQuery;
+import com.spring.careplanservice.careplan.application.result.CarePlanServiceFindResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanServiceSearchResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanServiceSelectResult;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanServiceCommandService;
 import com.spring.careplanservice.careplan.application.service.query.CarePlanServiceQueryService;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanServiceSelectRequest;
+import com.spring.careplanservice.careplan.presentation.response.CarePlanServiceFindResponse;
 import com.spring.careplanservice.careplan.presentation.response.CarePlanServiceSearchResponse;
 import com.spring.careplanservice.careplan.presentation.response.CarePlanServiceSelectResponse;
 import com.spring.careplanservice.global.response.ApiResponse;
@@ -102,6 +105,33 @@ public class CarePlanServiceController {
                         HttpStatus.OK.value(),
                         "신청 서비스 목록 조회 성공",
                         PageResponse.of(resultPage, CarePlanServiceSearchResponse::from)
+                )
+        );
+    }
+
+    // TODO: (MVP 이후) HOSPITAL_STAFF/SOCIAL_WORKER 조회 권한 확장
+    @PreAuthorize("hasRole('PATIENT')")
+    @GetMapping("/care-plans/{carePlanId}/services/{planServiceId}")
+    public ResponseEntity<ApiResponse<CarePlanServiceFindResponse>> findCarePlanService(
+            @AuthenticationPrincipal UserContext user,
+            @PathVariable UUID carePlanId,
+            @PathVariable UUID planServiceId
+    ) {
+        CarePlanServiceFindQuery carePlanServiceFindQuery = new CarePlanServiceFindQuery(
+                user.userId(),
+                carePlanId,
+                planServiceId
+        );
+
+        CarePlanServiceFindResult carePlanServiceFindResult = carePlanServiceQueryService.findCarePlanService(
+                carePlanServiceFindQuery
+        );
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        HttpStatus.OK.value(),
+                        "신청 서비스 조회 성공",
+                        CarePlanServiceFindResponse.from(carePlanServiceFindResult)
                 )
         );
     }
