@@ -228,7 +228,7 @@ class CarePlanServiceResultSearchQueryRepositoryImplTest {
     }
 
     @Test
-    @DisplayName("조인 대상 일정이 소프트 삭제되면 그 결과도 목록 조회에서 제외된다 (01번 search와 동일 정책)")
+    @DisplayName("조인 대상 일정이 소프트 삭제되면 그 결과도 목록 조회에서 제외된다")
     void search_excludesResultsOfSoftDeletedSchedules() {
         // given
         UUID offeringId = UUID.randomUUID();

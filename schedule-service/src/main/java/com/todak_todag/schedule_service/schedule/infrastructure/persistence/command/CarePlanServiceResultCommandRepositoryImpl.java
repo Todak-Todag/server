@@ -6,6 +6,7 @@ import com.todak_todag.schedule_service.schedule.infrastructure.persistence.Spri
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -22,5 +23,10 @@ public class CarePlanServiceResultCommandRepositoryImpl implements CarePlanServi
     @Override
     public boolean existsByServiceScheduleId(UUID serviceScheduleId) {
         return springDataCarePlanServiceResultRepository.existsByServiceScheduleIdAndDeletedAtIsNull(serviceScheduleId);
+    }
+
+    @Override
+    public Optional<CarePlanServiceResult> findByServiceScheduleId(UUID serviceScheduleId) {
+        return springDataCarePlanServiceResultRepository.findByServiceScheduleIdAndDeletedAtIsNull(serviceScheduleId);
     }
 }

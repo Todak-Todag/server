@@ -13,4 +13,8 @@ public interface ScheduleOutboxEventCommandRepository {
 
     // markSent/recordFailure 처리 전, 최신 상태를 다시 읽어오기 위한 단건 조회
     Optional<ScheduleOutboxEvent> findById(UUID outboxEventId);
+
+    // 같은 대상(aggregateId)에 대해 같은 종류의 이벤트가 이미 적재된 적이 있는지
+    // 한 번만 발행되어야 하는 이벤트(CarePlanCompleted)의 중복 적재를 막는 용도
+    boolean existsByEventTypeAndAggregateId(String eventType, UUID aggregateId);
 }
