@@ -50,7 +50,7 @@ spring:
             - id: provider-service
               uri: lb://provider-service
               predicates:
-                - Path=/api/v1/provide-services/**,/api/v1/service-offerings/**,/api/v1/provide-works/**,/api/v1/admin/service-offerings/**
+                - Path=/api/v1/provide-services/**,/api/v1/service-offerings/**,/api/v1/provide-works/**,/api/v1/admin/service-offerings/**,/api/v1/admin/provide-services/**
 
             - id: care-plan-service
               uri: lb://care-plan-service

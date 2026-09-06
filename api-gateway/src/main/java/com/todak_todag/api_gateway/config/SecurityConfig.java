@@ -90,17 +90,52 @@ public class SecurityConfig {
 								"/api/v1/consent-documents/**"
 						).permitAll()
 						
+						// ========================================================== //
 						// ===== MASTER + ADMIN 경로 방어 ===== //
-						.pathMatchers().hasAnyRole("MASTER", "ADMIN")
+						.pathMatchers(HttpMethod.PATCH,
+								"/api/v1/admin/users/{userId}/suspend",
+								"/api/v1/admin/users/status"
+						).hasAnyRole("MASTER", "ADMIN")
 						
+						.pathMatchers(HttpMethod.GET,
+								"/api/v1/admin/users/search",
+								"/api/v1/admin/service-offerings/regions/{regionId}"
+						).hasAnyRole("MASTER", "ADMIN")
 						
 						// ===== MASTER 경로 방어 ===== //
-						.pathMatchers().hasRole("MASTER")
+						.pathMatchers(HttpMethod.POST,
+								"/api/v1/admin/users",
+								"/api/v1/admin/regions",
+								"/api/v1/admin/consent-documents",
+								"/api/v1/admin/consent-documents/{consentDocumentId}/versions",
+								"/api/v1/admin/provide-services"
+						).hasRole("MASTER")
+						
+						.pathMatchers(HttpMethod.GET,
+								"/api/v1/admin/regions"
+						).hasRole("MASTER")
+						
+						.pathMatchers(HttpMethod.PATCH,
+								"/api/v1/admin/regions/{regionId}/status",
+								"/api/v1/admin/regions/{regionId}",
+								"/api/v1/admin/consent-documents/{consentDocumentId}/required"
+						).hasRole("MASTER")
+						
+						.pathMatchers(HttpMethod.DELETE,
+								"/api/v1/admin/regions/{regionId}",
+								"/api/v1/admin/consent-documents/{consentDocumentId}"
+						).hasRole("MASTER")
 						
 						// ===== ADMIN 경로 방어 ===== //
-						.pathMatchers().hasRole("ADMIN")
+						.pathMatchers(HttpMethod.GET,
+								"/api/v1/admin/care-plans"
+						).hasRole("ADMIN")
 						
-								
+						// ===== /admin/** authenticated 처리
+						.pathMatchers("/api/v1/admin/**").authenticated()
+						
+						// ========================================================== //
+						
 								// User-Service
 								.pathMatchers(
 										"/api/v1/users/**",
