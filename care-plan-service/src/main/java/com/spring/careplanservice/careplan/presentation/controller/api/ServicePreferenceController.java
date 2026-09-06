@@ -30,7 +30,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1")
-public class ServicePreferenceController {
+public class ServicePreferenceController implements ServicePreferenceApiSpec {
     private final ServicePreferenceCommandService servicePreferenceCommandService;
     private final ServicePreferenceQueryService servicePreferenceQueryService;
 
