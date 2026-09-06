@@ -4,7 +4,10 @@ package com.spring.careplanservice.careplan.application.service.command;
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
+import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.event.ScheduleStatus;
+import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
@@ -46,6 +49,7 @@ public class CarePlanCommandService {
     private final ServicePreferenceCommandRepository servicePreferenceCommandRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UserQueryPort userQueryPort;
+    private final ScheduleResultQueryPort scheduleResultQueryPort;
 
     @Transactional
     public CarePlanCreateResult createCarePlan(
@@ -162,12 +166,16 @@ public class CarePlanCommandService {
     }
 
     @Transactional
-    public void completeCarePlan(UUID carePlanId) {
-        CarePlan carePlan = carePlanCommandRepository
-                .findById(carePlanId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
+    public void completeCarePlan(
+            CarePlanCompletedEvent carePlanCompletedEvent
+    ) {
+        validateCompletedEvent(carePlanCompletedEvent);
 
-        carePlan.complete();
+        if (carePlanCompletedEvent.serviceResultId() != null) {
+            scheduleResultQueryPort.findById(
+                    carePlanCompletedEvent.serviceResultId()
+            );
+        }
     }
 
     // 동일한 퇴원 건에 이미 Care Plan이 존재하는지 검사
@@ -296,5 +304,19 @@ public class CarePlanCommandService {
                     );
                 })
                 .toList();
+    }
+
+    private void validateCompletedEvent(
+            CarePlanCompletedEvent event
+    ) {
+        if (event.status() == ScheduleStatus.CANCELED) {
+            return;
+        }
+
+        if (event.serviceResultId() == null) {
+            throw new BusinessException(
+                    ErrorCode.CARE_PLAN_COMPLETED_EVENT_INVALID
+            );
+        }
     }
 }

@@ -1,4 +1,8 @@
 package com.spring.careplanservice.careplan.application.result;
 
-public record ScheduleResultFindResult() {
+import java.util.UUID;
+
+public record ScheduleResultFindResult(
+        UUID serviceResultId
+) {
 }
