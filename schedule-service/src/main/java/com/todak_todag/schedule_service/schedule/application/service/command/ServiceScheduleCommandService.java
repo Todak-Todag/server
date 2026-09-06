@@ -6,12 +6,14 @@ import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCompleteCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
+import com.todak_todag.schedule_service.schedule.application.event.CarePlanCompletionEventAppender;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEvent;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
-import com.todak_todag.schedule_service.schedule.application.support.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.application.support.ServiceScheduleValidator;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
@@ -34,6 +36,7 @@ public class ServiceScheduleCommandService {
     private final ScheduleOutboxCommandService scheduleOutboxCommandService;
     private final ProviderReMatchEventPayloadSerializer providerReMatchEventPayloadSerializer;
     private final ServiceScheduleValidator serviceScheduleValidator;
+    private final CarePlanCompletionEventAppender carePlanCompletionEventAppender;
 
     // 서비스 일정 변경
     // 트랜잭션 처리 범위: 검증 + status를 RESCHEDULING으로 변경 + ProviderReMatched 이벤트를 아웃박스에 적재
@@ -55,7 +58,7 @@ public class ServiceScheduleCommandService {
 
         // ProviderReMatchEvent를 같은 트랜잭션 안에서 아웃박스에 적재 (실제 발행은 릴레이가 트랜잭션 밖에서 수행)
         String payload = providerReMatchEventPayloadSerializer.serialize(
-                new ProviderReMatchEventPort.ProviderReMatchEvent(
+                new ProviderReMatchEvent(
                         saved.getId(),
                         saved.getServiceOfferingId(),
                         rescheduleCommand.date()
@@ -71,6 +74,7 @@ public class ServiceScheduleCommandService {
 
     // 서비스 일정 취소
     // 트랜잭션 처리 범위: 검증 + status를 CANCELED로 변경
+    //                  + (케어플랜이 완료된 경우) CarePlanCompleted 이벤트를 아웃박스에 적재
     @Transactional
     public ServiceScheduleCancelResult cancel(ServiceScheduleCancelCommand cancelCommand, CarePlanPort.CarePlanRange carePlanRange) {
 
@@ -87,6 +91,9 @@ public class ServiceScheduleCommandService {
         ServiceSchedule saved = serviceScheduleCommandRepository.save(serviceSchedule);
 
         log.info("[Schedule] 서비스 일정 취소 완료 serviceScheduleId={}", saved.getId());
+
+        // 마지막 일정이 취소되면 더 이상 수행될 일정이 없으므로 그 시점에도 케어플랜은 완료
+        carePlanCompletionEventAppender.appendIfCarePlanCompleted(saved);
 
         return ServiceScheduleCancelResult.from(saved);
     }

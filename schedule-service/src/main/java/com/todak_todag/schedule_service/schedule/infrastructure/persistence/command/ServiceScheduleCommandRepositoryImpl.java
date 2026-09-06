@@ -1,11 +1,13 @@
 package com.todak_todag.schedule_service.schedule.infrastructure.persistence.command;
 
+import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -23,5 +25,19 @@ public class ServiceScheduleCommandRepositoryImpl implements ServiceScheduleComm
     @Override
     public Optional<ServiceSchedule> findById(UUID serviceScheduleId) {
         return springDataServiceScheduleRepository.findByIdAndDeletedAtIsNull(serviceScheduleId);
+    }
+
+    @Override
+    public Optional<ServiceSchedule> findLastSchedule(UUID carePlanId) {
+        return springDataServiceScheduleRepository
+                .findFirstByCarePlanIdAndStatusNotAndDeletedAtIsNullOrderByFinishedAtDescCreatedAtDesc(
+                        carePlanId,
+                        ScheduleStatus.CHANGED
+                );
+    }
+
+    @Override
+    public long countByCarePlanIdAndStatusIn(UUID carePlanId, Collection<ScheduleStatus> statuses) {
+        return springDataServiceScheduleRepository.countByCarePlanIdAndStatusInAndDeletedAtIsNull(carePlanId, statuses);
     }
 }

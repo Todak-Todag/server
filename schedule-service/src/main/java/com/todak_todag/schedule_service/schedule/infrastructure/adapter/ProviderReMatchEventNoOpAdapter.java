@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.infrastructure.adapter;
 
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEvent;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
