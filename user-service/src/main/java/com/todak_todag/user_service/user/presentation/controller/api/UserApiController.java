@@ -8,7 +8,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,12 +24,10 @@ import com.todak_todag.user_service.user.application.service.result.UserInfoResu
 import com.todak_todag.user_service.user.presentation.request.UserPasswordUpdateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
-import com.todak_todag.user_service.user.presentation.request.UserSuspendRequest;
 import com.todak_todag.user_service.user.presentation.response.UserInfoResponse;
 import com.todak_todag.user_service.user.presentation.response.UserPasswordUpdateResponse;
 import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
-import com.todak_todag.user_service.user.presentation.response.UserSuspendedResponse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -97,7 +94,7 @@ public class UserApiController implements UserApiSpec {
 	}
 	
 	@Override
-	@PatchMapping("/users/me/password")
+	@PatchMapping("/me/password")
 	public ResponseEntity<ApiResponse<UserPasswordUpdateResponse>> passwordUpdate(
 			@Valid @RequestBody UserPasswordUpdateRequest userPasswordUpdateRequest,
 			@AuthenticationPrincipal UserContext user
