@@ -8,6 +8,9 @@ CREATE TYPE schedule_schema.service_schedule_status AS ENUM (
 CREATE TABLE IF NOT EXISTS schedule_schema.p_service_schedules (
     service_schedule_id UUID PRIMARY KEY,
 
+    -- 논리 FK -> care_plan_schema.p_care_plans(care_plan_id)
+    care_plan_id UUID NOT NULL,
+
     -- 논리 FK -> care_plan_schema.p_care_plan_service_preferences(service_preference_id)
     service_preference_id UUID NOT NULL,
 
@@ -68,6 +71,10 @@ CREATE TYPE schedule_schema.service_matching_attempts_status AS ENUM (
     'MATCHED', 'FAILED'
 );
 
+CREATE TYPE schedule_schema.service_matching_attempts_preferred_time_slot AS ENUM (
+    'MORNING', 'AFTERNOON'
+);
+
 CREATE TABLE schedule_schema.p_service_matching_attempts (
     matching_attempt_id UUID PRIMARY KEY,
 
@@ -84,12 +91,14 @@ CREATE TABLE schedule_schema.p_service_matching_attempts (
     service_preference_id UUID NOT NULL,
 
     -- 논리 FK -> provider_schema.p_provide_service_offerings(service_offering_id)
-    service_offering_id UUID NOT NULL,
+    service_offering_id UUID,
 
+    date DATE NOT NULL,
+    preferred_time_slot schedule_schema.service_matching_attempts_preferred_time_slot,
     status schedule_schema.service_matching_attempts_status NOT NULL,
     failure_reason TEXT,
-    matched_at TIMESTAMP,
-    failed_at TIMESTAMP,
+    matched_at TIMESTAMPTZ,
+    failed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL,
     created_by UUID NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
