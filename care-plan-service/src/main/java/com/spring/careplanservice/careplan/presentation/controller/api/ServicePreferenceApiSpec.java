@@ -4,8 +4,10 @@ import com.spring.careplanservice.careplan.presentation.request.ServicePreferenc
 import com.spring.careplanservice.careplan.presentation.request.ServicePreferenceUpdateRequest;
 import com.spring.careplanservice.careplan.presentation.response.ServicePreferenceCreateResponse;
 import com.spring.careplanservice.careplan.presentation.response.ServicePreferenceFindResponse;
+import com.spring.careplanservice.careplan.presentation.response.ServicePreferenceSearchResponse;
 import com.spring.careplanservice.careplan.presentation.response.ServicePreferenceUpdateResponse;
 import com.spring.careplanservice.global.response.ApiResponse;
+import com.spring.careplanservice.global.response.PageResponse;
 import com.spring.careplanservice.global.security.UserContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -14,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Tag(
@@ -116,5 +119,36 @@ public interface ServicePreferenceApiSpec {
                     required = true
             )
             UUID servicePreferenceId
+    );
+
+    @Operation(
+            summary = "Care Plan 서비스 희망 일정 목록 조회",
+            description = """
+                    Care Plan에 포함된 서비스 희망 일정 목록을 조회한다.
+                    
+                    희망 날짜를 기준으로 필터링할 수 있으며,
+                    조회 결과가 없으면 빈 목록을 반환한다.
+                    """
+    )
+    @ApiResponses
+    ResponseEntity<ApiResponse<PageResponse<ServicePreferenceSearchResponse>>> searchServicePreferences(
+            @Parameter(hidden = true)
+            UserContext user,
+
+            @Parameter(
+                    name = "carePlanId",
+                    description = "조회할 Care Plan ID",
+                    required = true
+            )
+            UUID carePlanId,
+
+            @Parameter(description = "희망 날짜 필터")
+            LocalDate preferredDate,
+
+            @Parameter(description = "페이지 번호")
+            Integer page,
+
+            @Parameter(description = "페이지 크기")
+            Integer size
     );
 }
