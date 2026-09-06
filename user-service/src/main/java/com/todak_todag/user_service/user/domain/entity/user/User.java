@@ -160,27 +160,39 @@ public class User extends BaseAuditableEntity {
 		this.passwordHash = passwordHash;
 	}
 	
-	public void changeName(String name) {
+	public void changeMyInfo(String name, String phone, UUID regionId, String address) {
 		validateApproved();
 		
+		if(!(name == null || name.isBlank())) {
+			changeName(name);
+		}
+		
+		if(!(phone == null || phone.isBlank())) {
+			changePhone(phone);
+		}
+		
+		if(regionId != null) {
+			changeRegion(regionId);
+		}
+		
+		if(!(address == null || address.isBlank())) {
+			changeAddress(address);
+		}
+	}
+	
+	private void changeName(String name) {
 		this.name = name;
 	}
 	
-	public void changePhone(String phone) {
-		validateApproved();
-		
+	private void changePhone(String phone) {
 		this.phone = phone;
 	}
 	
-	public void changeAddress(String address) {
-		validateApproved();
-		
+	private void changeAddress(String address) {
 		this.address = address;
 	}
 	
-	public void changeRegion(UUID regionId) {
-		validateApproved();
-		
+	private void changeRegion(UUID regionId) {
 		this.regionId = regionId;
 	}
 	

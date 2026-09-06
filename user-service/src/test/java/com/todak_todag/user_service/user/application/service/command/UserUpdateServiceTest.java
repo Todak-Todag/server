@@ -30,8 +30,11 @@ import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
 import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
 import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
+import com.todak_todag.user_service.user.application.command.UserUpdateCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
+import com.todak_todag.user_service.user.application.result.UserUpdateResult;
+import com.todak_todag.user_service.user.application.support.AddressValidator;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
@@ -61,6 +64,9 @@ class UserUpdateServiceTest {
 
 	@Mock
 	private PasswordEncoderPort passwordEncoder;
+
+	@Mock
+	private AddressValidator addressValidator;
 
 	@InjectMocks
 	private UserUpdateService userUpdateService;
@@ -128,6 +134,18 @@ class UserUpdateServiceTest {
 		);
 		ReflectionTestUtils.setField(user, "id", TARGET_ID);
 		return user;
+	}
+
+	private static UserUpdateCommand userUpdateCommand(
+			String name,
+			String phone,
+			UUID regionId,
+			String address,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
+		return new UserUpdateCommand(name, phone, regionId, address, requester);
 	}
 
 	private static UserPasswordUpdateCommand passwordUpdateCommand(
@@ -605,6 +623,101 @@ class UserUpdateServiceTest {
 					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
 
 			verify(passwordEncoder, never()).matches(any(), any());
+		}
+	}
+
+	@Nested
+	@DisplayName("내 정보 수정")
+	class UserUpdate {
+
+		@Test
+		@DisplayName("regionId 없이 name/phone만 보내면 해당 필드만 변경되고 검증기는 호출되지 않는다")
+		void userUpdateTest_success_partialUpdateWithoutRegion() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserUpdateCommand command = userUpdateCommand(
+					"김철수", "01055556666", null, null, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			UserUpdateResult result = userUpdateService.userUpdate(command);
+
+			// Then
+			assertThat(target.getName()).isEqualTo("김철수");
+			assertThat(target.getPhone()).isEqualTo("01055556666");
+			assertThat(target.getRegionId()).isEqualTo(REGION_ID);
+
+			assertThat(result.userId()).isEqualTo(TARGET_ID);
+			assertThat(result.name()).isEqualTo("김철수");
+			assertThat(result.phone()).isEqualTo("01055556666");
+			assertThat(result.regionId()).isEqualTo(REGION_ID);
+
+			verify(addressValidator, never()).updateAddressValidate(any());
+		}
+
+		@Test
+		@DisplayName("regionId가 포함되면 주소 검증기가 호출되고 regionId/address가 변경된다")
+		void userUpdateTest_success_withRegionCallsAddressValidator() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserUpdateCommand command = userUpdateCommand(
+					null, null, OTHER_REGION_ID, "전라남도 고흥군 도양읍", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			UserUpdateResult result = userUpdateService.userUpdate(command);
+
+			// Then
+			verify(addressValidator).updateAddressValidate(command);
+
+			assertThat(target.getRegionId()).isEqualTo(OTHER_REGION_ID);
+			assertThat(target.getAddress()).isEqualTo("전라남도 고흥군 도양읍");
+			assertThat(result.regionId()).isEqualTo(OTHER_REGION_ID);
+			assertThat(result.address()).isEqualTo("전라남도 고흥군 도양읍");
+		}
+
+		@Test
+		@DisplayName("name/phone/address가 공백이면 기존 값이 그대로 유지된다")
+		void userUpdateTest_success_blankFieldsAreIgnored() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			String originalName = target.getName();
+			String originalPhone = target.getPhone();
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserUpdateCommand command = userUpdateCommand(
+					" ", "", null, null, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userUpdate(command);
+
+			// Then
+			assertThat(target.getName()).isEqualTo(originalName);
+			assertThat(target.getPhone()).isEqualTo(originalPhone);
+		}
+
+		@Test
+		@DisplayName("요청자가 존재하지 않으면 USER_NOT_FOUND 예외가 발생하고 검증기는 호출되지 않는다")
+		void userUpdateTest_fail_requesterNotFound() {
+			// Given
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.empty());
+
+			UserUpdateCommand command = userUpdateCommand(
+					"김철수", null, null, null, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.userUpdate(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+			verify(addressValidator, never()).updateAddressValidate(any());
 		}
 	}
 }
