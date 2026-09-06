@@ -10,7 +10,8 @@ public record ScheduleInternalResponse(
 ) {
 
     public record Data(
-            UUID serviceResultId
+            UUID serviceResultId,
+            UUID serviceScheduleId
     ) {
     }
 }
