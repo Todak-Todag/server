@@ -15,7 +15,9 @@ import com.todak_todag.schedule_service.schedule.application.result.ServiceSched
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.application.support.ServiceScheduleValidator;
+import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
+import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceMatchingAttemptCommandRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,6 +35,7 @@ import java.util.UUID;
 public class ServiceScheduleCommandService {
 
     private final ServiceScheduleCommandRepository serviceScheduleCommandRepository;
+    private final ServiceMatchingAttemptCommandRepository serviceMatchingAttemptCommandRepository;
     private final ScheduleOutboxCommandService scheduleOutboxCommandService;
     private final ProviderReMatchEventPayloadSerializer providerReMatchEventPayloadSerializer;
     private final ServiceScheduleValidator serviceScheduleValidator;
@@ -54,13 +57,19 @@ public class ServiceScheduleCommandService {
 
         // SCHEDULED 상태 검증 및 RESCHEDULING 전이는 엔티티가 스스로 보장
         serviceSchedule.rescheduling();
+
+        // 페이로드에 필요한 regionId/provideServiceId 확보
+        ServiceMatchingAttempt matchingAttempt = findMatchingAttempt(serviceSchedule.getServicePreferenceId());
+
         ServiceSchedule saved = serviceScheduleCommandRepository.save(serviceSchedule);
 
         // ProviderReMatchEvent를 같은 트랜잭션 안에서 아웃박스에 적재 (실제 발행은 릴레이가 트랜잭션 밖에서 수행)
         String payload = providerReMatchEventPayloadSerializer.serialize(
-                new ProviderReMatchEvent(
-                        saved.getId(),
-                        saved.getServiceOfferingId(),
+                ProviderReMatchEvent.forScheduleChange(
+                        saved.getCarePlanId(),
+                        matchingAttempt.getRegionId(),
+                        matchingAttempt.getProvideServiceId(),
+                        saved.getServicePreferenceId(),
                         rescheduleCommand.date()
                 )
         );
@@ -70,6 +79,12 @@ public class ServiceScheduleCommandService {
         log.info("[Schedule] 서비스 일정 변경 접수 serviceScheduleId={} requestedDate={}", saved.getId(), rescheduleCommand.date());
 
         return ServiceScheduleRescheduleResult.from(saved);
+    }
+
+    // ProviderReMatched 페이로드에 실을 regionId/provideServiceId의 출처가 되는 매칭 시도 기록 조회
+    private ServiceMatchingAttempt findMatchingAttempt(UUID servicePreferenceId) {
+        return serviceMatchingAttemptCommandRepository.findLatestMatched(servicePreferenceId)
+                .orElseThrow(() -> new BusinessException(ScheduleErrorCode.SERVICE_MATCHING_ATTEMPT_NOT_FOUND));
     }
 
     // 서비스 일정 취소

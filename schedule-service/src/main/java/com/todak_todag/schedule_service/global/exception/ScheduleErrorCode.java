@@ -21,6 +21,7 @@ public enum ScheduleErrorCode implements ErrorCode {
     // 404
     SERVICE_SCHEDULE_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 서비스 일정입니다."),
     SERVICE_RESULTS_NOT_FOUND(HttpStatus.NOT_FOUND, "존재하지 않는 서비스 수행 결과입니다."),
+    SERVICE_MATCHING_ATTEMPT_NOT_FOUND(HttpStatus.NOT_FOUND, "재매칭에 필요한 매칭 시도 기록을 찾을 수 없습니다."),
 
     // 409
     SERVICE_SCHEDULE_INVALID_STATUS_FOR_CANCEL(HttpStatus.CONFLICT, "취소할 수 없는 상태의 서비스 일정입니다."),
