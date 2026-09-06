@@ -310,49 +310,105 @@ class CarePlanCommandServiceTest {
     @Nested
     @DisplayName("Care Plan 완료 처리")
     class CompleteCarePlan {
+
         @Test
-        @DisplayName("COMPLETED 상태이고 serviceResultId가 존재하면 수행 결과를 조회")
+        @DisplayName("COMPLETED 상태이고 serviceResultId가 존재하면 Care Plan 완료 처리")
         void completeCarePlan_completed_success() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+
+            given(carePlanCommandRepository.findById(carePlanId))
+                    .willReturn(Optional.of(carePlan));
+
             CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    carePlanId,
                     serviceResultId,
                     ScheduleStatus.COMPLETED
             );
 
             carePlanCommandService.completeCarePlan(event);
 
+            assertThat(carePlan.getStatus())
+                    .isEqualTo(CarePlanStatus.COMPLETED);
+
             verify(scheduleResultQueryPort).findById(serviceResultId);
+            verify(carePlanCommandRepository).findById(carePlanId);
         }
 
         @Test
-        @DisplayName("NO_SHOW 상태이고 serviceResultId가 존재하면 수행 결과를 조회")
+        @DisplayName("NO_SHOW 상태이고 serviceResultId가 존재하면 Care Plan 완료 처리")
         void completeCarePlan_noShow_success() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+
+            given(carePlanCommandRepository.findById(carePlanId))
+                    .willReturn(Optional.of(carePlan));
+
             CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    carePlanId,
                     serviceResultId,
                     ScheduleStatus.NO_SHOW
             );
 
             carePlanCommandService.completeCarePlan(event);
 
+            assertThat(carePlan.getStatus())
+                    .isEqualTo(CarePlanStatus.COMPLETED);
+
             verify(scheduleResultQueryPort).findById(serviceResultId);
+            verify(carePlanCommandRepository).findById(carePlanId);
         }
 
         @Test
-        @DisplayName("CANCELED 상태이고 serviceResultId가 null이면 수행 결과를 조회하지 않음")
+        @DisplayName("CANCELED 상태이고 serviceResultId가 null이면 내부 API 조회 없이 Care Plan 완료 처리")
         void completeCarePlan_canceled_success() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+
+            given(carePlanCommandRepository.findById(carePlanId))
+                    .willReturn(Optional.of(carePlan));
+
             CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    carePlanId,
                     null,
                     ScheduleStatus.CANCELED
             );
 
             carePlanCommandService.completeCarePlan(event);
 
+            assertThat(carePlan.getStatus())
+                    .isEqualTo(CarePlanStatus.COMPLETED);
+
             verify(scheduleResultQueryPort, never()).findById(any());
+            verify(carePlanCommandRepository).findById(carePlanId);
         }
 
         @Test
         @DisplayName("COMPLETED 상태인데 serviceResultId가 null이면 예외")
         void completeCarePlan_completed_serviceResultIdNull() {
             CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    carePlanId,
                     null,
                     ScheduleStatus.COMPLETED
             );
@@ -362,12 +418,14 @@ class CarePlanCommandServiceTest {
             ).isInstanceOf(BusinessException.class);
 
             verify(scheduleResultQueryPort, never()).findById(any());
+            verify(carePlanCommandRepository, never()).findById(any());
         }
 
         @Test
         @DisplayName("NO_SHOW 상태인데 serviceResultId가 null이면 예외")
         void completeCarePlan_noShow_serviceResultIdNull() {
             CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    carePlanId,
                     null,
                     ScheduleStatus.NO_SHOW
             );
@@ -377,6 +435,58 @@ class CarePlanCommandServiceTest {
             ).isInstanceOf(BusinessException.class);
 
             verify(scheduleResultQueryPort, never()).findById(any());
+            verify(carePlanCommandRepository, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("CANCELED 상태이고 serviceResultId가 존재하면 수행 결과 검증 후 Care Plan 완료 처리")
+        void completeCarePlan_canceledWithResultId_success() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+
+            given(carePlanCommandRepository.findById(carePlanId))
+                    .willReturn(Optional.of(carePlan));
+
+            CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    carePlanId,
+                    serviceResultId,
+                    ScheduleStatus.CANCELED
+            );
+
+            carePlanCommandService.completeCarePlan(event);
+
+            assertThat(carePlan.getStatus())
+                    .isEqualTo(CarePlanStatus.COMPLETED);
+
+            verify(scheduleResultQueryPort).findById(serviceResultId);
+            verify(carePlanCommandRepository).findById(carePlanId);
+        }
+
+        @Test
+        @DisplayName("Care Plan이 존재하지 않으면 예외")
+        void completeCarePlan_carePlanNotFound() {
+            given(carePlanCommandRepository.findById(carePlanId))
+                    .willReturn(Optional.empty());
+
+            CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    carePlanId,
+                    serviceResultId,
+                    ScheduleStatus.COMPLETED
+            );
+
+            assertThatThrownBy(() ->
+                    carePlanCommandService.completeCarePlan(event)
+            ).isInstanceOf(BusinessException.class);
+
+            verify(scheduleResultQueryPort).findById(serviceResultId);
+            verify(carePlanCommandRepository).findById(carePlanId);
         }
     }
 

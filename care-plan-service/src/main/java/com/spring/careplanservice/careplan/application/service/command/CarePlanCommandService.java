@@ -176,6 +176,16 @@ public class CarePlanCommandService {
                     carePlanCompletedEvent.serviceResultId()
             );
         }
+
+        CarePlan carePlan = carePlanCommandRepository
+                .findById(carePlanCompletedEvent.carePlanId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_NOT_FOUND
+                        )
+                );
+
+        carePlan.complete();
     }
 
     // 동일한 퇴원 건에 이미 Care Plan이 존재하는지 검사
