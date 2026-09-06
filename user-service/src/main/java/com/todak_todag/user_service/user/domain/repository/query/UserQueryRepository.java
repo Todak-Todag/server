@@ -19,4 +19,5 @@ public interface UserQueryRepository {
 	boolean duplicateUsername(String username);
 
 	Set<UUID> findMatchableSocialWorkerIds(UUID regionId);
+	
 }
