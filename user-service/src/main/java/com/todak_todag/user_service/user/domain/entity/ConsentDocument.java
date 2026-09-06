@@ -41,4 +41,17 @@ public class ConsentDocument extends BaseAuditableEntity {
         SENSITIVE_INFORMATION,
         MARKETING_INFORMATION
     }
+
+    public static ConsentDocument create(
+            ConsentType consentType,
+            String title,
+            boolean required
+    ) {
+        ConsentDocument consentDocument = new ConsentDocument();
+        consentDocument.consentType = consentType;
+        consentDocument.title = title;
+        consentDocument.required = required;
+
+        return consentDocument;
+    }
 }

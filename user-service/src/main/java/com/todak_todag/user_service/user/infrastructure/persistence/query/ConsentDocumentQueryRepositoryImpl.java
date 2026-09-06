@@ -173,4 +173,14 @@ public class ConsentDocumentQueryRepositoryImpl
     ) {
         return jpaRepo.findById(consentDocumentId);
     }
+
+    @Override
+    public boolean existsByConsentType(
+            ConsentDocument.ConsentType consentType
+    ) {
+        return jpaRepo
+                .existsByConsentTypeAndDeletedAtIsNull(
+                        consentType
+                );
+    }
 }

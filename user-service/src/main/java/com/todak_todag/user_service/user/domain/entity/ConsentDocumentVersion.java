@@ -32,4 +32,22 @@ public class ConsentDocumentVersion extends BaseEntity {
 
     @Column(name = "effective_at", nullable = false)
     private LocalDateTime effectiveAt;
+
+    public static ConsentDocumentVersion create(
+            UUID consentDocumentId,
+            String version,
+            String content,
+            LocalDateTime effectiveAt
+    ) {
+        ConsentDocumentVersion consentDocumentVersion =
+                new ConsentDocumentVersion();
+
+        consentDocumentVersion.consentDocumentId =
+                consentDocumentId;
+        consentDocumentVersion.version = version;
+        consentDocumentVersion.content = content;
+        consentDocumentVersion.effectiveAt = effectiveAt;
+
+        return consentDocumentVersion;
+    }
 }
