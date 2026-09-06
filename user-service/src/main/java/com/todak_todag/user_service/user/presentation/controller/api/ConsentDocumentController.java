@@ -1,5 +1,6 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentDeleteCommand;

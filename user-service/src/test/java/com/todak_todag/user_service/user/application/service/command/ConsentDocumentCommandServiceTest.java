@@ -2,6 +2,7 @@ package com.todak_todag.user_service.user.application.service.command;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.ConsentDocumentErrorCode;
+import com.todak_todag.user_service.user.application.command.ConsentDocumentDeleteCommand;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentUpdateRequiredCommand;
 import com.todak_todag.user_service.user.application.result.ConsentDocumentUpdateRequiredResult;
 import com.todak_todag.user_service.user.domain.entity.ConsentDocument;
@@ -112,6 +113,142 @@ class ConsentDocumentCommandServiceTest {
                                         .CONSENT_DOCUMENT_NOT_FOUND
                         );
                     });
+        }
+    }
+
+    @Nested
+    @DisplayName("약관 사용 종료")
+    class DeleteConsentDocument {
+
+        @Test
+        @DisplayName("약관 논리 삭제에 성공한다")
+        void delete_success() {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+            UUID deletedBy = UUID.randomUUID();
+
+            ConsentDocument consentDocument =
+                    org.mockito.Mockito.mock(
+                            ConsentDocument.class
+                    );
+
+            ConsentDocumentDeleteCommand command =
+                    new ConsentDocumentDeleteCommand(
+                            consentDocumentId,
+                            deletedBy
+                    );
+
+            given(
+                    consentDocumentQueryRepository
+                            .findByIdIncludingDeleted(
+                                    consentDocumentId
+                            )
+            ).willReturn(
+                    Optional.of(consentDocument)
+            );
+
+            given(consentDocument.isDeleted())
+                    .willReturn(false);
+
+            given(consentDocument.getId())
+                    .willReturn(consentDocumentId);
+
+            // when
+            consentDocumentCommandService.delete(command);
+
+            // then
+            then(consentDocument)
+                    .should()
+                    .markDeleted(deletedBy);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 약관이면 예외가 발생한다")
+        void delete_notFound() {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+            UUID deletedBy = UUID.randomUUID();
+
+            ConsentDocumentDeleteCommand command =
+                    new ConsentDocumentDeleteCommand(
+                            consentDocumentId,
+                            deletedBy
+                    );
+
+            given(
+                    consentDocumentQueryRepository
+                            .findByIdIncludingDeleted(
+                                    consentDocumentId
+                            )
+            ).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() ->
+                    consentDocumentCommandService.delete(command)
+            )
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(exception -> {
+                        BusinessException businessException =
+                                (BusinessException) exception;
+
+                        assertThat(
+                                businessException.getErrorCode()
+                        ).isEqualTo(
+                                ConsentDocumentErrorCode
+                                        .CONSENT_DOCUMENT_NOT_FOUND
+                        );
+                    });
+        }
+
+        @Test
+        @DisplayName("이미 사용 종료된 약관이면 예외가 발생한다")
+        void delete_alreadyDeleted() {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+            UUID deletedBy = UUID.randomUUID();
+
+            ConsentDocument consentDocument =
+                    org.mockito.Mockito.mock(
+                            ConsentDocument.class
+                    );
+
+            ConsentDocumentDeleteCommand command =
+                    new ConsentDocumentDeleteCommand(
+                            consentDocumentId,
+                            deletedBy
+                    );
+
+            given(
+                    consentDocumentQueryRepository
+                            .findByIdIncludingDeleted(
+                                    consentDocumentId
+                            )
+            ).willReturn(
+                    Optional.of(consentDocument)
+            );
+
+            given(consentDocument.isDeleted())
+                    .willReturn(true);
+
+            // when & then
+            assertThatThrownBy(() ->
+                    consentDocumentCommandService.delete(command)
+            )
+                    .isInstanceOf(BusinessException.class)
+                    .satisfies(exception -> {
+                        BusinessException businessException =
+                                (BusinessException) exception;
+
+                        assertThat(
+                                businessException.getErrorCode()
+                        ).isEqualTo(
+                                ConsentDocumentErrorCode
+                                        .CONSENT_DOCUMENT_ALREADY_DELETED
+                        );
+                    });
+
+            then(consentDocument)
+                    .shouldHaveNoMoreInteractions();
         }
     }
 }
