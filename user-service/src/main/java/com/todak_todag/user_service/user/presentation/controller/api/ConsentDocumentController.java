@@ -1,18 +1,16 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import com.todak_todag.user_service.user.application.result.*;
+import com.todak_todag.user_service.user.presentation.request.ConsentDocumentCreateRequest;
+import com.todak_todag.user_service.user.presentation.request.ConsentDocumentVersionCreateRequest;
+import com.todak_todag.user_service.user.presentation.response.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentDeleteCommand;
-import com.todak_todag.user_service.user.application.result.ConsentDocumentFindDetailResult;
-import com.todak_todag.user_service.user.application.result.ConsentDocumentFindResult;
-import com.todak_todag.user_service.user.application.result.ConsentDocumentUpdateRequiredResult;
 import com.todak_todag.user_service.user.application.service.command.ConsentDocumentCommandService;
 import com.todak_todag.user_service.user.application.service.query.ConsentDocumentQueryService;
 import com.todak_todag.user_service.user.presentation.request.ConsentDocumentUpdateRequiredRequest;
-import com.todak_todag.user_service.user.presentation.response.ConsentDocumentFindDetailResponse;
-import com.todak_todag.user_service.user.presentation.response.ConsentDocumentFindListResponse;
-import com.todak_todag.user_service.user.presentation.response.ConsentDocumentUpdateRequiredResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -116,5 +114,58 @@ public class ConsentDocumentController implements ConsentDocumentApiSpec {
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    // 신규 약관 및 최초 버전 등록
+    @Override
+    @PreAuthorize("hasRole('MASTER')")
+    @PostMapping("/admin/consent-documents")
+    public ResponseEntity<ApiResponse<ConsentDocumentCreateResponse>>
+    createConsentDocument(
+            @Valid @RequestBody ConsentDocumentCreateRequest request
+    ) {
+
+        ConsentDocumentCreateResult result =
+                consentDocumentCommandService.create(
+                        request.toCommand()
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(
+                        ApiResponse.created(
+                                "약관 등록 성공",
+                                ConsentDocumentCreateResponse.from(result)
+                        )
+                );
+    }
+
+    // 신규 약관 버전 등록
+    @Override
+    @PreAuthorize("hasRole('MASTER')")
+    @PostMapping(
+            "/admin/consent-documents/{consentDocumentId}/versions"
+    )
+    public ResponseEntity<ApiResponse<ConsentDocumentVersionCreateResponse>>
+    createConsentDocumentVersion(
+            @PathVariable UUID consentDocumentId,
+            @Valid @RequestBody ConsentDocumentVersionCreateRequest request
+    ) {
+
+        ConsentDocumentVersionCreateResult result =
+                consentDocumentCommandService.createVersion(
+                        request.toCommand(consentDocumentId)
+                );
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(
+                        ApiResponse.created(
+                                "약관 버전 등록 성공",
+                                ConsentDocumentVersionCreateResponse.from(
+                                        result
+                                )
+                        )
+                );
     }
 }

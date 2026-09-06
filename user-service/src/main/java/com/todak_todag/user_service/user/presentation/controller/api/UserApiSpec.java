@@ -7,10 +7,12 @@ import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.presentation.request.UserPasswordUpdateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
+import com.todak_todag.user_service.user.presentation.request.UserUpdateRequest;
 import com.todak_todag.user_service.user.presentation.response.UserInfoResponse;
 import com.todak_todag.user_service.user.presentation.response.UserPasswordUpdateResponse;
 import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserUpdateResponse;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -21,6 +23,26 @@ import jakarta.validation.Valid;
 @Tag(name = "Service User", description = "User API")
 public interface UserApiSpec {
 
+	@Operation(
+			summary = "회원정보 수정",
+			description = """
+					사용자는 회원정보를 수정할 수 있습니다.
+					
+					수정할 수 있는 정보는 이름, 전화번호, 지역ID, 상세주소 입니다.
+					
+					상세주소를 수정하는 경우 지역ID 와 주소 정보가 같은 지역이어야 합니다.
+					주소는 서비스 이용이 가능한 지역으로만 수정할 수 있습니다.		
+			"""
+	)
+	ResponseEntity<ApiResponse<UserUpdateResponse>> userUpdate(
+			@Parameter(description = "수정할 회원정보", required = true)
+			@Valid
+			UserUpdateRequest userUpdateRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user
+	);
+	
 	@Operation(
 			summary = "사용자 회원가입",
 			description = """

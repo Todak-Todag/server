@@ -27,10 +27,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
+import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaAuthRepository;
+import com.todak_todag.user_service.user.infrastructure.persistence.JpaRegionRepository;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaUserRepository;
 import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
@@ -53,6 +55,9 @@ class AuthApiControllerIntegrationTest {
 
 	@Autowired
 	private JpaUserRepository jpaUserRepository;
+
+	@Autowired
+	private JpaRegionRepository jpaRegionRepository;
 
 	@Autowired
 	private JpaAuthRepository jpaAuthRepository;
@@ -87,6 +92,14 @@ class AuthApiControllerIntegrationTest {
 				.filter(header -> header.startsWith(cookieName + "="))
 				.findFirst()
 				.orElseThrow(() -> new AssertionError(cookieName + " 쿠키가 응답에 없습니다."));
+	}
+
+	// 회원가입 시 지역 존재/활성 검증을 통과시키기 위한 서비스 지원 지역을 만든다
+	private Region saveAvailableRegion() {
+		Region region = Region.create("전라남도", "고흥군", "4677000000");
+		region.updateActive(true);
+
+		return jpaRegionRepository.save(region);
 	}
 
 	private User saveApprovedUser(String username) {
@@ -126,13 +139,15 @@ class AuthApiControllerIntegrationTest {
 		@Test
 		@DisplayName("정상 요청이면 201과 함께 PENDING 상태로 저장된다")
 		void signupTest_success() throws Exception {
+			Region region = saveAvailableRegion();
+
 			UserSignupRequest request = new UserSignupRequest(
 					UserRole.HOSPITAL_STAFF,
 					"signuptest1",
 					RAW_PASSWORD,
 					"홍길동",
 					"01011112222",
-					UUID.randomUUID(),
+					region.getId(),
 					List.of(new AgreementRequest(UUID.randomUUID(), true))
 			);
 

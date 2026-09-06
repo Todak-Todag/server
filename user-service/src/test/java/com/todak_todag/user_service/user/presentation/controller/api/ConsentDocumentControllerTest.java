@@ -4,9 +4,8 @@ import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.ConsentDocumentErrorCode;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.ConsentDocumentDeleteCommand;
-import com.todak_todag.user_service.user.application.result.ConsentDocumentFindDetailResult;
-import com.todak_todag.user_service.user.application.result.ConsentDocumentFindResult;
-import com.todak_todag.user_service.user.application.result.ConsentDocumentUpdateRequiredResult;
+import com.todak_todag.user_service.user.application.command.ConsentDocumentVersionCreateCommand;
+import com.todak_todag.user_service.user.application.result.*;
 import com.todak_todag.user_service.user.application.service.command.ConsentDocumentCommandService;
 import com.todak_todag.user_service.user.application.service.query.ConsentDocumentQueryService;
 import org.junit.jupiter.api.AfterEach;
@@ -23,7 +22,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
+import com.todak_todag.user_service.user.application.result.ConsentDocumentVersionCreateResult;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -36,6 +37,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @WebMvcTest(ConsentDocumentController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -375,5 +378,345 @@ class ConsentDocumentControllerTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Nested
+    @DisplayName("신규 약관 및 최초 버전 등록")
+    class CreateConsentDocument {
+
+        @Test
+        @DisplayName("신규 약관과 최초 버전 등록에 성공한다")
+        void createConsentDocument_success() throws Exception {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+            UUID consentDocumentVersionId = UUID.randomUUID();
+
+            ConsentDocumentCreateResult result =
+                    new ConsentDocumentCreateResult(
+                            consentDocumentId,
+                            consentDocumentVersionId
+                    );
+
+            given(
+                    consentDocumentCommandService.create(
+                            any()
+                    )
+            ).willReturn(result);
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/admin/consent-documents"
+                            )
+                                    .contentType(
+                                            MediaType.APPLICATION_JSON
+                                    )
+                                    .content(
+                                            """
+                                            {
+                                              "consentType": "PERSONAL_INFORMATION",
+                                              "title": "개인정보 수집 및 이용 동의",
+                                              "isRequired": true,
+                                              "version": "1.0",
+                                              "content": "개인정보 수집 및 이용 약관 내용입니다.",
+                                              "effectiveAt": "2026-09-10T00:00:00"
+                                            }
+                                            """
+                                    )
+                    )
+                    .andExpect(status().isCreated())
+                    .andExpect(
+                            jsonPath("$.success")
+                                    .value(true)
+                    )
+                    .andExpect(
+                            jsonPath("$.code")
+                                    .value(201)
+                    )
+                    .andExpect(
+                            jsonPath("$.message")
+                                    .value("약관 등록 성공")
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.data.consentDocumentId"
+                            )
+                                    .value(
+                                            consentDocumentId.toString()
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.data.consentDocumentVersionId"
+                            )
+                                    .value(
+                                            consentDocumentVersionId.toString()
+                                    )
+                    );
+        }
+
+        @Test
+        @DisplayName("필수 입력값이 누락되면 400을 반환한다")
+        void createConsentDocument_invalidRequest()
+                throws Exception {
+
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/admin/consent-documents"
+                            )
+                                    .contentType(
+                                            MediaType.APPLICATION_JSON
+                                    )
+                                    .content(
+                                            """
+                                            {
+                                              "consentType": "PERSONAL_INFORMATION",
+                                              "title": "",
+                                              "isRequired": true,
+                                              "version": "1.0",
+                                              "content": "약관 내용입니다."
+                                            }
+                                            """
+                                    )
+                    )
+                    .andExpect(
+                            status().isBadRequest()
+                    );
+
+            then(consentDocumentCommandService)
+                    .shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("동일 유형의 약관이 이미 존재하면 409를 반환한다")
+        void createConsentDocument_alreadyExists()
+                throws Exception {
+
+            // given
+            given(
+                    consentDocumentCommandService.create(
+                            any()
+                    )
+            ).willThrow(
+                    new BusinessException(
+                            ConsentDocumentErrorCode
+                                    .CONSENT_DOCUMENT_ALREADY_EXISTS
+                    )
+            );
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/admin/consent-documents"
+                            )
+                                    .contentType(
+                                            MediaType.APPLICATION_JSON
+                                    )
+                                    .content(
+                                            """
+                                            {
+                                              "consentType": "PERSONAL_INFORMATION",
+                                              "title": "개인정보 수집 및 이용 동의",
+                                              "isRequired": true,
+                                              "version": "1.0",
+                                              "content": "개인정보 수집 및 이용 약관 내용입니다.",
+                                              "effectiveAt": "2026-09-10T00:00:00"
+                                            }
+                                            """
+                                    )
+                    )
+                    .andExpect(
+                            status().isConflict()
+                    )
+                    .andExpect(
+                            jsonPath("$.success")
+                                    .value(false)
+                    )
+                    .andExpect(
+                            jsonPath("$.error.errorCode")
+                                    .value(
+                                            "CONSENT_DOCUMENT_ALREADY_EXISTS"
+                                    )
+                    );
+        }
+    }
+
+    @Nested
+    @DisplayName("신규 약관 버전 등록 API")
+    class CreateConsentDocumentVersion {
+
+        @Test
+        @DisplayName("신규 약관 버전을 등록하면 201을 반환한다")
+        void createVersion_success() throws Exception {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+            UUID consentDocumentVersionId = UUID.randomUUID();
+
+            ConsentDocumentVersionCreateResult result =
+                    new ConsentDocumentVersionCreateResult(
+                            consentDocumentVersionId
+                    );
+
+            given(
+                    consentDocumentCommandService.createVersion(
+                            any(ConsentDocumentVersionCreateCommand.class)
+                    )
+            ).willReturn(result);
+
+            String request = """
+                {
+                    "version": "1.1",
+                    "content": "변경된 약관 내용",
+                    "effectiveAt": "2026-09-10T00:00:00"
+                }
+                """;
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/admin/consent-documents/{consentDocumentId}/versions",
+                                    consentDocumentId
+                            )
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(request)
+                    )
+                    .andExpect(status().isCreated())
+                    .andExpect(
+                            jsonPath("$.message")
+                                    .value("약관 버전 등록 성공")
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.data.consentDocumentVersionId"
+                            ).value(
+                                    consentDocumentVersionId.toString()
+                            )
+                    );
+
+            verify(consentDocumentCommandService)
+                    .createVersion(
+                            any(ConsentDocumentVersionCreateCommand.class)
+                    );
+        }
+
+        @Test
+        @DisplayName("필수 값이 누락되면 400을 반환한다")
+        void createVersion_invalidRequest() throws Exception {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+
+            String request = """
+                {
+                    "version": "",
+                    "content": "",
+                    "effectiveAt": null
+                }
+                """;
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/admin/consent-documents/{consentDocumentId}/versions",
+                                    consentDocumentId
+                            )
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(request)
+                    )
+                    .andExpect(status().isBadRequest());
+
+            verifyNoInteractions(
+                    consentDocumentCommandService
+            );
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 약관 문서이면 404를 반환한다")
+        void createVersion_documentNotFound() throws Exception {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+
+            given(
+                    consentDocumentCommandService.createVersion(
+                            any(ConsentDocumentVersionCreateCommand.class)
+                    )
+            ).willThrow(
+                    new BusinessException(
+                            ConsentDocumentErrorCode
+                                    .CONSENT_DOCUMENT_NOT_FOUND
+                    )
+            );
+
+            String request = """
+                {
+                    "version": "1.1",
+                    "content": "변경된 약관 내용",
+                    "effectiveAt": "2026-09-10T00:00:00"
+                }
+                """;
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/admin/consent-documents/{consentDocumentId}/versions",
+                                    consentDocumentId
+                            )
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(request)
+                    )
+                    .andExpect(status().isNotFound())
+                    .andExpect(
+                            jsonPath("$.error.errorCode")
+                                    .value(
+                                            ConsentDocumentErrorCode
+                                                    .CONSENT_DOCUMENT_NOT_FOUND
+                                                    .getCode()
+                                    )
+                    );
+        }
+
+        @Test
+        @DisplayName("동일한 버전이 존재하면 409를 반환한다")
+        void createVersion_duplicateVersion() throws Exception {
+            // given
+            UUID consentDocumentId = UUID.randomUUID();
+
+            given(
+                    consentDocumentCommandService.createVersion(
+                            any(ConsentDocumentVersionCreateCommand.class)
+                    )
+            ).willThrow(
+                    new BusinessException(
+                            ConsentDocumentErrorCode
+                                    .CONSENT_DOCUMENT_VERSION_ALREADY_EXISTS
+                    )
+            );
+
+            String request = """
+                {
+                    "version": "1.1",
+                    "content": "변경된 약관 내용",
+                    "effectiveAt": "2026-09-10T00:00:00"
+                }
+                """;
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    "/api/v1/admin/consent-documents/{consentDocumentId}/versions",
+                                    consentDocumentId
+                            )
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(request)
+                    )
+                    .andExpect(status().isConflict())
+                    .andExpect(
+                            jsonPath("$.error.errorCode")
+                                    .value(
+                                            ConsentDocumentErrorCode
+                                                    .CONSENT_DOCUMENT_VERSION_ALREADY_EXISTS
+                                                    .getCode()
+                                    )
+                    );
+        }
     }
 }

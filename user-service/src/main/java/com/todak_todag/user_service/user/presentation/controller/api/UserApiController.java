@@ -17,6 +17,7 @@ import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
+import com.todak_todag.user_service.user.application.result.UserUpdateResult;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
@@ -24,10 +25,12 @@ import com.todak_todag.user_service.user.application.service.result.UserInfoResu
 import com.todak_todag.user_service.user.presentation.request.UserPasswordUpdateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
+import com.todak_todag.user_service.user.presentation.request.UserUpdateRequest;
 import com.todak_todag.user_service.user.presentation.response.UserInfoResponse;
 import com.todak_todag.user_service.user.presentation.response.UserPasswordUpdateResponse;
 import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserUpdateResponse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -106,6 +109,27 @@ public class UserApiController implements UserApiSpec {
 		return ResponseEntity
 				.status(200)
 				.body(ApiResponse.ok("비밀번호가 변경되었습니다.", response));
+	}
+
+	@Override
+	@PatchMapping("/me")
+	public ResponseEntity<ApiResponse<UserUpdateResponse>> userUpdate(
+			@Valid @RequestBody UserUpdateRequest userUpdateRequest,
+			@AuthenticationPrincipal UserContext user
+	) {
+		UserUpdateResult result = userUpdateService.userUpdate(userUpdateRequest.toCommand(user));
+		
+		UserUpdateResponse response = new UserUpdateResponse(
+				result.userId(),
+				result.name(),
+				result.phone(),
+				result.regionId(),
+				result.address()
+		);
+		
+		return ResponseEntity
+				.status(200)
+				.body(ApiResponse.ok("회원정보가 수정되었습니다.", response));
 	}
 	
 }

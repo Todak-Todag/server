@@ -9,6 +9,7 @@ import com.todak_todag.user_service.user.domain.repository.query.ConsentDocument
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentDetailView;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentQueryRepository;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaConsentDocumentRepository;
+import com.todak_todag.user_service.user.infrastructure.persistence.JpaConsentDocumentVersionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -27,6 +28,8 @@ public class ConsentDocumentQueryRepositoryImpl
 
     private final JpaConsentDocumentRepository jpaRepo;
     private final JPAQueryFactory queryFactory;
+    private final JpaConsentDocumentVersionRepository
+            jpaConsentDocumentVersionRepository;
 
     @Override
     public List<ConsentDocumentCurrentView> findAllCurrent(
@@ -172,5 +175,28 @@ public class ConsentDocumentQueryRepositoryImpl
             UUID consentDocumentId
     ) {
         return jpaRepo.findById(consentDocumentId);
+    }
+
+    @Override
+    public boolean existsByConsentType(
+            ConsentDocument.ConsentType consentType
+    ) {
+        return jpaRepo
+                .existsByConsentTypeAndDeletedAtIsNull(
+                        consentType
+                );
+    }
+
+    // consentDocumentId + version 중복 여부 검증 구현체
+    @Override
+    public boolean existsVersion(
+            UUID consentDocumentId,
+            String version
+    ) {
+        return jpaConsentDocumentVersionRepository
+                .existsByConsentDocumentIdAndVersion(
+                        consentDocumentId,
+                        version
+                );
     }
 }
