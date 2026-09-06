@@ -3,6 +3,7 @@ package com.todak_todag.schedule_service.schedule.infrastructure.persistence;
 import com.todak_todag.schedule_service.global.common.SystemId;
 import com.todak_todag.schedule_service.global.config.JpaConfig;
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
+import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceMatchingAttemptCommandRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.query.ServiceMatchingAttemptQueryRepository;
@@ -16,7 +17,8 @@ import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -49,7 +51,8 @@ class ServiceMatchingAttemptRepositoryTest {
         UUID provideServiceId = UUID.randomUUID();
         UUID servicePreferenceId = UUID.randomUUID();
         UUID serviceOfferingId = UUID.randomUUID();
-        LocalDateTime matchedAt = LocalDateTime.now();
+        LocalDate date = LocalDate.now().plusDays(1);
+        Instant matchedAt = Instant.now();
 
         ServiceMatchingAttempt attempt = ServiceMatchingAttempt.record(
                 carePlanId,
@@ -57,6 +60,8 @@ class ServiceMatchingAttemptRepositoryTest {
                 provideServiceId,
                 servicePreferenceId,
                 serviceOfferingId,
+                date,
+                PreferredTimeSlot.MORNING,
                 MatchingAttemptStatus.MATCHED,
                 null,
                 matchedAt,
@@ -77,11 +82,12 @@ class ServiceMatchingAttemptRepositoryTest {
         assertThat(found.get().getProvideServiceId()).isEqualTo(provideServiceId);
         assertThat(found.get().getServicePreferenceId()).isEqualTo(servicePreferenceId);
         assertThat(found.get().getServiceOfferingId()).isEqualTo(serviceOfferingId);
+        assertThat(found.get().getDate()).isEqualTo(date);
+        assertThat(found.get().getPreferredTimeSlot()).isEqualTo(PreferredTimeSlot.MORNING);
         assertThat(found.get().getStatus()).isEqualTo(MatchingAttemptStatus.MATCHED);
         assertThat(found.get().getFailureReason()).isNull();
         assertThat(found.get().getFailedAt()).isNull();
 
-        // 공통 감사 필드(BaseAuditableEntity)가 JPA Auditing으로 채워지는지 함께 확인
         assertThat(found.get().getCreatedAt()).isNotNull();
         assertThat(found.get().getCreatedBy()).isEqualTo(SystemId.SYSTEM_USER_ID);
         assertThat(found.get().getUpdatedAt()).isNotNull();
@@ -90,13 +96,15 @@ class ServiceMatchingAttemptRepositoryTest {
     @Test
     void 매칭_실패_기록은_실패_사유와_실패_일시가_함께_저장된다() {
         // given
-        LocalDateTime failedAt = LocalDateTime.now();
+        Instant failedAt = Instant.now();
         ServiceMatchingAttempt attempt = ServiceMatchingAttempt.record(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID(),
-                UUID.randomUUID(),
+                null,
+                LocalDate.now().plusDays(1),
+                PreferredTimeSlot.AFTERNOON,
                 MatchingAttemptStatus.FAILED,
                 "지역 내 가능한 서비스 제공자가 없습니다",
                 null,
@@ -115,6 +123,8 @@ class ServiceMatchingAttemptRepositoryTest {
         assertThat(found.get().getStatus()).isEqualTo(MatchingAttemptStatus.FAILED);
         assertThat(found.get().getFailureReason()).isEqualTo("지역 내 가능한 서비스 제공자가 없습니다");
         assertThat(found.get().getMatchedAt()).isNull();
+        assertThat(found.get().getServiceOfferingId()).isNull();
+        assertThat(found.get().getPreferredTimeSlot()).isEqualTo(PreferredTimeSlot.AFTERNOON);
     }
 
     @Test
@@ -126,9 +136,11 @@ class ServiceMatchingAttemptRepositoryTest {
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 UUID.randomUUID(),
+                LocalDate.now().plusDays(1),
+                PreferredTimeSlot.MORNING,
                 MatchingAttemptStatus.MATCHED,
                 null,
-                LocalDateTime.now(),
+                Instant.now(),
                 null
         );
         ServiceMatchingAttempt saved = serviceMatchingAttemptCommandRepository.save(attempt);
