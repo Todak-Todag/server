@@ -21,6 +21,14 @@ public interface SpringDataServiceMatchingAttemptRepository extends JpaRepositor
             MatchingAttemptStatus status
     );
 
+    // 같은 매칭 실패가 이미 기록되어 있는지 — 소프트 삭제분은 제외
+    boolean existsByServicePreferenceIdAndDateAndFailedAtAndStatusAndDeletedAtIsNull(
+            UUID servicePreferenceId,
+            LocalDate date,
+            Instant failedAt,
+            MatchingAttemptStatus status
+    );
+
     // 같은 매칭 결과가 이미 기록되어 있는지 — 소프트 삭제분은 제외
     boolean existsByServicePreferenceIdAndServiceOfferingIdAndDateAndMatchedAtAndStatusAndDeletedAtIsNull(
             UUID servicePreferenceId,

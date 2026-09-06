@@ -120,6 +120,15 @@ public class ServiceSchedule extends BaseAuditableEntity {
         this.status = ScheduleStatus.CHANGED;
     }
 
+    // 재매칭에 실패해 변경 요청 이전 상태로 되돌림
+    public void restoreToScheduled() {
+        if (status != ScheduleStatus.RESCHEDULING) {
+            throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_RESTORE);
+        }
+
+        this.status = ScheduleStatus.SCHEDULED;
+    }
+
     // 예정된 일정을 취소
     // SCHEDULED, RESCHEDULING 상태에서만 취소 가능
     // 이떄 취소 사유에 대한 내용은 필수 작성

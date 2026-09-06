@@ -22,4 +22,12 @@ public interface ServiceMatchingAttemptCommandRepository {
             LocalDate date,
             Instant matchedAt
     );
+
+    // 동일한 ProviderMatchFailed를 이미 기록했는지 (중복 수신 방어용)
+    // 실패 페이로드에는 serviceOfferingId가 없으므로 failedAt을 대체 키에 포함
+    boolean existsFailed(
+            UUID servicePreferenceId,
+            LocalDate date,
+            Instant failedAt
+    );
 }

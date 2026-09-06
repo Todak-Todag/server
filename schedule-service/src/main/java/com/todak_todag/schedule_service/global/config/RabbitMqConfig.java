@@ -30,6 +30,10 @@ public class RabbitMqConfig {
     public static final String PROVIDER_MATCHED_ROUTING_KEY = "provider.matched.key";
     public static final String SCHEDULE_PROVIDER_MATCHED_QUEUE = "schedule.provider-matched.queue";
 
+    // ProviderMatchFailed (수신)
+    public static final String PROVIDER_MATCH_FAILED_ROUTING_KEY = "provider.match-failed.key";
+    public static final String SCHEDULE_PROVIDER_MATCH_FAILED_QUEUE = "schedule.provider-match-failed.queue";
+
     @Bean
     public DirectExchange scheduleExchange() {
         return new DirectExchange(SCHEDULE_EXCHANGE);
@@ -85,6 +89,22 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(scheduleProviderMatchedQueue)
                 .to(providerExchange)
                 .with(PROVIDER_MATCHED_ROUTING_KEY);
+    }
+
+    // ProviderMatchFailed를 수신할 큐
+    @Bean
+    public Queue scheduleProviderMatchFailedQueue() {
+        return new Queue(SCHEDULE_PROVIDER_MATCH_FAILED_QUEUE, true);
+    }
+
+    @Bean
+    public Binding scheduleProviderMatchFailedBinding(
+            DirectExchange providerExchange,
+            Queue scheduleProviderMatchFailedQueue
+    ) {
+        return BindingBuilder.bind(scheduleProviderMatchFailedQueue)
+                .to(providerExchange)
+                .with(PROVIDER_MATCH_FAILED_ROUTING_KEY);
     }
 
     // 페이로드를 JSON으로 주고받기 위한 변환기

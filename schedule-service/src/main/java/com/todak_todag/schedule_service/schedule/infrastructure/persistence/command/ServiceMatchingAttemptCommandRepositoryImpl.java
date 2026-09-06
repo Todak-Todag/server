@@ -41,6 +41,21 @@ public class ServiceMatchingAttemptCommandRepositoryImpl implements ServiceMatch
     }
 
     @Override
+    public boolean existsFailed(
+            UUID servicePreferenceId,
+            LocalDate date,
+            Instant failedAt
+    ) {
+        return springDataServiceMatchingAttemptRepository
+                .existsByServicePreferenceIdAndDateAndFailedAtAndStatusAndDeletedAtIsNull(
+                        servicePreferenceId,
+                        date,
+                        failedAt,
+                        MatchingAttemptStatus.FAILED
+                );
+    }
+
+    @Override
     public Optional<ServiceMatchingAttempt> findLatestMatched(UUID servicePreferenceId) {
         return springDataServiceMatchingAttemptRepository
                 .findFirstByServicePreferenceIdAndStatusAndDeletedAtIsNullOrderByMatchedAtDescCreatedAtDesc(
