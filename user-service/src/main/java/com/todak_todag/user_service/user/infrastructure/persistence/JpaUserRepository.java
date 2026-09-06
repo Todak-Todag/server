@@ -14,20 +14,23 @@ import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 
 public interface JpaUserRepository extends JpaRepository<User, UUID>, UserQueryDslRepository {
 
-	boolean existsByUsername(String username);
+	boolean existsByUsernameAndDeletedAtIsNull(String username);
 
-	Optional<User> findByUsernameAndStatusIn(String username, List<UserStatus> status);
-	
-	Optional<User> findByIdAndStatus(UUID id, UserStatus status);
-	
-	Optional<User> findByIdAndRole(UUID id, UserRole role);
+	Optional<User> findByIdAndDeletedAtIsNull(UUID id);
+
+	Optional<User> findByUsernameAndStatusInAndDeletedAtIsNull(String username, List<UserStatus> status);
+
+	Optional<User> findByIdAndStatusAndDeletedAtIsNull(UUID id, UserStatus status);
+
+	Optional<User> findByIdAndRoleAndDeletedAtIsNull(UUID id, UserRole role);
 
 	@Query("""
 			SELECT u.id FROM User u
 			WHERE u.regionId =:regionId
 					AND u.role =:role
 					AND u.status =:status
+					AND u.deletedAt IS NULL
 	""")
 	Set<UUID> findByRegionIdAndRoleAndStatus(UUID regionId, UserRole socialWorker, UserStatus approved);
-	
+
 }

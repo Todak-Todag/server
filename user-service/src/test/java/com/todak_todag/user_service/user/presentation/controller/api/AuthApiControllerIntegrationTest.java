@@ -108,7 +108,7 @@ class AuthApiControllerIntegrationTest {
 		@Test
 		@DisplayName("서버 기동 시 설정된 마스터 계정이 MASTER/APPROVED 상태로 존재한다")
 		void masterAccountTest_exists() {
-			Optional<User> master = jpaUserRepository.findByUsernameAndStatusIn(
+			Optional<User> master = jpaUserRepository.findByUsernameAndStatusInAndDeletedAtIsNull(
 					masterUsername,
 					List.of(UserStatus.APPROVED)
 			);
@@ -143,7 +143,7 @@ class AuthApiControllerIntegrationTest {
 					.andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.data.userId").exists());
 
-			Optional<User> saved = jpaUserRepository.findByUsernameAndStatusIn(
+			Optional<User> saved = jpaUserRepository.findByUsernameAndStatusInAndDeletedAtIsNull(
 					"signuptest1",
 					List.of(UserStatus.PENDING)
 			);

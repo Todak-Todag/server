@@ -2,8 +2,6 @@ package com.todak_todag.user_service.user.domain.entity.user;
 
 import java.util.UUID;
 
-import org.hibernate.annotations.SQLRestriction;
-
 import com.todak_todag.user_service.global.common.BaseAuditableEntity;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
@@ -25,7 +23,6 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "p_users")
 @Getter
-@SQLRestriction("deleted_at is null")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseAuditableEntity {
 
