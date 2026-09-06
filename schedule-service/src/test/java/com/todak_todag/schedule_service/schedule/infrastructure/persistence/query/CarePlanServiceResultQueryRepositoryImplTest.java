@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.infrastructure.persistence.query;
 
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.todak_todag.schedule_service.schedule.domain.entity.CarePlanServiceResult;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataCarePlanServiceResultRepository;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,9 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class CarePlanServiceResultQueryRepositoryImplTest {
+
+    @Mock
+    private JPAQueryFactory jpaQueryFactory;
 
     @Mock
     private SpringDataCarePlanServiceResultRepository springDataCarePlanServiceResultRepository;
@@ -41,6 +45,24 @@ class CarePlanServiceResultQueryRepositoryImplTest {
         // then
         assertThat(found).contains(result);
         verify(springDataCarePlanServiceResultRepository).findByServiceResultIdAndDeletedAtIsNull(serviceResultId);
+    }
+
+    @Test
+    void note가_null인_결과도_그대로_반환한다() {
+        // given
+        UUID serviceResultId = UUID.randomUUID();
+        CarePlanServiceResult result = CarePlanServiceResult.record(
+                UUID.randomUUID(), LocalDateTime.now().minusHours(2), LocalDateTime.now().minusHours(1), null
+        );
+        when(springDataCarePlanServiceResultRepository.findByServiceResultIdAndDeletedAtIsNull(serviceResultId))
+                .thenReturn(Optional.of(result));
+
+        // when
+        Optional<CarePlanServiceResult> found = carePlanServiceResultQueryRepositoryImpl.findById(serviceResultId);
+
+        // then
+        assertThat(found).isPresent();
+        assertThat(found.get().getNote()).isNull();
     }
 
     @Test

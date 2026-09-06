@@ -2,6 +2,7 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
+import com.todak_todag.user_service.user.application.command.RegionUpdateCommand;
 import com.todak_todag.user_service.user.application.query.RegionFindAdminQuery;
 import com.todak_todag.user_service.user.application.result.*;
 import com.todak_todag.user_service.user.application.service.command.RegionCommandService;
@@ -17,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -470,6 +472,79 @@ class RegionControllerTest {
                                     .contentType("application/json")
                                     .content("""
                                         {
+                                        }
+                                        """)
+                    )
+                    .andExpect(status().isBadRequest());
+
+            then(regionCommandService)
+                    .shouldHaveNoInteractions();
+        }
+    }
+
+    @Nested
+    @DisplayName("지역 정보 수정")
+    class UpdateRegion {
+
+        @Test
+        @DisplayName("지역 정보를 수정하면 200 OK를 반환한다")
+        void updateRegion_success() throws Exception {
+            // given
+            UUID regionId = UUID.randomUUID();
+
+            RegionUpdateResult result = new RegionUpdateResult(
+                    regionId,
+                    "전라남도",
+                    "고흥군",
+                    "4677000000",
+                    false
+            );
+
+            given(regionCommandService.updateRegion(any(RegionUpdateCommand.class)))
+                    .willReturn(result);
+
+            // when & then
+            mockMvc.perform(
+                            patch("/api/v1/admin/regions/{regionId}", regionId)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("""
+                                        {
+                                          "province": "전라남도",
+                                          "district": "고흥군",
+                                          "regionCode": "4677000000"
+                                        }
+                                        """)
+                    )
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.code").value(200))
+                    .andExpect(jsonPath("$.message")
+                            .value("지역 정보 수정 성공"))
+                    .andExpect(jsonPath("$.data.regionId")
+                            .value(regionId.toString()))
+                    .andExpect(jsonPath("$.data.province")
+                            .value("전라남도"))
+                    .andExpect(jsonPath("$.data.district")
+                            .value("고흥군"))
+                    .andExpect(jsonPath("$.data.regionCode")
+                            .value("4677000000"))
+                    .andExpect(jsonPath("$.data.isActive")
+                            .value(false));
+        }
+
+        @Test
+        @DisplayName("지역 정보가 20자를 초과하면 400 Bad Request를 반환한다")
+        void updateRegion_validationFail() throws Exception {
+            // given
+            UUID regionId = UUID.randomUUID();
+
+            // when & then
+            mockMvc.perform(
+                            patch("/api/v1/admin/regions/{regionId}", regionId)
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content("""
+                                        {
+                                          "province": "123456789012345678901"
                                         }
                                         """)
                     )

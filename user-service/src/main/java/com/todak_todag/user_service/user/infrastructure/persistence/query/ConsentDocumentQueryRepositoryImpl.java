@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.infrastructure.adapter;
+package com.todak_todag.user_service.user.infrastructure.persistence.query;
 
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentCurrentView;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentQueryRepository;
@@ -12,16 +12,16 @@ import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
-public class ConsentDocumentPersistenceAdapter
+public class ConsentDocumentQueryRepositoryImpl
         implements ConsentDocumentQueryRepository {
 
-    private final JpaConsentDocumentRepository jpaRepository;
+    private final JpaConsentDocumentRepository jpaRepo;
 
     @Override
     public List<ConsentDocumentCurrentView> findAllCurrent(
             LocalDateTime now
     ) {
-        return jpaRepository.findAllCurrent(now);
+        return jpaRepo.findAllCurrent(now);
     }
 
     @Override
@@ -29,7 +29,7 @@ public class ConsentDocumentPersistenceAdapter
             List<UUID> consentDocumentVersionIds,
             LocalDateTime now
     ) {
-        return jpaRepository.findAllCurrentByVersionIds(
+        return jpaRepo.findAllCurrentByVersionIds(
                 consentDocumentVersionIds,
                 now
         );

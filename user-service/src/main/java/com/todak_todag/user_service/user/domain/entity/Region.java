@@ -59,4 +59,23 @@ public class Region extends BaseAuditableEntity {
     public void updateActive(boolean active) {
         this.active = active;
     }
+
+    // 지역 정보 수정
+    public void update(
+            String province,
+            String district,
+            String regionCode
+    ) {
+        if (province != null) {
+            this.province = province;
+        }
+
+        if (district != null) {
+            this.district = district;
+        }
+
+        if (regionCode != null) {
+            this.regionCode = regionCode;
+        }
+    }
 }
