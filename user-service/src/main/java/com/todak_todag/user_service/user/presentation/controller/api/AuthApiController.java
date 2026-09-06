@@ -4,12 +4,14 @@ import java.time.Duration;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.result.AuthLoginResult;
 import com.todak_todag.user_service.user.application.service.command.AuthCommandService;
 import com.todak_todag.user_service.user.presentation.cookie.CookieProvider;
@@ -100,6 +102,20 @@ public class AuthApiController implements AuthApiSpec {
 		);
 		
 		return ResponseEntity.noContent().build();
+	}
+
+
+
+	@Override
+	@PostMapping("/logout")
+	public ResponseEntity<ApiResponse<Void>> logout(
+			@AuthenticationPrincipal UserContext user,
+			HttpServletResponse httpServletResponse
+	) {
+		
+		
+		
+		return null;
 	}
 	
 	

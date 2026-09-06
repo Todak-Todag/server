@@ -3,6 +3,7 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,6 +34,24 @@ public interface AuthApiSpec {
 			@Parameter(description = "로그인 정보", required = true)
 			@Valid
 			UserLoginRequest userLoginRequest,
+			
+			@Parameter(hidden = true)
+			HttpServletResponse httpServletResponse
+	);
+	
+	@Operation(
+			summary = "로그아웃",
+			description = """
+					로그아웃을 진행합니다.
+					
+					로그아웃을 하면 로그인 시 발급 받았던 쿠키가 브라우저에서 무효처리됩니다.
+					
+					현재 로그인 세션의 로그인 정보가 만료됩니다.		
+			"""
+	)
+	ResponseEntity<ApiResponse<Void>> logout(
+			@Parameter(hidden = true)
+			UserContext user,
 			
 			@Parameter(hidden = true)
 			HttpServletResponse httpServletResponse
