@@ -3,17 +3,16 @@ package com.spring.careplanservice.careplan.application.service.command;
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
+import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.event.ScheduleStatus;
+import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.application.result.UserFindResult;
-import com.spring.careplanservice.careplan.domain.entity.CarePlan;
-import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
-import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
-import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
-import com.spring.careplanservice.careplan.domain.entity.PreferredTimeSlot;
+import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
@@ -54,6 +53,7 @@ class CarePlanCommandServiceTest {
     UUID userId = UUID.randomUUID();
     UUID carePlanId = UUID.randomUUID();
     UUID regionId = UUID.randomUUID();
+    UUID serviceResultId = UUID.randomUUID();
 
     @Mock
     private CarePlanCommandRepository carePlanCommandRepository;
@@ -69,11 +69,15 @@ class CarePlanCommandServiceTest {
 
     @Mock
     private ServicePreferenceQueryRepository servicePreferenceQueryRepository;
+
     @Mock
     private ApplicationEventPublisher applicationEventPublisher;
 
     @Mock
     private UserQueryPort userQueryPort;
+
+    @Mock
+    private ScheduleResultQueryPort scheduleResultQueryPort;
 
     @Mock
     private ServicePreferenceCommandRepository servicePreferenceCommandRepository;
@@ -307,57 +311,72 @@ class CarePlanCommandServiceTest {
     @DisplayName("Care Plan 완료 처리")
     class CompleteCarePlan {
         @Test
-        @DisplayName("성공")
-        void completeCarePlan_success() {
-            CarePlan carePlan = CarePlan.create(
-                    patientId,
-                    dischargeId,
-                    LocalDate.of(2026, 9, 1),
-                    LocalDate.of(2026, 9, 30),
-                    null
+        @DisplayName("COMPLETED 상태이고 serviceResultId가 존재하면 수행 결과를 조회")
+        void completeCarePlan_completed_success() {
+            CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    serviceResultId,
+                    ScheduleStatus.COMPLETED
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlanCommandService.completeCarePlan(event);
 
-            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
-
-            carePlanCommandService.completeCarePlan(carePlanId);
-
-            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.COMPLETED);
-            verify(carePlanCommandRepository).findById(carePlanId);
+            verify(scheduleResultQueryPort).findById(serviceResultId);
         }
 
         @Test
-        @DisplayName("Care Plan이 존재하지 않으면 예외")
-        void completeCarePlan_carePlanNotFound() {
-            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
+        @DisplayName("NO_SHOW 상태이고 serviceResultId가 존재하면 수행 결과를 조회")
+        void completeCarePlan_noShow_success() {
+            CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    serviceResultId,
+                    ScheduleStatus.NO_SHOW
+            );
 
-            assertThatThrownBy(() -> carePlanCommandService.completeCarePlan(carePlanId))
-                    .isInstanceOf(BusinessException.class);
+            carePlanCommandService.completeCarePlan(event);
 
-            verify(carePlanCommandRepository).findById(carePlanId);
+            verify(scheduleResultQueryPort).findById(serviceResultId);
         }
 
         @Test
-        @DisplayName("이미 COMPLETED 상태이면 중복 처리하지 않는다")
-        void completeCarePlan_alreadyCompleted() {
-            CarePlan carePlan = spy(CarePlan.create(
-                    UUID.randomUUID(),
-                    UUID.randomUUID(),
-                    LocalDate.of(2026, 9, 1),
-                    LocalDate.of(2026, 9, 30),
-                    null
-            ));
+        @DisplayName("CANCELED 상태이고 serviceResultId가 null이면 수행 결과를 조회하지 않음")
+        void completeCarePlan_canceled_success() {
+            CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    null,
+                    ScheduleStatus.CANCELED
+            );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
-            carePlan.complete();
+            carePlanCommandService.completeCarePlan(event);
 
-            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+            verify(scheduleResultQueryPort, never()).findById(any());
+        }
 
-            carePlanCommandService.completeCarePlan(carePlanId);
+        @Test
+        @DisplayName("COMPLETED 상태인데 serviceResultId가 null이면 예외")
+        void completeCarePlan_completed_serviceResultIdNull() {
+            CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    null,
+                    ScheduleStatus.COMPLETED
+            );
 
-            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.COMPLETED);
-            verify(carePlanCommandRepository).findById(carePlanId);
+            assertThatThrownBy(() ->
+                    carePlanCommandService.completeCarePlan(event)
+            ).isInstanceOf(BusinessException.class);
+
+            verify(scheduleResultQueryPort, never()).findById(any());
+        }
+
+        @Test
+        @DisplayName("NO_SHOW 상태인데 serviceResultId가 null이면 예외")
+        void completeCarePlan_noShow_serviceResultIdNull() {
+            CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    null,
+                    ScheduleStatus.NO_SHOW
+            );
+
+            assertThatThrownBy(() ->
+                    carePlanCommandService.completeCarePlan(event)
+            ).isInstanceOf(BusinessException.class);
+
+            verify(scheduleResultQueryPort, never()).findById(any());
         }
     }
 

@@ -11,10 +11,11 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMqConfig {
     public static final String SCHEDULE_EXCHANGE = "schedule.exchange";
-
     public static final String SCHEDULE_COMPLETED_ROUTING_KEY = "schedule.completed.key";
-
-    public static final String CARE_PLAN_SCHEDULE_COMPLETED_QUEUE = "care-plan.schedule-completed.queue";
+    public static final String CARE_PLAN_SCHEDULE_COMPLETED_QUEUE =
+            "care-plan.schedule-completed.queue";
+    public static final String CARE_PLAN_CONFIRMED_EXCHANGE = "care-plan.exchange";
+    public static final String CARE_PLAN_CONFIRMED_ROUTING_KEY = "care-plan.confirmed.key";
 
     @Bean
     public DirectExchange scheduleExchange() {
@@ -23,10 +24,7 @@ public class RabbitMqConfig {
 
     @Bean
     public Queue carePlanScheduleCompletedQueue() {
-        return new Queue(
-                CARE_PLAN_SCHEDULE_COMPLETED_QUEUE,
-                true
-        );
+        return new Queue(CARE_PLAN_SCHEDULE_COMPLETED_QUEUE, true);
     }
 
     @Bean
@@ -34,8 +32,7 @@ public class RabbitMqConfig {
             DirectExchange scheduleExchange,
             Queue carePlanScheduleCompletedQueue
     ) {
-        return BindingBuilder
-                .bind(carePlanScheduleCompletedQueue)
+        return BindingBuilder.bind(carePlanScheduleCompletedQueue)
                 .to(scheduleExchange)
                 .with(SCHEDULE_COMPLETED_ROUTING_KEY);
     }
