@@ -37,4 +37,10 @@ public interface ConsentDocumentQueryRepository {
     boolean existsByConsentType(
             ConsentDocument.ConsentType consentType
     );
+
+    // 동일 약관 내 버전 중복 여부 확인
+    boolean existsVersion(
+            UUID consentDocumentId,
+            String version
+    );
 }
