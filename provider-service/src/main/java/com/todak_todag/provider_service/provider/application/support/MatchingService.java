@@ -109,6 +109,12 @@ public class MatchingService {
 
     // cursor부터 1시간이 limit과 rangeEnd를 모두 넘지 않는지
     private boolean fits(LocalTime cursor, LocalTime limit, LocalTime rangeEnd) {
+        // 이미 구간 끝을 지난 시각은 배정 대상이 아니다
+        // 23:00에 1시간을 더하면 00:00이 되어 아래 비교가 전부 통과해버리므로 여기서 먼저 막는다
+        if (!cursor.isBefore(limit) || !cursor.isBefore(rangeEnd)) {
+            return false;
+        }
+
         LocalTime end = cursor.plusHours(SERVICE_HOURS);
 
         return !end.isAfter(limit) && !end.isAfter(rangeEnd);
