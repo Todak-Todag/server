@@ -14,10 +14,11 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/admin/provide-services")
 @RequiredArgsConstructor
-public class ProvideServiceAdminApiController {
+public class ProvideServiceAdminApiController implements ProvideServiceAdminApiSpec {
 
     private final ProvideServiceCommandService provideServiceCommandService;
 
+    @Override
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('MASTER')")

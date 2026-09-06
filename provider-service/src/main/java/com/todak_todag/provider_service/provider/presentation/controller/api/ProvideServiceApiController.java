@@ -13,10 +13,11 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/provide-services")
 @RequiredArgsConstructor
-public class ProvideServiceApiController {
+public class ProvideServiceApiController implements ProvideServiceApiSpec {
 
     private final ProvideServiceQueryService provideServiceQueryService;
 
+    @Override
     @GetMapping
     public ApiResponse<PageResponse<ProvideServiceSearchResponse>> search(
             @RequestParam(value = "page", required = false) Integer page,

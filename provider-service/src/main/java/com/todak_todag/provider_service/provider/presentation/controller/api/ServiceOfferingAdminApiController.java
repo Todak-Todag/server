@@ -19,10 +19,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/service-offerings")
 @RequiredArgsConstructor
-public class ServiceOfferingAdminApiController {
+public class ServiceOfferingAdminApiController implements ServiceOfferingAdminApiSpec {
 
     private final ServiceOfferingFacade serviceOfferingFacade;
 
+    @Override
     @GetMapping("/regions/{regionId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'MASTER')")
     public ApiResponse<PageResponse<ServiceOfferingRegionSearchResponse>> searchByRegion(

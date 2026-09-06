@@ -25,13 +25,14 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/service-offerings/{serviceOfferingId}/provide-works")
 @RequiredArgsConstructor
-public class ProvideWorkApiController {
+public class ProvideWorkApiController implements ProvideWorkApiSpec {
 
     // 등록은 외부 호출이 없어 CommandService를 직접 사용하고,
     // 수정은 확정 일정 확인이 필요해 Facade를 거침
     private final ProvideWorkCommandService provideWorkCommandService;
     private final ServiceOfferingFacade serviceOfferingFacade;
 
+    @Override
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('SERVICE_PROVIDER')")
@@ -53,6 +54,7 @@ public class ProvideWorkApiController {
         return ApiResponse.created("제공 가능 일정 등록 성공", ProvideWorkCreateResponse.from(result));
     }
 
+    @Override
     @PatchMapping("/{provideWorkId}")
     @PreAuthorize("hasRole('SERVICE_PROVIDER')")
     public ApiResponse<ProvideWorkUpdateResponse> update(
@@ -75,6 +77,7 @@ public class ProvideWorkApiController {
         return ApiResponse.ok("제공 가능 일정 수정 성공", ProvideWorkUpdateResponse.from(result));
     }
 
+    @Override
     @DeleteMapping("/{provideWorkId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('SERVICE_PROVIDER')")

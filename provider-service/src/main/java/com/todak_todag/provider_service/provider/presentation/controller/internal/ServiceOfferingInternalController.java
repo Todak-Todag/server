@@ -14,10 +14,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/internal/v1/service-offerings")
 @RequiredArgsConstructor
-public class ServiceOfferingInternalController {
+public class ServiceOfferingInternalController implements ServiceOfferingInternalApiSpec {
 
     private final ServiceOfferingQueryService serviceOfferingQueryService;
 
+    @Override
     @GetMapping("/{serviceOfferingId}")
     public ApiResponse<ServiceOfferingProviderResponse> findProvider(
             @PathVariable("serviceOfferingId") UUID serviceOfferingId
@@ -28,6 +29,7 @@ public class ServiceOfferingInternalController {
         return ApiResponse.ok("제공 서비스 제공자 조회 성공", ServiceOfferingProviderResponse.from(result));
     }
 
+    @Override
     @GetMapping
     public ApiResponse<ServiceOfferingIdsResponse> findIdsByProvider(
             @RequestParam("providerId") UUID providerId
