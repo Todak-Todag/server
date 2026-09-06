@@ -509,6 +509,7 @@ class ServiceScheduleQueryRepositoryImplTest {
 
     private ServiceSchedule persistSchedule(UUID servicePreferenceId, UUID serviceOfferingId, LocalDate date) {
         ServiceSchedule schedule = ServiceSchedule.confirm(
+                UUID.randomUUID(),
                 servicePreferenceId,
                 serviceOfferingId,
                 date,

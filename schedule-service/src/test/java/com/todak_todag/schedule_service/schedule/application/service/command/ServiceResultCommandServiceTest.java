@@ -217,6 +217,7 @@ class ServiceResultCommandServiceTest {
         return ServiceSchedule.confirm(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
+                UUID.randomUUID(),
                 date,
                 date.atTime(9, 0),
                 date.atTime(10, 0)

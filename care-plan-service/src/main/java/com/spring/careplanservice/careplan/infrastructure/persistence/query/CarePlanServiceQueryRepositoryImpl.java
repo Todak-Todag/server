@@ -4,6 +4,8 @@ import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanServiceQueryRepository;
 import com.spring.careplanservice.careplan.infrastructure.persistence.repository.JpaCarePlanServiceRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -26,6 +28,17 @@ public class CarePlanServiceQueryRepositoryImpl implements CarePlanServiceQueryR
     ) {
         return jpaCarePlanServiceRepository.findAllByCarePlanIdAndDeletedAtIsNull(
                 carePlanId
+        );
+    }
+
+    @Override
+    public Page<CarePlanService> search(
+            UUID carePlanId,
+            Pageable pageable
+    ) {
+        return jpaCarePlanServiceRepository.findAllByCarePlanIdAndDeletedAtIsNull(
+                carePlanId,
+                pageable
         );
     }
 }

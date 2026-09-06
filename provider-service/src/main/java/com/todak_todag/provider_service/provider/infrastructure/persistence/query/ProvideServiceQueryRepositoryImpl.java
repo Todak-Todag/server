@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.UUID;
 
 @Repository
@@ -29,5 +30,10 @@ public class ProvideServiceQueryRepositoryImpl implements ProvideServiceQueryRep
     @Override
     public Page<ProvideService> findAll(Pageable pageable) {
         return jpaProvideServiceRepository.findAll(pageable);
+    }
+
+    @Override
+    public List<ProvideService> findAllByIdIn(List<UUID> provideServiceIds) {
+        return jpaProvideServiceRepository.findAllById(provideServiceIds);
     }
 }
