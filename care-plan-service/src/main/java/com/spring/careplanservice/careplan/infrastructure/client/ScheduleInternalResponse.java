@@ -11,7 +11,7 @@ public record ScheduleInternalResponse(
 
     public record Data(
             UUID serviceResultId,
-            UUID serviceScheduleId
+            UUID carePlanId
     ) {
     }
 }

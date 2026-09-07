@@ -4,6 +4,6 @@ import java.util.UUID;
 
 public record ScheduleResultFindResult(
         UUID serviceResultId,
-        UUID serviceScheduleId
+        UUID carePlanId
 ) {
 }
