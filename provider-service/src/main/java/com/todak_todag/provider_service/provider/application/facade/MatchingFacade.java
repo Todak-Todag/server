@@ -1,6 +1,8 @@
 package com.todak_todag.provider_service.provider.application.facade;
 
 import com.todak_todag.provider_service.global.common.TimeSlot;
+import com.todak_todag.provider_service.global.exception.BusinessException;
+import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.event.*;
 import com.todak_todag.provider_service.provider.application.port.MatchingEventPort;
 import com.todak_todag.provider_service.provider.application.port.SchedulePort;
@@ -45,8 +47,9 @@ public class MatchingFacade {
     }
 
     public void rematch(ProviderRematchedEvent event) {
-        // 예외가 리스너 밖으로 나가면 메시지가 재큐잉되어 무한 반복된다
-        // match()와 같은 이유로 여기서 가둔다
+        // 예외가 리스너 밖으로 나가면 메시지가 재큐잉되므로 원칙적으로 여기서 가둔다
+        // 다만 외부 서비스 장애는 잠시 뒤 성공할 수 있어 리스너 재시도에 맡긴다
+        // (재시도를 소진하면 default-requeue-rejected: false 설정에 따라 폐기된다)
         try {
             List<ServiceOffering> candidates = serviceOfferingQueryRepository
                     .findAllByRegionIdAndProvideServiceId(event.regionId(), event.provideServiceId());
@@ -59,7 +62,14 @@ public class MatchingFacade {
                     event.servicePreferenceId(), event.date(), event.preferredTimeSlot(),
                     candidates, works, occupied
             );
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            if (isRetryable(e)) {
+                log.warn("[Provider] 외부 서비스 장애로 재매칭 재시도 servicePreferenceId={} date={}",
+                        event.servicePreferenceId(), event.date());
+
+                throw e;
+            }
+
             log.error("[Provider] 재매칭 처리 실패 carePlanId={} servicePreferenceId={} date={}",
                     event.carePlanId(), event.servicePreferenceId(), event.date(), e);
         }
@@ -185,5 +195,12 @@ public class MatchingFacade {
         List<UUID> ids = candidates.stream().map(ServiceOffering::getId).toList();
 
         return schedulePort.findSchedules(ids, startDate);
+    }
+
+    // 외부 서비스 장애처럼 잠시 뒤 성공할 수 있는 실패인지
+    // 재시도할 가치가 있는 것만 다시 던져 리스너 재시도를 받는다
+    private boolean isRetryable(RuntimeException e) {
+        return e instanceof BusinessException businessException
+                && businessException.getErrorCode() == ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE;
     }
 }

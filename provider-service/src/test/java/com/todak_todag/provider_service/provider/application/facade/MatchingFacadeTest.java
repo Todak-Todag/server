@@ -26,6 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.amqp.AmqpException;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.willThrow;
 
 import java.time.LocalDate;
@@ -271,9 +272,9 @@ class MatchingFacadeTest {
     }
 
     @Test
-    @DisplayName("재매칭 중 Schedule-Service 호출이 실패해도 예외를 밖으로 던지지 않는다")
-    void rematch_scheduleFailure_doesNotThrow() {
-        // 예외가 리스너 밖으로 나가면 메시지가 재큐잉되어 무한 반복된다
+    @DisplayName("재매칭 중 외부 서비스 장애는 리스너 재시도를 받도록 예외를 그대로 던진다")
+    void rematch_externalFailure_rethrows() {
+        // 잠시 뒤 성공할 수 있는 실패라 리스너 재시도에 맡긴다
         given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId))
                 .willReturn(List.of(offering(offeringIdA)));
         given(provideWorkQueryRepository.findAllByServiceOfferingIdIn(anyList()))
@@ -281,9 +282,12 @@ class MatchingFacadeTest {
         given(schedulePort.findSchedules(anyList(), any()))
                 .willThrow(new BusinessException(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE));
 
-        assertThatCode(() -> matchingFacade.rematch(new ProviderRematchedEvent(
+        assertThatThrownBy(() -> matchingFacade.rematch(new ProviderRematchedEvent(
                 carePlanId, regionId, provideServiceId, UUID.randomUUID(), THURSDAY, TimeSlot.MORNING
-        ))).doesNotThrowAnyException();
+        )))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
 
         verify(matchingEventPort, never()).publishMatched(any());
         verify(matchingEventPort, never()).publishMatchFailed(any());
