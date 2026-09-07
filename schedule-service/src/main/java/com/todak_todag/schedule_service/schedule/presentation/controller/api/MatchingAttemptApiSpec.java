@@ -4,12 +4,17 @@ import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.global.response.PageResponse;
 import com.todak_todag.schedule_service.global.security.UserContext;
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
+import com.todak_todag.schedule_service.schedule.presentation.request.MatchingAttemptRetryRequest;
+import com.todak_todag.schedule_service.schedule.presentation.response.MatchingAttemptRetryResponse;
 import com.todak_todag.schedule_service.schedule.presentation.response.MatchingAttemptSearchResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+
+import java.util.UUID;
 
 @Tag(name = "Matching Attempt", description = "서비스 매칭 시도 API")
 public interface MatchingAttemptApiSpec {
@@ -32,6 +37,23 @@ public interface MatchingAttemptApiSpec {
             String sort,
             @Parameter(description = "매칭 결과 필터 (MATCHED/FAILED, 기본 FAILED)")
             MatchingAttemptStatus status,
+            @Parameter(hidden = true)
+            UserContext user
+    );
+
+    @Operation(
+            summary = "재매칭 시도",
+            description = "퇴원 예정자가 매칭에 실패(FAILED)한 서비스 희망 일정에 대해 새로운 희망 날짜/시간대로 재매칭을 요청한다. " +
+                    "요청이 접수되면 ProviderReMatched 이벤트만 발행되고(202), 새로운 매칭 시도 이력은 " +
+                    "Provider-Service의 매칭 결과 이벤트를 수신할 때 추가된다. 결과는 매칭 실패 내역 조회 API로 확인한다. " +
+                    "대상이 FAILED 상태가 아니거나 이미 재시도가 접수된 경우 409를 반환한다."
+    )
+    @ApiResponses
+    ResponseEntity<ApiResponse<MatchingAttemptRetryResponse>> retry(
+            @Parameter(name = "matchingAttemptId", description = "재시도할 매칭 시도 ID", required = true)
+            UUID matchingAttemptId,
+            @Valid
+            MatchingAttemptRetryRequest request,
             @Parameter(hidden = true)
             UserContext user
     );

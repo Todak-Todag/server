@@ -21,6 +21,19 @@ public interface CarePlanPort {
             LocalDate finishDate,
             UUID patientId
     ) {
+
+        // Care Plan 기간은 30일 고정
+        private static final long CARE_PLAN_PERIOD_DAYS = 30L;
+
+        // Internal API 응답에 startDate가 없어 고정 기간으로 역산 (finishDate = startDate + 29일)
+        public LocalDate startDate() {
+            return finishDate.minusDays(CARE_PLAN_PERIOD_DAYS - 1);
+        }
+
+        // 요청 날짜가 Care Plan 일정 범위(start_date~finish_date) 안인지
+        public boolean covers(LocalDate date) {
+            return !date.isBefore(startDate()) && !date.isAfter(finishDate);
+        }
     }
 
     record CarePlanSummary(

@@ -1,8 +1,14 @@
 package com.todak_todag.schedule_service.schedule.application.facade;
 
+import com.todak_todag.schedule_service.global.exception.BusinessException;
+import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
+import com.todak_todag.schedule_service.schedule.application.command.MatchingAttemptRetryCommand;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.query.MatchingAttemptSearchQuery;
+import com.todak_todag.schedule_service.schedule.application.result.MatchingAttemptRetryResult;
 import com.todak_todag.schedule_service.schedule.application.result.MatchingAttemptSearchResult;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceMatchingAttemptResult;
+import com.todak_todag.schedule_service.schedule.application.service.command.ServiceMatchingAttemptCommandService;
 import com.todak_todag.schedule_service.schedule.application.service.query.ServiceMatchingAttemptQueryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +25,21 @@ public class ServiceMatchingAttemptFacade {
 
     private final CarePlanPort carePlanPort;
     private final ServiceMatchingAttemptQueryService serviceMatchingAttemptQueryService;
+    private final ServiceMatchingAttemptCommandService serviceMatchingAttemptCommandService;
+
+    // 재매칭 시도 유스케이스 조합
+    // 기능 범위: 검증 + ProviderReMatched 이벤트 발행
+    public MatchingAttemptRetryResult retry(MatchingAttemptRetryCommand retryCommand) {
+
+        // 존재 확인 겸 servicePreferenceId 확보 — QueryService는 조회만, 존재 여부 판단은 Facade 책임
+        ServiceMatchingAttemptResult attempt = serviceMatchingAttemptQueryService.findById(retryCommand.matchingAttemptId())
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+        // 소유자(patientId)와 일정 범위(finishDate) 조회
+        CarePlanPort.CarePlanRange carePlanRange = carePlanPort.findCarePlanRange(attempt.servicePreferenceId());
+
+        return serviceMatchingAttemptCommandService.retry(retryCommand, carePlanRange);
+    }
 
     // 매칭 시도 내역 목록 조회 유스케이스 조합
     public Page<MatchingAttemptSearchResult> search(MatchingAttemptSearchQuery searchQuery) {
