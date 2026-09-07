@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -44,5 +45,13 @@ public class ServiceScheduleCommandRepositoryImpl implements ServiceScheduleComm
     @Override
     public long countMissingResult(UUID carePlanId, Collection<ScheduleStatus> statuses) {
         return springDataServiceScheduleRepository.countMissingResult(carePlanId, statuses);
+    }
+
+    @Override
+    public List<ServiceSchedule> findRescheduling(UUID servicePreferenceId) {
+        return springDataServiceScheduleRepository.findByServicePreferenceIdAndStatusAndDeletedAtIsNull(
+                servicePreferenceId,
+                ScheduleStatus.RESCHEDULING
+        );
     }
 }

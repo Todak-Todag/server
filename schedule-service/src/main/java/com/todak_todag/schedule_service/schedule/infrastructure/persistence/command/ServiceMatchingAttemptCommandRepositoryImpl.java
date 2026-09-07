@@ -7,6 +7,8 @@ import com.todak_todag.schedule_service.schedule.infrastructure.persistence.Spri
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +21,38 @@ public class ServiceMatchingAttemptCommandRepositoryImpl implements ServiceMatch
     @Override
     public ServiceMatchingAttempt save(ServiceMatchingAttempt serviceMatchingAttempt) {
         return springDataServiceMatchingAttemptRepository.save(serviceMatchingAttempt);
+    }
+
+    @Override
+    public boolean existsMatched(
+            UUID servicePreferenceId,
+            UUID serviceOfferingId,
+            LocalDate date,
+            Instant matchedAt
+    ) {
+        return springDataServiceMatchingAttemptRepository
+                .existsByServicePreferenceIdAndServiceOfferingIdAndDateAndMatchedAtAndStatusAndDeletedAtIsNull(
+                        servicePreferenceId,
+                        serviceOfferingId,
+                        date,
+                        matchedAt,
+                        MatchingAttemptStatus.MATCHED
+                );
+    }
+
+    @Override
+    public boolean existsFailed(
+            UUID servicePreferenceId,
+            LocalDate date,
+            Instant failedAt
+    ) {
+        return springDataServiceMatchingAttemptRepository
+                .existsByServicePreferenceIdAndDateAndFailedAtAndStatusAndDeletedAtIsNull(
+                        servicePreferenceId,
+                        date,
+                        failedAt,
+                        MatchingAttemptStatus.FAILED
+                );
     }
 
     @Override

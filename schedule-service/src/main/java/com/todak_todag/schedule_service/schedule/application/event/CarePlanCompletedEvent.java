@@ -4,7 +4,7 @@ import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 
 import java.util.UUID;
 
-// CarePlanCompleted 이벤트 페이로드
+// CarePlanCompleted 이벤트 페이로드 (발행)
 public record CarePlanCompletedEvent(
         UUID serviceResultId,
         ScheduleStatus status
