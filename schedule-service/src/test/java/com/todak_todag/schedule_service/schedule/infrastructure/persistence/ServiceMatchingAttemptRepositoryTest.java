@@ -2,6 +2,7 @@ package com.todak_todag.schedule_service.schedule.infrastructure.persistence;
 
 import com.todak_todag.schedule_service.global.common.SystemId;
 import com.todak_todag.schedule_service.global.config.JpaConfig;
+import com.todak_todag.schedule_service.global.config.QueryDslConfig;
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
@@ -29,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @Import({
         JpaConfig.class,
+        QueryDslConfig.class,
         ServiceMatchingAttemptCommandRepositoryImpl.class,
         ServiceMatchingAttemptQueryRepositoryImpl.class
 })
