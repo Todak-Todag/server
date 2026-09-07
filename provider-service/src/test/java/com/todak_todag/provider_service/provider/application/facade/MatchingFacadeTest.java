@@ -23,6 +23,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.amqp.AmqpException;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.BDDMockito.willThrow;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -264,5 +268,96 @@ class MatchingFacadeTest {
         verify(matchingEventPort).publishMatched(captor.capture());
 
         assertThat(captor.getValue().startedAt()).isEqualTo(THURSDAY.atTime(14, 0));
+    }
+
+    @Test
+    @DisplayName("재매칭 중 Schedule-Service 호출이 실패해도 예외를 밖으로 던지지 않는다")
+    void rematch_scheduleFailure_doesNotThrow() {
+        // 예외가 리스너 밖으로 나가면 메시지가 재큐잉되어 무한 반복된다
+        given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId))
+                .willReturn(List.of(offering(offeringIdA)));
+        given(provideWorkQueryRepository.findAllByServiceOfferingIdIn(anyList()))
+                .willReturn(List.of(work(offeringIdA, "09:00", "13:00")));
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willThrow(new BusinessException(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE));
+
+        assertThatCode(() -> matchingFacade.rematch(new ProviderRematchedEvent(
+                carePlanId, regionId, provideServiceId, UUID.randomUUID(), THURSDAY, TimeSlot.MORNING
+        ))).doesNotThrowAnyException();
+
+        verify(matchingEventPort, never()).publishMatched(any());
+        verify(matchingEventPort, never()).publishMatchFailed(any());
+    }
+
+    @Test
+    @DisplayName("재매칭 중 발행이 실패해도 예외를 밖으로 던지지 않는다")
+    void rematch_publishFailure_doesNotThrow() {
+        given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId))
+                .willReturn(List.of(offering(offeringIdA)));
+        given(provideWorkQueryRepository.findAllByServiceOfferingIdIn(anyList()))
+                .willReturn(List.of(work(offeringIdA, "09:00", "13:00")));
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of());
+        willThrow(new AmqpException("broker unavailable"))
+                .given(matchingEventPort).publishMatched(any());
+
+        assertThatCode(() -> matchingFacade.rematch(new ProviderRematchedEvent(
+                carePlanId, regionId, provideServiceId, UUID.randomUUID(), THURSDAY, TimeSlot.MORNING
+        ))).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("발행이 실패한 배정은 점유로 잡지 않아 다음 희망 일정이 같은 시각에 배정된다")
+    void match_publishFailure_doesNotOccupySlot() {
+        // 발행 실패분을 미리 점유로 잡으면 뒤따르는 희망 일정이 존재하지 않는 일정을 피해 배정된다
+        UUID firstPreferenceId = UUID.randomUUID();
+        UUID secondPreferenceId = UUID.randomUUID();
+
+        given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId))
+                .willReturn(List.of(offering(offeringIdA)));
+        given(provideWorkQueryRepository.findAllByServiceOfferingIdIn(anyList()))
+                .willReturn(List.of(work(offeringIdA, "09:00", "13:00")));
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of());
+
+        // 첫 번째 발행만 실패시킨다
+        willThrow(new AmqpException("broker unavailable"))
+                .willDoNothing()
+                .given(matchingEventPort).publishMatched(any());
+
+        matchingFacade.match(event(
+                preference(firstPreferenceId, THURSDAY, TimeSlot.MORNING),
+                preference(secondPreferenceId, THURSDAY, TimeSlot.MORNING)
+        ));
+
+        ArgumentCaptor<ProviderMatchedEvent> captor = ArgumentCaptor.forClass(ProviderMatchedEvent.class);
+        verify(matchingEventPort, times(2)).publishMatched(captor.capture());
+
+        // 첫 건이 유실됐으므로 09:00은 비어 있고, 두 번째 희망 일정이 그 자리를 받는다
+        ProviderMatchedEvent second = captor.getAllValues().get(1);
+        assertThat(second.servicePreferenceId()).isEqualTo(secondPreferenceId);
+        assertThat(second.startedAt()).isEqualTo(THURSDAY.atTime(9, 0));
+    }
+
+    @Test
+    @DisplayName("매칭 실패 이벤트 발행이 실패해도 다음 희망 일정 처리는 계속된다")
+    void match_publishFailedEventFailure_continues() {
+        UUID firstPreferenceId = UUID.randomUUID();
+        UUID secondPreferenceId = UUID.randomUUID();
+
+        // 후보가 없어 두 건 모두 매칭 실패한다
+        given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId))
+                .willReturn(List.of());
+
+        willThrow(new AmqpException("broker unavailable"))
+                .willDoNothing()
+                .given(matchingEventPort).publishMatchFailed(any());
+
+        matchingFacade.match(event(
+                preference(firstPreferenceId, THURSDAY, TimeSlot.MORNING),
+                preference(secondPreferenceId, THURSDAY, TimeSlot.MORNING)
+        ));
+
+        verify(matchingEventPort, times(2)).publishMatchFailed(any());
     }
 }
