@@ -27,11 +27,12 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/service-offerings")
 @RequiredArgsConstructor
-public class ServiceOfferingApiController {
+public class ServiceOfferingApiController implements ServiceOfferingApiSpec {
 
     private final ServiceOfferingFacade serviceOfferingFacade;
     private final ServiceOfferingQueryService serviceOfferingQueryService;
 
+    @Override
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('SERVICE_PROVIDER')")
@@ -46,6 +47,7 @@ public class ServiceOfferingApiController {
         return ApiResponse.created("제공 서비스 등록 성공", ServiceOfferingCreateResponse.from(result));
     }
 
+    @Override
     @DeleteMapping("/{serviceOfferingId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasAnyRole('SERVICE_PROVIDER', 'ADMIN')")
@@ -58,6 +60,7 @@ public class ServiceOfferingApiController {
         );
     }
 
+    @Override
     @GetMapping
     @PreAuthorize("hasAnyRole('SERVICE_PROVIDER', 'ADMIN')")
     public ApiResponse<PageResponse<ServiceOfferingSearchResponse>> search(
