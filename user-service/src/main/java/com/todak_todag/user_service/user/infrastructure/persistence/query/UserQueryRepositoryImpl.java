@@ -50,4 +50,9 @@ public class UserQueryRepositoryImpl implements UserQueryRepository {
 	public Set<UUID> findMatchableSocialWorkerIds(UUID regionId) {
 		return jpaRepo.findByRegionIdAndRoleAndStatus(regionId, UserRole.SOCIAL_WORKER, UserStatus.APPROVED);
 	}
+
+	@Override
+	public boolean initMasterDuplicate(UUID userId) {
+		return jpaRepo.existsById(userId);
+	}
 }

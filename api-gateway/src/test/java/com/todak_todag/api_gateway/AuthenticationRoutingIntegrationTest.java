@@ -142,6 +142,33 @@ class AuthenticationRoutingIntegrationTest {
 	}
 
 	@Test
+	@DisplayName("로그아웃도 인증이 필요하며, 인증되면 검증된 사용자 헤더가 downstream까지 전달된다")
+	void forwardsAuthenticatedLogoutRequestWithVerifiedClientHeaders() {
+		String token = storedToken();
+
+		webTestClient.post()
+				.uri("/api/v1/auth/logout")
+				.cookie(COOKIE_NAME, token)
+				.exchange()
+				.expectStatus().isOk();
+
+		RecordedRequest forwarded = singleDownstreamRequest();
+
+		assertThat(forwarded.header(USER_ID_HEADER)).isEqualTo("1");
+		assertThat(forwarded.header(USER_ROLE_HEADER)).isEqualTo("USER");
+	}
+
+	@Test
+	@DisplayName("Cookie 없이 로그아웃을 요청하면 downstream 을 호출하지 않고 401 이다")
+	void doesNotForwardLogoutWhenCookieIsAbsent() {
+		expectBlocked(
+				webTestClient.post().uri("/api/v1/auth/logout"),
+				HttpStatus.UNAUTHORIZED,
+				TokenErrorCode.UNAUTHORIZED
+		);
+	}
+
+	@Test
 	@DisplayName("외부에서 보낸 위조 사용자 헤더는 검증된 값으로 교체되어 전달된다")
 	void replacesForgedClientHeadersBeforeForwarding() {
 		String token = storedToken();

@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +20,12 @@ public interface SpringDataServiceScheduleRepository extends JpaRepository<Servi
     // 케어플랜의 마지막 일정 1건 — 재매칭으로 대체된 이력(CHANGED)과 소프트 삭제분은 제외
     Optional<ServiceSchedule> findFirstByCarePlanIdAndStatusNotAndDeletedAtIsNullOrderByFinishedAtDescCreatedAtDesc(
             UUID carePlanId,
+            ScheduleStatus status
+    );
+
+    // 해당 희망 일정에서 특정 상태인 일정 목록 — 소프트 삭제분은 제외
+    List<ServiceSchedule> findByServicePreferenceIdAndStatusAndDeletedAtIsNull(
+            UUID servicePreferenceId,
             ScheduleStatus status
     );
 

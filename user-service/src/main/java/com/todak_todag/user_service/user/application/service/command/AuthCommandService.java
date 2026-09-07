@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.AuthLoginCommand;
+import com.todak_todag.user_service.user.application.command.AuthLogoutCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 import com.todak_todag.user_service.user.application.port.TokenStorePort;
@@ -27,7 +28,7 @@ public class AuthCommandService {
 	
 	private final Duration refreshExpiration;
 	
-	private final TokenStorePort accessTokenStorePort;
+	private final TokenStorePort tokenStorePort;
 
 	private final TokenPort tokenPort;
 	
@@ -41,7 +42,7 @@ public class AuthCommandService {
 	
 	public AuthCommandService(
 			@Value("${jwt.refresh.expiration}") Duration refreshExpiration,
-			TokenStorePort accessTokenStorePort,
+			TokenStorePort tokenStorePort,
 			TokenPort tokenPort,
 			PasswordEncoderPort passwordEncoder,
 			AuthCommandRepository authCommandRepo,
@@ -49,12 +50,25 @@ public class AuthCommandService {
 			UserQueryRepository userQueryRepo
 	) {
 		this.refreshExpiration = refreshExpiration;
-		this.accessTokenStorePort = accessTokenStorePort;
+		this.tokenStorePort = tokenStorePort;
 		this.tokenPort = tokenPort;
 		this.passwordEncoder = passwordEncoder;
 		this.authCommandRepo = authCommandRepo;
 		this.authQueryRepo = authQueryRepo;
 		this.userQueryRepo = userQueryRepo;
+	}
+	
+	public void logout(AuthLogoutCommand command) {
+		Auth auth = authQueryRepo.findActiveByUserId(command.requesterId())
+				.orElse(null);
+		
+		if(auth != null) {
+			auth.logout();			
+		}
+		
+		if(command.accessToken() != null && !command.accessToken().isBlank()) {
+			tokenStorePort.deleteAccessToken(command.accessToken());			
+		}
 	}
 	
 	public AuthLoginResult login(AuthLoginCommand loginCommand) {
@@ -100,7 +114,7 @@ public class AuthCommandService {
 				));
 
 		// 10. 발급한 AccessToken을 Redis에 저장 (실패 시 트랜잭션 전체 롤백)
-		accessTokenStorePort.storeAccessToken(accessToken, jwtAccessToken);
+		tokenStorePort.storeAccessToken(accessToken, jwtAccessToken);
 
 		return new AuthLoginResult(loginSession.getUserId(), accessToken, refreshToken);
 	}

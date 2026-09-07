@@ -23,6 +23,14 @@ spring:
     hikari:
       initialization-fail-timeout: -1
 
+  # 운영(config-repo)과 동일한 수신 재시도 설정 — 3회, DLQ 미운용
+  rabbitmq:
+    listener:
+      simple:
+        retry:
+          enabled: true
+          max-retries: 3
+
   jpa:
     hibernate:
       ddl-auto: create-drop

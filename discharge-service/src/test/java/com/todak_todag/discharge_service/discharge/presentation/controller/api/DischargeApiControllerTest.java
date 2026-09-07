@@ -4,6 +4,7 @@ import com.todak_todag.discharge_service.discharge.application.query.DischargeSe
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeFindResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeSearchResult;
+import com.todak_todag.discharge_service.discharge.application.result.DischargeUpdateResult;
 import com.todak_todag.discharge_service.discharge.application.service.command.DischargeCommandService;
 import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;
 import com.todak_todag.discharge_service.discharge.domain.entity.DischargeStatus;
@@ -29,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -146,6 +148,126 @@ class DischargeApiControllerTest {
                         .value("COMMON_INVALID_INPUT_VALUE"))
                 .andExpect(jsonPath("$.details.scheduledDate")
                         .exists());
+    }
+
+    @Test
+    void 퇴원건_수정에_성공한다() throws Exception {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+
+        LocalDate scheduledDate =
+                LocalDate.now().plusDays(7);
+
+        when(dischargeCommandService.updateDischarge(any()))
+                .thenReturn(
+                        new DischargeUpdateResult(
+                                dischargeId
+                        )
+                );
+
+        String requestBody = """
+                {
+                  "status": "POSTPONED",
+                  "scheduledDate": "%s"
+                }
+                """.formatted(scheduledDate);
+
+        mockMvc.perform(
+                        patch(
+                                "/api/v1/discharges/{dischargeId}",
+                                dischargeId
+                        )
+                                .header(
+                                        "X-User-Id",
+                                        hospitalStaffId.toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "HOSPITAL_STAFF"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.dischargeId")
+                        .value(dischargeId.toString()))
+                .andExpect(jsonPath("$.data.scheduledDate")
+                        .doesNotExist());
+    }
+
+    @Test
+    void 퇴원건을_날짜없이_취소할_수_있다() throws Exception {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+
+        when(dischargeCommandService.updateDischarge(any()))
+                .thenReturn(
+                        new DischargeUpdateResult(
+                                dischargeId
+                        )
+                );
+
+        String requestBody = """
+                {
+                  "status": "CANCELED"
+                }
+                """;
+
+        mockMvc.perform(
+                        patch(
+                                "/api/v1/discharges/{dischargeId}",
+                                dischargeId
+                        )
+                                .header(
+                                        "X-User-Id",
+                                        hospitalStaffId.toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "HOSPITAL_STAFF"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.dischargeId")
+                        .value(dischargeId.toString()));
+    }
+
+    @Test
+    void 병원_담당자가_아니면_퇴원건을_수정할_수_없다() throws Exception {
+        UUID dischargeId = UUID.randomUUID();
+
+        String requestBody = """
+                {
+                  "status": "POSTPONED",
+                  "scheduledDate": "%s"
+                }
+                """.formatted(
+                LocalDate.now().plusDays(1)
+        );
+
+        mockMvc.perform(
+                        patch(
+                                "/api/v1/discharges/{dischargeId}",
+                                dischargeId
+                        )
+                                .header(
+                                        "X-User-Id",
+                                        UUID.randomUUID().toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "PATIENT"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -292,7 +414,10 @@ class DischargeApiControllerTest {
                                         "X-User-Role",
                                         "HOSPITAL_STAFF"
                                 )
-                                .param("status", "INVALID_STATUS")
+                                .param(
+                                        "status",
+                                        "INVALID_STATUS"
+                                )
                 )
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))

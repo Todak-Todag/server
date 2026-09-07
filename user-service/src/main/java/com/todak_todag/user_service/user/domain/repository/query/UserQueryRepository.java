@@ -17,6 +17,8 @@ public interface UserQueryRepository {
 	Optional<User> findAdminById(UUID userId);
 	
 	boolean duplicateUsername(String username);
+	
+	boolean initMasterDuplicate(UUID userId);
 
 	Set<UUID> findMatchableSocialWorkerIds(UUID regionId);
 	

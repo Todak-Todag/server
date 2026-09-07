@@ -59,11 +59,15 @@ internal:
 authentication:
   access-token:
     redis-key-prefix: "test:access-token:"
+    cookie-name: "AccessToken"
+  refresh-token:
+    cookie-name: "RefreshToken"
 
 master:
   username: master1234
   password: Master1234!
   name: 테스트
+  id: 8f2a4c1e-9b3d-4f7a-b2c5-1d6e8f9a0b3c
 
 management:
   endpoints:

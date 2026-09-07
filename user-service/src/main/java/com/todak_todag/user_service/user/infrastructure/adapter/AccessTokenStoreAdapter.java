@@ -39,4 +39,14 @@ public class AccessTokenStoreAdapter implements TokenStorePort {
 		);
 	}
 
+	@Override
+	public void deleteAccessToken(String accessToken) {
+		if(accessToken == null || accessToken.isBlank()) {
+			return;
+		}
+		
+		String key = accessKeyPrefix + tokenPort.hashToken(accessToken);
+		redisTemplate.delete(key);
+	}
+
 }

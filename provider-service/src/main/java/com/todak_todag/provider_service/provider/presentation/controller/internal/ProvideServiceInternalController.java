@@ -18,10 +18,11 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/internal/v1/provide-services")
 @RequiredArgsConstructor
-public class ProvideServiceInternalController {
+public class ProvideServiceInternalController implements ProvideServiceInternalApiSpec {
 
     private final ProvideServiceQueryService provideServiceQueryService;
 
+    @Override
     @GetMapping
     public ApiResponse<ProvideServiceInfoListResponse> findAllByIds(
             @RequestParam("provideServiceIds") List<UUID> provideServiceIds

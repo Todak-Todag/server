@@ -5,7 +5,7 @@ import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot
 import java.time.LocalDate;
 import java.util.UUID;
 
-// ProviderReMatched 이벤트 페이로드
+// ProviderReMatched 이벤트 페이로드 (발행)
 public record ProviderReMatchEvent(
         UUID carePlanId,
         UUID regionId,
