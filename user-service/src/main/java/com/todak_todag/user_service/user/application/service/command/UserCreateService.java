@@ -1,5 +1,7 @@
 package com.todak_todag.user_service.user.application.service.command;
 
+import java.util.UUID;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -142,14 +144,14 @@ public class UserCreateService {
 	}
 
 	// 서버 최초 구동 시 마스터 계정이 없으면 생성한다 (있으면 아무 것도 하지 않음)
-	public void createUserMaster(String username, String rawPassword, String name, String phone) {
-		if(userQueryRepo.duplicateUsername(username)) {
+	public void createUserMaster(UUID userId, String username, String rawPassword, String name, String phone) {
+		if(userQueryRepo.initMasterDuplicate(userId)) {
 			return;
 		}
 
 		String passwordHash = passwordEncoder.encode(rawPassword);
 
-		User master = User.createMaster(username, passwordHash, name, phone);
+		User master = User.createMaster(userId, username, passwordHash, name, phone);
 
 		userCommandRepo.save(master);
 	}
