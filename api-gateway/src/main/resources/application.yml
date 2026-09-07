@@ -12,6 +12,7 @@ spring:
     import:
       - optional:file:.env[.properties]
       - optional:file:../.env[.properties]
+      - "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
 
   data:
     redis:
@@ -150,28 +151,6 @@ eureka:
       defaultZone: http://${EUREKA_SERVER_HOST:localhost}:8761/eureka/
   instance:
     prefer-ip-address: true
-
-logging:
-  level:
-    com.todak_todag.api_gateway: info
-
----
-spring:
-  config:
-    activate:
-      on-profile: local
-
-logging:
-  level:
-    com.todak_todag.api_gateway: debug
-
----
-spring:
-  config:
-    activate:
-      on-profile: prod
-    import:
-      - configserver:http://${CONFIG_SERVER_HOST}:8888
 
 logging:
   level:
