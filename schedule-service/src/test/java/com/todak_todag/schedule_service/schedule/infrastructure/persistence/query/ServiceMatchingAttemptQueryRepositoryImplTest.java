@@ -8,6 +8,7 @@ import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.query.ServiceMatchingAttemptQueryRepository;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Import({JpaConfig.class, QueryDslConfig.class, ServiceMatchingAttemptQueryRepositoryImpl.class})
-class ServiceMatchingAttemptQueryRepositoryImplTest {
+class ServiceMatchingAttemptQueryRepositoryImplTest extends PostgresTestSupport {
 
     private static final Pageable PAGEABLE = PageRequest.of(0, 10, Sort.by(Sort.Direction.DESC, "createdAt"));
 

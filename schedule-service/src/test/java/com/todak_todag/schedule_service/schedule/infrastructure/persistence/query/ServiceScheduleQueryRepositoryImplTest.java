@@ -6,6 +6,7 @@ import com.todak_todag.schedule_service.global.config.QueryDslConfig;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.query.ServiceScheduleQueryRepository;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Import({JpaConfig.class, QueryDslConfig.class, ServiceScheduleQueryRepositoryImpl.class})
-class ServiceScheduleQueryRepositoryImplTest {
+class ServiceScheduleQueryRepositoryImplTest extends PostgresTestSupport {
 
     @Autowired
     private ServiceScheduleQueryRepository serviceScheduleRepository;

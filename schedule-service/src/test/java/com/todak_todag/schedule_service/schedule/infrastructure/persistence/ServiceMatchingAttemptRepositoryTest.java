@@ -10,6 +10,7 @@ import com.todak_todag.schedule_service.schedule.domain.repository.command.Servi
 import com.todak_todag.schedule_service.schedule.domain.repository.query.ServiceMatchingAttemptQueryRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.command.ServiceMatchingAttemptCommandRepositoryImpl;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.query.ServiceMatchingAttemptQueryRepositoryImpl;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -34,7 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         ServiceMatchingAttemptCommandRepositoryImpl.class,
         ServiceMatchingAttemptQueryRepositoryImpl.class
 })
-class ServiceMatchingAttemptRepositoryTest {
+class ServiceMatchingAttemptRepositoryTest extends PostgresTestSupport {
 
     @Autowired
     private ServiceMatchingAttemptCommandRepository serviceMatchingAttemptCommandRepository;
