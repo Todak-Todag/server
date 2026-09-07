@@ -139,4 +139,41 @@ class CarePlanCompletedEventConsumeIntegrationTest extends IntegrationTestSuppor
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
+
+    @Test
+    @DisplayName("CANCELED 일정 이벤트에서 serviceResultId가 null이면 수행 결과 조회 없이 Care Plan이 COMPLETED 변경")
+    void carePlanCanceledEventConsume_success() throws Exception {
+        // 취소 이벤트를 받을 수 있도록 IN_PROGRESS 상태의 Care Plan 준비
+        CarePlan carePlan = CarePlan.create(
+                patientId,
+                UUID.randomUUID(),
+                LocalDate.of(2026, 9, 8),
+                LocalDate.of(2026, 10, 7),
+                "방문간호 필요"
+        );
+
+        carePlan.updateStatus(CarePlanStatus.CONFIRMED);
+        carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+
+        CarePlan savedCarePlan = carePlanCommandRepository.save(carePlan);
+
+        UUID savedCarePlanId = savedCarePlan.getId();
+
+        // CANCELED 일정은 serviceResultId가 생성되지 않을 수 있으므로 null 전달
+        CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                savedCarePlanId,
+                null,
+                ScheduleStatus.CANCELED
+        );
+
+        rabbitTemplate.convertAndSend(
+                RabbitMqConfig.SCHEDULE_EXCHANGE,
+                RabbitMqConfig.SCHEDULE_COMPLETED_ROUTING_KEY,
+                event
+        );
+
+        CarePlan completedCarePlan = waitUntilCompleted(savedCarePlanId);
+
+        assertThat(completedCarePlan.getStatus()).isEqualTo(CarePlanStatus.COMPLETED);
+    }
 }
