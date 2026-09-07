@@ -29,6 +29,7 @@ public interface UserApiSpec {
 	@Operation()
 	ResponseEntity<ApiResponse<Void>> userDelete(
 			@Parameter(description = "회원탈퇴 진행 정보", required = true)
+			@Valid
 			UserDeleteRequest userDeleteRequest,
 			
 			@Parameter(hidden = true)
