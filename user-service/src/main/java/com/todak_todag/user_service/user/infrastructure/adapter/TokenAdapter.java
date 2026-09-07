@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 public class TokenAdapter implements TokenPort {
 
-	// AccessToken 문자열 자릿수 - 256bit 엔트로피
+	// AccessToken 문자열 자릿수 - 192bit 엔트로피
 	private static final int ACCESS_TOKEN_LENGTH = 32;
 	
 	// 문자열 재료
