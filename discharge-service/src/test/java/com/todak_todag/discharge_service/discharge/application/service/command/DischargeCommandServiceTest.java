@@ -1,7 +1,9 @@
 package com.todak_todag.discharge_service.discharge.application.service.command;
 
+import com.todak_todag.discharge_service.discharge.application.command.DischargeCompleteCommand;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeCreateCommand;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeUpdateCommand;
+import com.todak_todag.discharge_service.discharge.application.result.DischargeCompleteResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeUpdateResult;
 import com.todak_todag.discharge_service.discharge.domain.entity.Discharge;
@@ -540,6 +542,290 @@ class DischargeCommandServiceTest {
                             assertThat(businessException.getErrorCode())
                                     .isEqualTo(
                                             ErrorCode.DISCHARGE_INVALID_STATUS_TRANSITION
+                                    );
+                        }
+                );
+    }
+
+    @Test
+    void 예정된_퇴원건을_완료할_수_있다() {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+        LocalDate actualDate = LocalDate.now();
+
+        Discharge discharge = mock(Discharge.class);
+
+        when(discharge.getHospitalStaffId())
+                .thenReturn(hospitalStaffId);
+
+        when(discharge.getStatus())
+                .thenReturn(
+                        DischargeStatus.SCHEDULED,
+                        DischargeStatus.COMPLETED
+                );
+
+        when(discharge.getId())
+                .thenReturn(dischargeId);
+
+        when(discharge.getActualDate())
+                .thenReturn(actualDate);
+
+        when(dischargeQueryRepository.findById(dischargeId))
+                .thenReturn(Optional.of(discharge));
+
+        DischargeCompleteCommand command =
+                new DischargeCompleteCommand(
+                        dischargeId,
+                        hospitalStaffId,
+                        actualDate
+                );
+
+        DischargeCompleteResult result =
+                dischargeCommandService.completeDischarge(command);
+
+        verify(discharge)
+                .complete(actualDate);
+
+        assertThat(result.dischargeId())
+                .isEqualTo(dischargeId);
+
+        assertThat(result.status())
+                .isEqualTo(DischargeStatus.COMPLETED);
+
+        assertThat(result.actualDate())
+                .isEqualTo(actualDate);
+    }
+
+    @Test
+    void 연기된_퇴원건을_완료할_수_있다() {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+        LocalDate actualDate = LocalDate.now();
+
+        Discharge discharge = mock(Discharge.class);
+
+        when(discharge.getHospitalStaffId())
+                .thenReturn(hospitalStaffId);
+
+        when(discharge.getStatus())
+                .thenReturn(
+                        DischargeStatus.POSTPONED,
+                        DischargeStatus.COMPLETED
+                );
+
+        when(discharge.getId())
+                .thenReturn(dischargeId);
+
+        when(discharge.getActualDate())
+                .thenReturn(actualDate);
+
+        when(dischargeQueryRepository.findById(dischargeId))
+                .thenReturn(Optional.of(discharge));
+
+        DischargeCompleteCommand command =
+                new DischargeCompleteCommand(
+                        dischargeId,
+                        hospitalStaffId,
+                        actualDate
+                );
+
+        DischargeCompleteResult result =
+                dischargeCommandService.completeDischarge(command);
+
+        verify(discharge)
+                .complete(actualDate);
+
+        assertThat(result.status())
+                .isEqualTo(DischargeStatus.COMPLETED);
+
+        assertThat(result.actualDate())
+                .isEqualTo(actualDate);
+    }
+
+    @Test
+    void 존재하지_않는_퇴원건은_완료할_수_없다() {
+        UUID dischargeId = UUID.randomUUID();
+
+        when(dischargeQueryRepository.findById(dischargeId))
+                .thenReturn(Optional.empty());
+
+        DischargeCompleteCommand command =
+                new DischargeCompleteCommand(
+                        dischargeId,
+                        UUID.randomUUID(),
+                        LocalDate.now()
+                );
+
+        assertThatThrownBy(
+                () -> dischargeCommandService.completeDischarge(command)
+        )
+                .isInstanceOf(BusinessException.class)
+                .satisfies(
+                        exception -> {
+                            BusinessException businessException =
+                                    (BusinessException) exception;
+
+                            assertThat(businessException.getErrorCode())
+                                    .isEqualTo(
+                                            ErrorCode.DISCHARGE_NOT_FOUND
+                                    );
+                        }
+                );
+    }
+
+    @Test
+    void 다른_병원_담당자의_퇴원건은_완료할_수_없다() {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+        UUID otherHospitalStaffId = UUID.randomUUID();
+
+        Discharge discharge = mock(Discharge.class);
+
+        when(discharge.getHospitalStaffId())
+                .thenReturn(hospitalStaffId);
+
+        when(dischargeQueryRepository.findById(dischargeId))
+                .thenReturn(Optional.of(discharge));
+
+        DischargeCompleteCommand command =
+                new DischargeCompleteCommand(
+                        dischargeId,
+                        otherHospitalStaffId,
+                        LocalDate.now()
+                );
+
+        assertThatThrownBy(
+                () -> dischargeCommandService.completeDischarge(command)
+        )
+                .isInstanceOf(BusinessException.class)
+                .satisfies(
+                        exception -> {
+                            BusinessException businessException =
+                                    (BusinessException) exception;
+
+                            assertThat(businessException.getErrorCode())
+                                    .isEqualTo(
+                                            ErrorCode.AUTH_FORBIDDEN
+                                    );
+                        }
+                );
+    }
+
+    @Test
+    void 완료된_퇴원건은_다시_완료할_수_없다() {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+
+        Discharge discharge = mock(Discharge.class);
+
+        when(discharge.getHospitalStaffId())
+                .thenReturn(hospitalStaffId);
+
+        when(discharge.getStatus())
+                .thenReturn(DischargeStatus.COMPLETED);
+
+        when(dischargeQueryRepository.findById(dischargeId))
+                .thenReturn(Optional.of(discharge));
+
+        DischargeCompleteCommand command =
+                new DischargeCompleteCommand(
+                        dischargeId,
+                        hospitalStaffId,
+                        LocalDate.now()
+                );
+
+        assertThatThrownBy(
+                () -> dischargeCommandService.completeDischarge(command)
+        )
+                .isInstanceOf(BusinessException.class)
+                .satisfies(
+                        exception -> {
+                            BusinessException businessException =
+                                    (BusinessException) exception;
+
+                            assertThat(businessException.getErrorCode())
+                                    .isEqualTo(
+                                            ErrorCode.DISCHARGE_INVALID_STATUS_TRANSITION
+                                    );
+                        }
+                );
+    }
+
+    @Test
+    void 취소된_퇴원건은_완료할_수_없다() {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+
+        Discharge discharge = mock(Discharge.class);
+
+        when(discharge.getHospitalStaffId())
+                .thenReturn(hospitalStaffId);
+
+        when(discharge.getStatus())
+                .thenReturn(DischargeStatus.CANCELED);
+
+        when(dischargeQueryRepository.findById(dischargeId))
+                .thenReturn(Optional.of(discharge));
+
+        DischargeCompleteCommand command =
+                new DischargeCompleteCommand(
+                        dischargeId,
+                        hospitalStaffId,
+                        LocalDate.now()
+                );
+
+        assertThatThrownBy(
+                () -> dischargeCommandService.completeDischarge(command)
+        )
+                .isInstanceOf(BusinessException.class)
+                .satisfies(
+                        exception -> {
+                            BusinessException businessException =
+                                    (BusinessException) exception;
+
+                            assertThat(businessException.getErrorCode())
+                                    .isEqualTo(
+                                            ErrorCode.DISCHARGE_INVALID_STATUS_TRANSITION
+                                    );
+                        }
+                );
+    }
+
+    @Test
+    void 실제_퇴원일은_미래일_수_없다() {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+
+        Discharge discharge = mock(Discharge.class);
+
+        when(discharge.getHospitalStaffId())
+                .thenReturn(hospitalStaffId);
+
+        when(discharge.getStatus())
+                .thenReturn(DischargeStatus.SCHEDULED);
+
+        when(dischargeQueryRepository.findById(dischargeId))
+                .thenReturn(Optional.of(discharge));
+
+        DischargeCompleteCommand command =
+                new DischargeCompleteCommand(
+                        dischargeId,
+                        hospitalStaffId,
+                        LocalDate.now().plusDays(1)
+                );
+
+        assertThatThrownBy(
+                () -> dischargeCommandService.completeDischarge(command)
+        )
+                .isInstanceOf(BusinessException.class)
+                .satisfies(
+                        exception -> {
+                            BusinessException businessException =
+                                    (BusinessException) exception;
+
+                            assertThat(businessException.getErrorCode())
+                                    .isEqualTo(
+                                            ErrorCode.COMMON_INVALID_INPUT_VALUE
                                     );
                         }
                 );
