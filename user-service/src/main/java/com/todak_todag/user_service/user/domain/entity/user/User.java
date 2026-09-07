@@ -158,6 +158,10 @@ public class User extends BaseAuditableEntity {
 		}
 	}
 	
+	public void delete(UUID deletedBy) {
+		this.markDeleted(deletedBy);
+	}
+	
 	public void changePassword(String passwordHash) {
 		validateApproved();
 		

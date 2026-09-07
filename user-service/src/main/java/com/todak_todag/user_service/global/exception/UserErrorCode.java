@@ -40,7 +40,7 @@ public enum UserErrorCode implements ErrorCode {
 	
 	USER_INVALID_MATCHING_PATIENT(HttpStatus.CONFLICT, "퇴원 예정자만 사회복지사 매칭이 가능합니다."),
 	
-	USER_INVALID_CURRENT_PASSWORD(HttpStatus.CONFLICT, "기존 비밀번호와 일치하지 않습니다."),
+	USER_INVALID_CURRENT_PASSWORD(HttpStatus.CONFLICT, "기존 비밀번호와 일치하지 않습니다.")
 	;
 	private final HttpStatus status;
   private final String message;

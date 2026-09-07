@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.presentation.request.UserDeleteRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPasswordUpdateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
@@ -18,11 +19,28 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 @Tag(name = "Service User", description = "User API")
 public interface UserApiSpec {
 
+	@Operation()
+	ResponseEntity<ApiResponse<Void>> userDelete(
+			@Parameter(description = "회원탈퇴 진행 정보", required = true)
+			UserDeleteRequest userDeleteRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user,
+			
+			@Parameter(hidden = true)
+			HttpServletRequest request,
+			
+			@Parameter(hidden = true)
+			HttpServletResponse response
+	);
+	
 	@Operation(
 			summary = "회원정보 수정",
 			description = """
