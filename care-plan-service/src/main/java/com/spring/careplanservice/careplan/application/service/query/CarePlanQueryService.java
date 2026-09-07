@@ -29,10 +29,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CarePlanQueryService {
-    private static final Set<CarePlanStatus> SOCIAL_WORKER_VISIBLE_STATUSES = Set.of(
+    private static final Set<CarePlanStatus> ACTIVE_STATUSES = Set.of(
             CarePlanStatus.CONFIRMED,
-            CarePlanStatus.IN_PROGRESS,
-            CarePlanStatus.COMPLETED
+            CarePlanStatus.IN_PROGRESS
     );
     private final CarePlanQueryRepository carePlanQueryRepository;
     private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
@@ -44,7 +43,7 @@ public class CarePlanQueryService {
     ) {
         CarePlan carePlan = carePlanQueryRepository.findByPatientIdAndStatuses(
                 carePlanFindByPatientQuery.patientId(),
-                SOCIAL_WORKER_VISIBLE_STATUSES
+                ACTIVE_STATUSES
         ).orElseThrow(this::patientNotFound);
 
         return CarePlanFindByPatientResult.from(carePlan);
