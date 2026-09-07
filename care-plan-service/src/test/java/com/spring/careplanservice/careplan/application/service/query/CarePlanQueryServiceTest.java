@@ -64,7 +64,7 @@ class CarePlanQueryServiceTest {
     @DisplayName("[내부 API] patientId 기반 Care Plan 조회")
     class FindByPatient {
         @Test
-        @DisplayName("patientId로 Care Plan 조회")
+        @DisplayName("patientId로 활성 Care Plan 조회")
         void findByPatient_success() {
             CarePlan carePlan = mock(CarePlan.class);
 
@@ -76,8 +76,7 @@ class CarePlanQueryServiceTest {
                     patientId,
                     Set.of(
                             CarePlanStatus.CONFIRMED,
-                            CarePlanStatus.IN_PROGRESS,
-                            CarePlanStatus.COMPLETED
+                            CarePlanStatus.IN_PROGRESS
                     ))).willReturn(Optional.of(carePlan));
 
             CarePlanFindByPatientQuery carePlanFindByPatientQuery = new CarePlanFindByPatientQuery(patientId);
@@ -89,14 +88,13 @@ class CarePlanQueryServiceTest {
         }
 
         @Test
-        @DisplayName("patientId에 해당하는 Care Plan이 없으면 예외 발생")
+        @DisplayName("활성 Care Plan이 없으면 예외 발생")
         void findByPatient_notFound() {
             given(carePlanQueryRepository.findByPatientIdAndStatuses(
                     patientId,
                     Set.of(
                             CarePlanStatus.CONFIRMED,
-                            CarePlanStatus.IN_PROGRESS,
-                            CarePlanStatus.COMPLETED
+                            CarePlanStatus.IN_PROGRESS
                     )
             )).willReturn(Optional.empty());
 
