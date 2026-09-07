@@ -29,6 +29,17 @@ spring:
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
+    # 수신 재시도 3회, DLQ 미운용
+    # 재시도를 소진하면 메시지를 폐기한다 (재큐잉하면 무한 반복)
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000
+          multiplier: 2
+
   cloud:
     openfeign:
       client:
