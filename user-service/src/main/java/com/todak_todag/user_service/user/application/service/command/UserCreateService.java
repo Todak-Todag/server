@@ -22,6 +22,7 @@ import com.todak_todag.user_service.user.application.result.UserAdminCreatedResu
 import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
+import com.todak_todag.user_service.user.application.support.ConsentDocumentValidator;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
@@ -37,6 +38,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
 public class UserCreateService {
+	
+	private final ConsentDocumentValidator consentDocumentValidator;
 	
 	private final AddressValidator addressValidator;
 	
@@ -65,34 +68,7 @@ public class UserCreateService {
 		}
 		
 		// 현재 적용 중인 전체약관 조회
-		Set<UUID> requestTermsIds = new HashSet<>(signup.getTermsIds());
-		if(requestTermsIds.size() != signup.getTermsIds().size()) {
-			throw new BusinessException(ConsentErrorCode.DUPLICATE_CONSENT_DOCUMENT_VERSION);
-		}
-				
-		// 연산 빠르게 Map<UUID, ConsentDocumentCurrentView> 매핑
-		Map<UUID, ConsentDocumentCurrentView> currentDocumentVersion = consentDocumentQueryRepo.findAllCurrent(LocalDateTime.now())
-				.stream()
-				.collect(Collectors.toMap(ConsentDocumentCurrentView::consentDocumentVersionId, version -> version));
-		
-		// agreements.agreed 가 true 로 넘어온 termsId 를 추출
-		Set<UUID> agreedVersionIds = signup.agreements().stream()
-				.filter(UserSignupCommand.AgreementCommand::agreed)
-				.map(UserSignupCommand.AgreementCommand::termsId)
-				.collect(Collectors.toSet());
-		
-		if(!currentDocumentVersion.keySet().containsAll(agreedVersionIds)) {
-			throw new BusinessException(ConsentErrorCode.INVALID_CONSENT_DOCUMENT_VERSION);
-		}
-		
-		Set<UUID> requiredVersionIds = currentDocumentVersion.values().stream()
-				.filter(ConsentDocumentCurrentView::isRequired)
-				.map(ConsentDocumentCurrentView::consentDocumentVersionId)
-				.collect(Collectors.toSet());
-		
-		if(!agreedVersionIds.containsAll(requiredVersionIds)) {
-			throw new BusinessException(UserErrorCode.USER_SIGNUP_REQUIRED_NOT_AGREED);
-		}
+		Map<UUID, ConsentDocumentCurrentView> consentDocumentCurrentViewAll =  consentDocumentValidator.signupConsentDocumentValidate(signup);
 		
 		// 비밀번호 해시
 		String passwordHash = passwordEncoder.encode(signup.password());
@@ -108,6 +84,7 @@ public class UserCreateService {
 		);
 		
 		User user = userCommandRepo.save(signupUser);
+		
 		// List<Consent> saveAll
 		
 		return new UserSignupCreatedResult(user.getId(), user.getName());
