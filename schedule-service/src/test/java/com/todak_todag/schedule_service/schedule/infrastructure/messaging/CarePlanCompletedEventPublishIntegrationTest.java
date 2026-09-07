@@ -103,7 +103,8 @@ class CarePlanCompletedEventPublishIntegrationTest extends PostgresTestSupport {
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
         assertThat(received.getFirst()).isEqualTo(
-                "{\"serviceResultId\":\"" + lastResult.serviceResultId() + "\",\"status\":\"COMPLETED\"}"
+                "{\"carePlanId\":\"" + carePlanId + "\","
+                        + "\"serviceResultId\":\"" + lastResult.serviceResultId() + "\",\"status\":\"COMPLETED\"}"
         );
     }
 
@@ -143,7 +144,9 @@ class CarePlanCompletedEventPublishIntegrationTest extends PostgresTestSupport {
         // then
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
-        assertThat(received.getFirst()).isEqualTo("{\"serviceResultId\":null,\"status\":\"CANCELED\"}");
+        assertThat(received.getFirst()).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\",\"serviceResultId\":null,\"status\":\"CANCELED\"}"
+        );
     }
 
     @Test
@@ -171,7 +174,9 @@ class CarePlanCompletedEventPublishIntegrationTest extends PostgresTestSupport {
         // then
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
-        assertThat(received.getFirst()).isEqualTo("{\"serviceResultId\":null,\"status\":\"CANCELED\"}");
+        assertThat(received.getFirst()).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\",\"serviceResultId\":null,\"status\":\"CANCELED\"}"
+        );
     }
 
     @Test
@@ -196,6 +201,7 @@ class CarePlanCompletedEventPublishIntegrationTest extends PostgresTestSupport {
         // then
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
+        assertThat(received.getFirst()).contains("\"carePlanId\":\"" + carePlanId + "\"");
         assertThat(received.getFirst()).contains("\"status\":\"COMPLETED\"");
         assertThat(received.getFirst()).doesNotContain("\"serviceResultId\":null");
     }
