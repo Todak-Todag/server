@@ -4,6 +4,7 @@ import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.presentation.request.ConsentCreateRequest;
 import com.todak_todag.user_service.user.presentation.response.ConsentCreateResponse;
+import com.todak_todag.user_service.user.presentation.response.ConsentFindHistoryResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -52,5 +53,30 @@ public interface ConsentApiSpec {
             UserContext user,
 
             ConsentCreateRequest request
+    );
+
+    @Operation(
+            summary = "로그인 사용자 약관 동의 내역 조회",
+            description =
+                    "로그인 사용자가 지금까지 동의하거나 철회한 약관 내역을 조회한다."
+    )
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "200",
+                    description = "로그인 사용자 동의 내역 조회 성공"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "400",
+                    description = "요청 값 오류"
+            ),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                    responseCode = "500",
+                    description = "서버 내부 오류"
+            )
+    })
+    ResponseEntity<ApiResponse<ConsentFindHistoryResponse>>
+    findMyConsents(
+            @Parameter(hidden = true)
+            UserContext user
     );
 }
