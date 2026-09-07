@@ -13,10 +13,31 @@ public interface CarePlanPort {
     // patientId(요청자 userId)가 담당하는 모든 servicePreferenceId 목록을 조회
     List<UUID> findServicePreferenceIds(UUID patientId);
 
+    // patientId(요청자 userId)의 Care Plan 상태를 조회
+    CarePlanSummary findCarePlanByPatient(UUID patientId);
+
     record CarePlanRange(
             UUID carePlanId,
             LocalDate finishDate,
             UUID patientId
     ) {
+    }
+
+    record CarePlanSummary(
+            UUID carePlanId,
+            CarePlanStatus status
+    ) {
+
+        public boolean isConfirmed() {
+            return status == CarePlanStatus.CONFIRMED;
+        }
+    }
+
+    // care-plan-service의 care_plan_status ENUM
+    enum CarePlanStatus {
+        UNDER_REVIEW,
+        CONFIRMED,
+        IN_PROGRESS,
+        COMPLETED
     }
 }

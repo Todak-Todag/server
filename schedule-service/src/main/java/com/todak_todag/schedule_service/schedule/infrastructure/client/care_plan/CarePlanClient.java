@@ -2,13 +2,13 @@ package com.todak_todag.schedule_service.schedule.infrastructure.client.care_pla
 
 import com.todak_todag.schedule_service.global.response.ApiResponse;
 import com.todak_todag.schedule_service.schedule.infrastructure.client.dto.CarePlanRangeInternalResponse;
+import com.todak_todag.schedule_service.schedule.infrastructure.client.dto.CarePlanSummaryInternalResponse;
 import com.todak_todag.schedule_service.schedule.infrastructure.client.dto.ServicePreferenceIdListInternalResponse;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.time.LocalDate;
 import java.util.UUID;
 
 // schedule-service -> care-plan-service Internal API
@@ -26,6 +26,12 @@ public interface CarePlanClient {
     @GetMapping("/internal/v1/service-preferences")
     ApiResponse<ServicePreferenceIdListInternalResponse> findServicePreferenceIds(
             @RequestParam UUID patientId
+    );
+
+    // patientId의 Care Plan 상태 조회
+    @GetMapping("/internal/v1/care-plans/{patientId}")
+    ApiResponse<CarePlanSummaryInternalResponse> findCarePlanByPatient(
+            @PathVariable UUID patientId
     );
 
 }
