@@ -88,7 +88,7 @@ public class DischargeApiController {
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
             @RequestParam(required = false) String sort,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) DischargeStatus status,
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
             LocalDate scheduledDate
@@ -101,13 +101,11 @@ public class DischargeApiController {
                         sort
                 );
 
-        DischargeStatus statusFilter =
-                DischargeStatus.fromFilter(status);
 
         DischargeSearchQuery query =
                 new DischargeSearchQuery(
                         user.getUserId(),
-                        statusFilter,
+                        status,
                         scheduledDate,
                         pageable
                 );

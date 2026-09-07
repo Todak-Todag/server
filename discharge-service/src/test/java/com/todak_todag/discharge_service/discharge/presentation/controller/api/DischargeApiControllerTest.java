@@ -422,7 +422,7 @@ class DischargeApiControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code")
-                        .value("COMMON_INVALID_INPUT_VALUE"));
+                        .value("COMMON_INVALID_REQUEST"));
     }
 
     @Test
