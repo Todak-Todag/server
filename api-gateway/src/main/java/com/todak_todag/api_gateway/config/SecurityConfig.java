@@ -80,8 +80,7 @@ public class SecurityConfig {
 								HttpMethod.POST,
 								"/api/v1/auth/login",
 								"/api/v1/users/signup",
-								"/api/v1/auth/reissue",
-								"/api/v1/auth/logout"
+								"/api/v1/auth/reissue"
 						).permitAll()
 						
 						// 공개 API
@@ -194,8 +193,7 @@ public class SecurityConfig {
 			ServerWebExchangeMatchers.pathMatchers(HttpMethod.POST,
 					"/api/v1/users/signup",
 					"/api/v1/auth/login",
-					"/api/v1/auth/reissue",
-					"/api/v1/auth/logout"
+					"/api/v1/auth/reissue"
 			),
 			
 			ServerWebExchangeMatchers.pathMatchers(

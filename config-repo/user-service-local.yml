@@ -48,6 +48,9 @@ jwt:
 authentication:
   access-token:
     redis-key-prefix: ${ACCESS_KEY_PREFIX}
+    cookie-name: ${ACCESS_COOKIE_NAME}
+  refresh-token:
+    cookie-name: ${REFRESH_COOKIE_NAME}
 
 master:
   username: ${MASTER_USERNAME}

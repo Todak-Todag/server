@@ -28,7 +28,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.AuthLoginCommand;
+import com.todak_todag.user_service.user.application.command.AuthLogoutCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 import com.todak_todag.user_service.user.application.port.TokenStorePort;
@@ -324,6 +326,74 @@ class AuthCommandServiceTest {
 			inOrder.verify(authQueryRepo).findActiveByUserId(USER_ID);
 			inOrder.verify(authCommandRepo).save(any(Auth.class));
 			inOrder.verify(accessTokenStorePort).storeAccessToken(ACCESS_TOKEN, JWT_ACCESS_TOKEN);
+		}
+	}
+
+	@Nested
+	@DisplayName("로그아웃")
+	class Logout {
+
+		private AuthLogoutCommand command(String accessToken) {
+			UserContext user = UserContext.from(USER_ID.toString(), ROLE.name());
+			return new AuthLogoutCommand(user, accessToken);
+		}
+
+		@Test
+		@DisplayName("활성 세션과 accessToken이 모두 있으면 세션을 종료하고 AccessToken을 저장소에서 삭제한다")
+		void logoutTest_activeSessionAndAccessToken_logsOutAndDeletesAccessToken() {
+			// Given
+			Auth activeSession = Auth.login(USER_ID, HASHED_REFRESH_TOKEN, LocalDateTime.now().plusDays(7), LocalDateTime.now());
+			given(authQueryRepo.findActiveByUserId(USER_ID)).willReturn(Optional.of(activeSession));
+
+			// When
+			authCommandService.logout(command(ACCESS_TOKEN));
+
+			// Then
+			assertThat(activeSession.getLogoutAt()).isNotNull();
+			verify(accessTokenStorePort).deleteAccessToken(ACCESS_TOKEN);
+		}
+
+		@Test
+		@DisplayName("활성 세션이 없어도 accessToken이 있으면 AccessToken 삭제는 수행한다")
+		void logoutTest_noActiveSession_stillDeletesAccessToken() {
+			// Given
+			given(authQueryRepo.findActiveByUserId(USER_ID)).willReturn(Optional.empty());
+
+			// When
+			authCommandService.logout(command(ACCESS_TOKEN));
+
+			// Then
+			verify(accessTokenStorePort).deleteAccessToken(ACCESS_TOKEN);
+		}
+
+		@Test
+		@DisplayName("accessToken이 null이면 세션은 종료하되 AccessToken 저장소는 건드리지 않는다")
+		void logoutTest_nullAccessToken_logsOutSessionOnlyWithoutTouchingTokenStore() {
+			// Given
+			Auth activeSession = Auth.login(USER_ID, HASHED_REFRESH_TOKEN, LocalDateTime.now().plusDays(7), LocalDateTime.now());
+			given(authQueryRepo.findActiveByUserId(USER_ID)).willReturn(Optional.of(activeSession));
+
+			// When
+			authCommandService.logout(command(null));
+
+			// Then
+			assertThat(activeSession.getLogoutAt()).isNotNull();
+			verifyNoInteractions(accessTokenStorePort);
+		}
+
+		@Test
+		@DisplayName("accessToken이 빈 문자열이면 세션은 종료하되 AccessToken 저장소는 건드리지 않는다")
+		void logoutTest_blankAccessToken_logsOutSessionOnlyWithoutTouchingTokenStore() {
+			// Given
+			Auth activeSession = Auth.login(USER_ID, HASHED_REFRESH_TOKEN, LocalDateTime.now().plusDays(7), LocalDateTime.now());
+			given(authQueryRepo.findActiveByUserId(USER_ID)).willReturn(Optional.of(activeSession));
+
+			// When
+			authCommandService.logout(command(""));
+
+			// Then
+			assertThat(activeSession.getLogoutAt()).isNotNull();
+			verifyNoInteractions(accessTokenStorePort);
 		}
 	}
 }

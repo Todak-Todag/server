@@ -141,6 +141,8 @@ authentication:
     redis-key-prefix: ${ACCESS_KEY_PREFIX}
     user-id-claim: sub
     role-claim: role
+  refresh-token:
+    cookie-name: RefreshToken
 
 eureka:
   client:

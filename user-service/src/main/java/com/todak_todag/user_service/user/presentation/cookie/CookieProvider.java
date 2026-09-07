@@ -7,6 +7,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
 
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Component
@@ -22,6 +24,19 @@ public class CookieProvider {
 			@Value("${jwt.secure}") boolean secure
 	) {
 		this.secure = secure;
+	}
+	
+	public String getCookieValue(String cookieName, HttpServletRequest request) {
+		Cookie[] cookies = request.getCookies();
+		if(cookies == null) return null;
+		
+		for(Cookie c : cookies) {
+			if(c.getName().equals(cookieName)) {
+				return c.getValue();
+			}
+		}
+		
+		return null;
 	}
 	
 	public void addCookie(String cookieName, Duration maxAge, String value, HttpServletResponse response) {
