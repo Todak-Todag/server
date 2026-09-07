@@ -10,4 +10,7 @@ public interface ConsentQueryRepository {
             UUID userId,
             List<UUID> consentDocumentVersionIds
     );
+
+    // 사용자의 약관 동의 및 철회 이력 조회
+    List<ConsentHistoryView> findAllByUserId(UUID userId);
 }
