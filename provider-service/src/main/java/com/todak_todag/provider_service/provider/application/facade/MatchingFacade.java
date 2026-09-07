@@ -45,17 +45,24 @@ public class MatchingFacade {
     }
 
     public void rematch(ProviderRematchedEvent event) {
-        List<ServiceOffering> candidates = serviceOfferingQueryRepository
-                .findAllByRegionIdAndProvideServiceId(event.regionId(), event.provideServiceId());
+        // 예외가 리스너 밖으로 나가면 메시지가 재큐잉되어 무한 반복된다
+        // match()와 같은 이유로 여기서 가둔다
+        try {
+            List<ServiceOffering> candidates = serviceOfferingQueryRepository
+                    .findAllByRegionIdAndProvideServiceId(event.regionId(), event.provideServiceId());
 
-        Map<UUID, List<ProvideWork>> works = loadWorks(candidates);
-        List<ScheduleSlot> occupied = new ArrayList<>(loadSchedules(candidates, event.date()));
+            Map<UUID, List<ProvideWork>> works = loadWorks(candidates);
+            List<ScheduleSlot> occupied = new ArrayList<>(loadSchedules(candidates, event.date()));
 
-        matchOne(
-                event.carePlanId(), event.regionId(), event.provideServiceId(),
-                event.servicePreferenceId(), event.date(), event.preferredTimeSlot(),
-                candidates, works, occupied
-        );
+            matchOne(
+                    event.carePlanId(), event.regionId(), event.provideServiceId(),
+                    event.servicePreferenceId(), event.date(), event.preferredTimeSlot(),
+                    candidates, works, occupied
+            );
+        } catch (Exception e) {
+            log.error("[Provider] 재매칭 처리 실패 carePlanId={} servicePreferenceId={} date={}",
+                    event.carePlanId(), event.servicePreferenceId(), event.date(), e);
+        }
     }
 
     private void matchService(UUID carePlanId, UUID regionId, CarePlanConfirmedEvent.Service service) {
@@ -110,20 +117,46 @@ public class MatchingFacade {
                 matchingService.match(candidates, works, occupied, date, preferredTimeSlot);
 
         if (matched.isEmpty()) {
-            log.info("[Provider] 매칭 실패 servicePreferenceId={} date={}", servicePreferenceId, date);
-
-            matchingEventPort.publishMatchFailed(new ProviderMatchFailedEvent(
+            ProviderMatchFailedEvent failedEvent = new ProviderMatchFailedEvent(
                     carePlanId, regionId, servicePreferenceId, provideServiceId,
                     date, preferredTimeSlot,
                     ProviderMatchFailedEvent.NO_AVAILABLE_PROVIDER, Instant.now()
-            ));
+            );
+
+            log.info("[Provider] 매칭 실패 servicePreferenceId={} date={}", servicePreferenceId, date);
+
+            try {
+                matchingEventPort.publishMatchFailed(failedEvent);
+            } catch (Exception e) {
+                // 발행이 실패하면 Schedule은 매칭 실패 사실을 알지 못한 채 RESCHEDULING에 머문다
+                // 운영자가 수동으로 확인할 수 있도록 페이로드 전체를 남긴다
+                log.error("[Provider] 매칭 실패 이벤트 발행 실패 event={}", failedEvent, e);
+
+                throw e;
+            }
 
             return;
         }
 
         MatchingService.Match match = matched.get();
 
-        // 같은 이벤트 안의 다음 희망 일정이 같은 제공자에게 같은 시간으로 또 배정되지 않도록 메모리에 반영한다
+        ProviderMatchedEvent matchedEvent = new ProviderMatchedEvent(
+                carePlanId, regionId, servicePreferenceId, provideServiceId,
+                match.serviceOfferingId(), date, date.atTime(match.startedAt()), Instant.now()
+        );
+
+        try {
+            matchingEventPort.publishMatched(matchedEvent);
+        } catch (Exception e) {
+            // 발행이 실패하면 이 배정은 어디에도 남지 않는다
+            // 운영자가 수동으로 복구할 수 있도록 페이로드 전체를 남긴다
+            log.error("[Provider] 매칭 결과 발행 실패 event={}", matchedEvent, e);
+
+            throw e;
+        }
+
+        // 발행에 성공한 뒤에야 메모리에 반영한다
+        // 실패한 배정을 미리 넣으면 뒤따르는 희망 일정이 존재하지 않는 일정을 피해 배정된다
         occupied.add(new ScheduleSlot(
                 match.serviceOfferingId(), date, match.startedAt(), match.finishedAt()
         ));
@@ -131,11 +164,6 @@ public class MatchingFacade {
         // 매칭 결과를 추적할 수 있도록 성공도 남긴다
         log.info("[Provider] 매칭 성공 servicePreferenceId={} serviceOfferingId={} date={} startedAt={}",
                 servicePreferenceId, match.serviceOfferingId(), date, match.startedAt());
-
-        matchingEventPort.publishMatched(new ProviderMatchedEvent(
-                carePlanId, regionId, servicePreferenceId, provideServiceId,
-                match.serviceOfferingId(), date, date.atTime(match.startedAt()), Instant.now()
-        ));
     }
 
     private Map<UUID, List<ProvideWork>> loadWorks(List<ServiceOffering> candidates) {
