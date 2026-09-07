@@ -11,7 +11,8 @@ import java.util.UUID;
 public interface JpaCarePlanRepository extends JpaRepository<CarePlan, UUID> {
     Optional<CarePlan> findByIdAndDeletedAtIsNull(UUID id);
 
-    Optional<CarePlan> findByPatientIdAndStatusInAndDeletedAtIsNull(
+    // 최신 1건
+    Optional<CarePlan> findFirstByPatientIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtDesc(
             UUID patientId,
             Set<CarePlanStatus> statuses
     );

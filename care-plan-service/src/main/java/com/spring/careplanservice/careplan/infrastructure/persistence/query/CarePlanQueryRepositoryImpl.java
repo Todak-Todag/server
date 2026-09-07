@@ -39,7 +39,7 @@ public class CarePlanQueryRepositoryImpl implements CarePlanQueryRepository {
             Set<CarePlanStatus> statuses
     ) {
         return jpaCarePlanRepository
-                .findByPatientIdAndStatusInAndDeletedAtIsNull(
+                .findFirstByPatientIdAndStatusInAndDeletedAtIsNullOrderByCreatedAtDesc(
                         patientId,
                         statuses
                 );
