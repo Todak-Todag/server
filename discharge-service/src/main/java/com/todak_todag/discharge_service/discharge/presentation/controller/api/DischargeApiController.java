@@ -81,6 +81,7 @@ public class DischargeApiController {
                 new DischargeUpdateCommand(
                         dischargeId,
                         user.getUserId(),
+                        request.status(),
                         request.scheduledDate()
                 );
 

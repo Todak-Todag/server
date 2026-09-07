@@ -154,13 +154,13 @@ class DischargeApiControllerTest {
         when(dischargeCommandService.updateDischarge(any()))
                 .thenReturn(
                         new DischargeUpdateResult(
-                                dischargeId,
-                                scheduledDate
+                                dischargeId
                         )
                 );
 
         String requestBody = """
                 {
+                  "status": "POSTPONED",
                   "scheduledDate": "%s"
                 }
                 """.formatted(scheduledDate);
@@ -187,7 +187,48 @@ class DischargeApiControllerTest {
                 .andExpect(jsonPath("$.data.dischargeId")
                         .value(dischargeId.toString()))
                 .andExpect(jsonPath("$.data.scheduledDate")
-                        .value(scheduledDate.toString()));
+                        .doesNotExist());
+    }
+
+    @Test
+    void 퇴원건을_날짜없이_취소할_수_있다() throws Exception {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+
+        when(dischargeCommandService.updateDischarge(any()))
+                .thenReturn(
+                        new DischargeUpdateResult(
+                                dischargeId
+                        )
+                );
+
+        String requestBody = """
+                {
+                  "status": "CANCELED"
+                }
+                """;
+
+        mockMvc.perform(
+                        patch(
+                                "/api/v1/discharges/{dischargeId}",
+                                dischargeId
+                        )
+                                .header(
+                                        "X-User-Id",
+                                        hospitalStaffId.toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "HOSPITAL_STAFF"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.dischargeId")
+                        .value(dischargeId.toString()));
     }
 
     @Test
@@ -196,6 +237,7 @@ class DischargeApiControllerTest {
 
         String requestBody = """
                 {
+                  "status": "POSTPONED",
                   "scheduledDate": "%s"
                 }
                 """.formatted(
@@ -219,42 +261,6 @@ class DischargeApiControllerTest {
                                 .content(requestBody)
                 )
                 .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void 수정할_퇴원_예정일은_미래_날짜여야_한다() throws Exception {
-        UUID dischargeId = UUID.randomUUID();
-
-        String requestBody = """
-                {
-                  "scheduledDate": "%s"
-                }
-                """.formatted(
-                LocalDate.now()
-        );
-
-        mockMvc.perform(
-                        patch(
-                                "/api/v1/discharges/{dischargeId}",
-                                dischargeId
-                        )
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
-                                .contentType(MediaType.APPLICATION_JSON)
-                                .content(requestBody)
-                )
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.code")
-                        .value("COMMON_INVALID_INPUT_VALUE"))
-                .andExpect(jsonPath("$.details.scheduledDate")
-                        .exists());
     }
 
     @Test

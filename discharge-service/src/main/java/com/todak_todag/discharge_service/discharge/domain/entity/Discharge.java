@@ -41,7 +41,6 @@ public class Discharge extends BaseAuditableEntity {
     @Column(nullable = false)
     private DischargeStatus status;
 
-    @Column(nullable = false)
     private LocalDate scheduledDate;
 
     private LocalDate actualDate;
@@ -73,7 +72,16 @@ public class Discharge extends BaseAuditableEntity {
         );
     }
 
-    public void updateScheduledDate(LocalDate scheduledDate) {
-        this.scheduledDate = scheduledDate;
+    public void update(
+            DischargeStatus status,
+            LocalDate scheduledDate
+    ) {
+        if (status != null) {
+            this.status = status;
+        }
+
+        if (status == DischargeStatus.CANCELED || scheduledDate != null) {
+            this.scheduledDate = scheduledDate;
+        }
     }
 }
