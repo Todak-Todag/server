@@ -8,14 +8,19 @@ import com.todak_todag.schedule_service.schedule.application.command.ServiceSche
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCompletionStatus;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
+import com.todak_todag.schedule_service.schedule.application.event.CarePlanCompletionEventAppender;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEvent;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
-import com.todak_todag.schedule_service.schedule.application.support.ProviderReMatchEventPayloadSerializer;
 import com.todak_todag.schedule_service.schedule.application.support.ServiceScheduleValidator;
+import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
+import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
+import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceMatchingAttemptCommandRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -27,6 +32,7 @@ import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.lang.reflect.Field;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -48,6 +54,9 @@ class ServiceScheduleCommandServiceTest {
     private ServiceScheduleCommandRepository serviceScheduleCommandRepository;
 
     @Mock
+    private ServiceMatchingAttemptCommandRepository serviceMatchingAttemptCommandRepository;
+
+    @Mock
     private ScheduleOutboxCommandService scheduleOutboxCommandService;
 
     @Mock
@@ -55,6 +64,9 @@ class ServiceScheduleCommandServiceTest {
 
     @Spy
     private ServiceScheduleValidator serviceScheduleValidator = new ServiceScheduleValidator();
+
+    @Mock
+    private CarePlanCompletionEventAppender carePlanCompletionEventAppender;
 
     @InjectMocks
     private ServiceScheduleCommandService serviceScheduleCommandService;
@@ -71,7 +83,11 @@ class ServiceScheduleCommandServiceTest {
             LocalDate requestedDate = currentDate.minusDays(1);
             ServiceSchedule schedule = confirmedSchedule(currentDate);
 
+            ServiceMatchingAttempt matchingAttempt = matchedAttempt(schedule);
+
             when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceMatchingAttemptCommandRepository.findLatestMatched(schedule.getServicePreferenceId()))
+                    .thenReturn(Optional.of(matchingAttempt));
             when(serviceScheduleCommandRepository.save(schedule)).thenReturn(schedule);
             when(providerReMatchEventPayloadSerializer.serialize(any())).thenReturn(SERIALIZED_PAYLOAD);
 
@@ -84,8 +100,16 @@ class ServiceScheduleCommandServiceTest {
             // then
             assertThat(schedule.getStatus()).isEqualTo(ScheduleStatus.RESCHEDULING);
             assertThat(result.status()).isEqualTo(ScheduleStatus.RESCHEDULING);
+
             verify(providerReMatchEventPayloadSerializer).serialize(
-                    new ProviderReMatchEventPort.ProviderReMatchEvent(schedule.getId(), schedule.getServiceOfferingId(), requestedDate)
+                    new ProviderReMatchEvent(
+                            schedule.getCarePlanId(),
+                            matchingAttempt.getRegionId(),
+                            matchingAttempt.getProvideServiceId(),
+                            schedule.getServicePreferenceId(),
+                            requestedDate,
+                            null
+                    )
             );
             verify(scheduleOutboxCommandService).enqueue(ProviderReMatchEventPort.EVENT_TYPE, schedule.getId(), SERIALIZED_PAYLOAD);
         }
@@ -100,6 +124,8 @@ class ServiceScheduleCommandServiceTest {
             ServiceSchedule schedule = confirmedSchedule(currentDate);
 
             when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceMatchingAttemptCommandRepository.findLatestMatched(schedule.getServicePreferenceId()))
+                    .thenReturn(Optional.of(matchedAttempt(schedule)));
             when(serviceScheduleCommandRepository.save(schedule)).thenReturn(schedule);
             when(providerReMatchEventPayloadSerializer.serialize(any())).thenReturn(SERIALIZED_PAYLOAD);
 
@@ -120,11 +146,9 @@ class ServiceScheduleCommandServiceTest {
         void reschedule_toToday_badRequest() {
             // given
             UUID patientId = UUID.randomUUID();
-            // currentDate가 내일이면 하루 앞당긴 날짜(D-1)가 오늘이 된다
             LocalDate currentDate = LocalDate.now().plusDays(1);
             LocalDate requestedDate = LocalDate.now();
             ServiceSchedule schedule = confirmedSchedule(currentDate);
-            // 24시간 전 데드라인 검증에 걸리지 않도록 시작 시각을 충분히 미래로 고정 (이 테스트의 관심사는 "당일 변경" 규칙 하나뿐)
             setStartedAt(schedule, LocalDateTime.now().plusHours(48));
 
             when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
@@ -148,7 +172,7 @@ class ServiceScheduleCommandServiceTest {
             UUID patientId = UUID.randomUUID();
             LocalDate currentDate = LocalDate.now().plusDays(3);
             LocalDate requestedDate = currentDate.plusDays(1);
-            LocalDate finishDate = currentDate; // requestedDate(D+1)가 finishDate를 초과하도록 설정
+            LocalDate finishDate = currentDate;
             ServiceSchedule schedule = confirmedSchedule(currentDate);
 
             when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
@@ -255,6 +279,32 @@ class ServiceScheduleCommandServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+            verify(serviceScheduleCommandRepository, never()).save(any());
+            verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("매칭 시도 기록이 없으면 404를 던지고 일정은 SCHEDULED로 남는다")
+        void reschedule_matchingAttemptNotFound_notFound() {
+            // given
+            UUID patientId = UUID.randomUUID();
+            LocalDate currentDate = LocalDate.now().plusDays(3);
+            LocalDate requestedDate = currentDate.minusDays(1);
+            ServiceSchedule schedule = confirmedSchedule(currentDate);
+
+            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceMatchingAttemptCommandRepository.findLatestMatched(schedule.getServicePreferenceId()))
+                    .thenReturn(Optional.empty());
+
+            ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
+            CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
+
+            // when & then
+            assertThatThrownBy(() -> serviceScheduleCommandService.reschedule(command, carePlanRange))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ScheduleErrorCode.SERVICE_MATCHING_ATTEMPT_NOT_FOUND);
+
             verify(serviceScheduleCommandRepository, never()).save(any());
             verify(scheduleOutboxCommandService, never()).enqueue(any(), any(), any());
         }
@@ -551,6 +601,22 @@ class ServiceScheduleCommandServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
         }
+    }
+
+    private ServiceMatchingAttempt matchedAttempt(ServiceSchedule schedule) {
+        return ServiceMatchingAttempt.record(
+                schedule.getCarePlanId(),
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                schedule.getServicePreferenceId(),
+                schedule.getServiceOfferingId(),
+                schedule.getDate(),
+                null,
+                MatchingAttemptStatus.MATCHED,
+                null,
+                Instant.now(),
+                null
+        );
     }
 
     private ServiceSchedule confirmedSchedule(LocalDate date) {

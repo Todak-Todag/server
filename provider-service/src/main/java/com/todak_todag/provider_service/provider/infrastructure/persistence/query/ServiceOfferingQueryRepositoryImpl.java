@@ -56,6 +56,11 @@ public class ServiceOfferingQueryRepositoryImpl implements ServiceOfferingQueryR
         return search(serviceOffering.regionId.eq(regionId), pageable);
     }
 
+    @Override
+    public List<ServiceOffering> findAllByRegionIdAndProvideServiceId(UUID regionId, UUID provideServiceId) {
+        return jpaServiceOfferingRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId);
+    }
+
     private Page<ServiceOfferingView> search(BooleanExpression condition, Pageable pageable) {
         List<ServiceOfferingView> content = queryFactory
                 .select(Projections.constructor(

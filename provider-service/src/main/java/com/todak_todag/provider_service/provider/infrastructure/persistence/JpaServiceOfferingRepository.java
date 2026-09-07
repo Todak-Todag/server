@@ -12,6 +12,8 @@ public interface JpaServiceOfferingRepository extends JpaRepository<ServiceOffer
 
     boolean existsByProviderIdAndProvideServiceId(UUID providerId, UUID provideServiceId);
 
+    List<ServiceOffering> findAllByRegionIdAndProvideServiceId(UUID regionId, UUID provideServiceId);
+
     @Query("select s.id from ServiceOffering s where s.providerId = :providerId")
     List<UUID> findIdsByProviderId(@Param("providerId") UUID providerId);
 }

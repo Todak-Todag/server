@@ -27,4 +27,20 @@ public interface ConsentDocumentQueryRepository {
 
     // 논리 삭제되지 않은 약관 문서 조회
     Optional<ConsentDocument> findById(UUID consentDocumentId);
+
+    // 삭제 여부를 포함한 약관 문서 조회
+    Optional<ConsentDocument> findByIdIncludingDeleted(
+            UUID consentDocumentId
+    );
+
+    // 사용 중인 동일 유형 약관 존재 여부
+    boolean existsByConsentType(
+            ConsentDocument.ConsentType consentType
+    );
+
+    // 동일 약관 내 버전 중복 여부 확인
+    boolean existsVersion(
+            UUID consentDocumentId,
+            String version
+    );
 }

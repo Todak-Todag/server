@@ -13,6 +13,12 @@ CREATE TYPE user_schema.consent_status AS ENUM (
     'AGREED', 'WITHDRAWN'
 );
 
+CREATE TYPE user_schema.consent_type AS ENUM (
+    'PERSONAL_INFORMATION',
+    'SENSITIVE_INFORMATION',
+    'MARKETING_INFORMATION'
+);
+
 CREATE TABLE IF NOT EXISTS user_schema.p_regions (
     region_id UUID PRIMARY KEY,
     province VARCHAR(20) NOT NULL,
@@ -58,7 +64,7 @@ CREATE TABLE IF NOT EXISTS user_schema.p_auths (
 
 CREATE TABLE IF NOT EXISTS user_schema.p_consent_documents (
     consent_document_id UUID PRIMARY KEY,
-    consent_type VARCHAR(30) NOT NULL,
+    consent_type user_schema.consent_type NOT NULL,
     title VARCHAR(255) NOT NULL,
     is_required BOOLEAN NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
