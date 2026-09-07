@@ -68,7 +68,7 @@ public class UserCreateService {
 		}
 		
 		// 현재 적용 중인 전체약관 조회
-		Map<UUID, ConsentDocumentCurrentView> consentDocumentCurrentViewAll =  consentDocumentValidator.signupConsentDocumentValidate(signup);
+		Set<UUID> agreedIds =  consentDocumentValidator.signupConsentDocumentValidate(signup);
 		
 		// 비밀번호 해시
 		String passwordHash = passwordEncoder.encode(signup.password());

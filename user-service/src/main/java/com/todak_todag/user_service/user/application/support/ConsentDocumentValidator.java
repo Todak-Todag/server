@@ -24,7 +24,7 @@ public class ConsentDocumentValidator {
 
 	private final ConsentDocumentQueryRepository consentDocumentQueryRepo;
 	
-	public Map<UUID, ConsentDocumentCurrentView> signupConsentDocumentValidate(UserSignupCommand signup) {
+	public Set<UUID> signupConsentDocumentValidate(UserSignupCommand signup) {
 		Set<UUID> requestTermsIds = new HashSet<>(signup.getTermsIds());
 		if(requestTermsIds.size() != signup.getTermsIds().size()) {
 			throw new BusinessException(ConsentErrorCode.DUPLICATE_CONSENT_DOCUMENT_VERSION);
@@ -54,7 +54,7 @@ public class ConsentDocumentValidator {
 			throw new BusinessException(UserErrorCode.USER_SIGNUP_REQUIRED_NOT_AGREED);
 		}
 		
-		return currentDocumentVersion;
+		return agreedVersionIds;
 	}
 	
 }
