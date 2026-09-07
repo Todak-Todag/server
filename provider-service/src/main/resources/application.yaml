@@ -67,6 +67,10 @@ logging:
   level:
     com.todak_todag.provider_service: info
 
+eureka:
+  instance:
+    hostname: localhost
+
 ---
 spring:
   config:
