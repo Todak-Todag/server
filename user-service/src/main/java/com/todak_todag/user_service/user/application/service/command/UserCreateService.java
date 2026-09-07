@@ -1,17 +1,14 @@
 package com.todak_todag.user_service.user.application.service.command;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
-import com.todak_todag.user_service.global.exception.ConsentErrorCode;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.UserAdminCreateCommand;
@@ -23,11 +20,11 @@ import com.todak_todag.user_service.user.application.result.UserPatientCreatedRe
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
 import com.todak_todag.user_service.user.application.support.ConsentDocumentValidator;
+import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
+import com.todak_todag.user_service.user.domain.repository.command.ConsentCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
-import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentCurrentView;
-import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
@@ -51,7 +48,7 @@ public class UserCreateService {
 	
 	private final RegionQueryRepository regionQueryRepo;
 	
-	private final ConsentDocumentQueryRepository consentDocumentQueryRepo;
+	private final ConsentCommandRepository consentCommandRepo;
 	
 	public UserSignupCreatedResult createUserSignup(UserSignupCommand signup) {
 		
@@ -85,7 +82,13 @@ public class UserCreateService {
 		
 		User user = userCommandRepo.save(signupUser);
 		
-		// List<Consent> saveAll
+		// Consent saveAll
+		LocalDateTime now = LocalDateTime.now();
+		List<Consent> consents = agreedIds.stream()
+				.map(verId -> Consent.agree(user.getId(), verId, now))
+				.toList();
+		
+		consentCommandRepo.saveAll(consents);
 		
 		return new UserSignupCreatedResult(user.getId(), user.getName());
 	}
