@@ -769,6 +769,7 @@ class UserUpdateServiceTest {
 		void userDeleteTest_fail_passwordMismatch() {
 			// Given
 			User target = approvedTarget(REGION_ID);
+			String originalUsername = target.getUsername();
 			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
 			given(passwordEncoder.matches("wrongPw123!", target.getPasswordHash())).willReturn(false);
 
@@ -783,7 +784,34 @@ class UserUpdateServiceTest {
 					.isEqualTo(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
 
 			assertThat(target.isDeleted()).isFalse();
+			assertThat(target.getUsername()).isEqualTo(originalUsername);
 			verify(tokenStorePort, never()).deleteAccessToken(any());
+		}
+
+		@Test
+		@DisplayName("탈퇴 처리되면 개인정보(username/name/phone/regionId/address)가 임의의 값으로 대체된다")
+		void userDeleteTest_success_personalDataIsAnonymized() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			String originalUsername = target.getUsername();
+			ReflectionTestUtils.setField(target, "address", "전라남도 고흥군 도양읍");
+
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(target.getUsername()).isNotEqualTo(originalUsername);
+			assertThat(target.getName()).isEqualTo("DELETE");
+			assertThat(target.getPhone()).isEqualTo("01000000000");
+			assertThat(target.getRegionId()).isNull();
+			assertThat(target.getAddress()).isNull();
 		}
 
 		@Test
