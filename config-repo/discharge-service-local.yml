@@ -46,6 +46,11 @@ springdoc:
     path: /swagger-ui.html
     operations-sorter: alpha
 
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
 logging:
   level:
     com.todak_todag.discharge_service: debug
