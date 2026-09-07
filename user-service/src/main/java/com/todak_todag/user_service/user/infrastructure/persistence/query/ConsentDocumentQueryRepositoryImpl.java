@@ -44,7 +44,7 @@ public class ConsentDocumentQueryRepositoryImpl
                                 ConsentDocumentCurrentView.class,
                                 consentDocument.id,
                                 consentDocumentVersion.id,
-                                consentDocument.consentType,
+                                consentDocument.consentType.stringValue(),
                                 consentDocument.title,
                                 consentDocumentVersion.version,
                                 consentDocument.required
@@ -89,7 +89,7 @@ public class ConsentDocumentQueryRepositoryImpl
                                 ConsentDocumentCurrentView.class,
                                 consentDocument.id,
                                 consentDocumentVersion.id,
-                                consentDocument.consentType,
+                                consentDocument.consentType.stringValue(),
                                 consentDocument.title,
                                 consentDocumentVersion.version,
                                 consentDocument.required
@@ -133,7 +133,7 @@ public class ConsentDocumentQueryRepositoryImpl
                                 ConsentDocumentDetailView.class,
                                 consentDocument.id,
                                 consentDocumentVersion.id,
-                                consentDocument.consentType,
+                                consentDocument.consentType.stringValue(),
                                 consentDocument.title,
                                 consentDocumentVersion.version,
                                 consentDocumentVersion.content,
