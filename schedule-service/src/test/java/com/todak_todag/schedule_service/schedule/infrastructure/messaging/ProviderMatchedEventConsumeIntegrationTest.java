@@ -7,6 +7,7 @@ import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAt
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceMatchingAttemptRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceScheduleRepository;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
-class ProviderMatchedEventConsumeIntegrationTest {
+class ProviderMatchedEventConsumeIntegrationTest extends PostgresTestSupport {
 
     @Container
     static final RabbitMQContainer RABBIT_MQ = new RabbitMQContainer("rabbitmq:4-alpine");
@@ -180,6 +181,34 @@ class ProviderMatchedEventConsumeIntegrationTest {
         assertThat(springDataServiceMatchingAttemptRepository.findAll()).hasSize(1);
     }
 
+    @Test
+    @DisplayName("발행 측 클래스명이 담긴 __TypeId__ 헤더가 있어도 리스너 파라미터 타입으로 역직렬화한다")
+    void 발행측_TypeId_헤더를_무시하고_수신한다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        UUID servicePreferenceId = UUID.randomUUID();
+        UUID serviceOfferingId = UUID.randomUUID();
+        LocalDate date = LocalDate.now().plusDays(5);
+
+        // when
+        publishWithTypeId(
+                carePlanId,
+                servicePreferenceId,
+                serviceOfferingId,
+                date,
+                "2026-08-29T10:00:00Z",
+                "com.todak_todag.provider_service.provider.application.event.ProviderMatchedEvent"
+        );
+
+        // then
+        await(() -> !springDataServiceScheduleRepository.findAll().isEmpty());
+
+        List<ServiceSchedule> schedules = springDataServiceScheduleRepository.findAll();
+        assertThat(schedules).hasSize(1);
+        assertThat(schedules.getFirst().getServicePreferenceId()).isEqualTo(servicePreferenceId);
+        assertThat(schedules.getFirst().getStatus()).isEqualTo(ScheduleStatus.SCHEDULED);
+    }
+
     // 동일한 형태의 JSON을 실제 브로커로 발행
     private void publish(
             UUID carePlanId,
@@ -214,6 +243,52 @@ class ProviderMatchedEventConsumeIntegrationTest {
                 .withBody(json.getBytes(StandardCharsets.UTF_8))
                 .andProperties(MessagePropertiesBuilder.newInstance()
                         .setContentType(MessageProperties.CONTENT_TYPE_JSON)
+                        .build())
+                .build();
+
+        rabbitTemplate.send(
+                RabbitMqConfig.PROVIDER_EXCHANGE,
+                RabbitMqConfig.PROVIDER_MATCHED_ROUTING_KEY,
+                message
+        );
+    }
+
+    // publish와 같은 페이로드에 발행 측 클래스명을 담은 __TypeId__ 헤더만 추가
+    private void publishWithTypeId(
+            UUID carePlanId,
+            UUID servicePreferenceId,
+            UUID serviceOfferingId,
+            LocalDate date,
+            String matchedAt,
+            String typeId
+    ) {
+        String json = """
+                {
+                  "carePlanId": "%s",
+                  "regionId": "%s",
+                  "provideServiceId": "%s",
+                  "servicePreferenceId": "%s",
+                  "serviceOfferingId": "%s",
+                  "date": "%s",
+                  "startedAt": "%sT10:00:00",
+                  "matchedAt": "%s"
+                }
+                """.formatted(
+                carePlanId,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                servicePreferenceId,
+                serviceOfferingId,
+                date,
+                date,
+                matchedAt
+        );
+
+        Message message = MessageBuilder
+                .withBody(json.getBytes(StandardCharsets.UTF_8))
+                .andProperties(MessagePropertiesBuilder.newInstance()
+                        .setContentType(MessageProperties.CONTENT_TYPE_JSON)
+                        .setHeader("__TypeId__", typeId)
                         .build())
                 .build();
 
