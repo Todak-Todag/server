@@ -250,17 +250,18 @@ class DischargeQueryServiceTest {
         Pageable pageable =
                 PageRequest.of(0, 10);
 
-        Discharge discharge =
-                createDischargeMock(
-                        dischargeId,
-                        patientId,
-                        hospitalStaffId,
-                        Instant.parse("2026-08-20T01:00:00Z")
-                );
+        Discharge discharge = mock(Discharge.class);
 
+        when(discharge.getId())
+                .thenReturn(dischargeId);
+        when(discharge.getPatientId())
+                .thenReturn(patientId);
+        when(discharge.getHospitalName())
+                .thenReturn("Test Hospital");
         when(discharge.getStatus())
                 .thenReturn(DischargeStatus.SCHEDULED);
-
+        when(discharge.getScheduledDate())
+                .thenReturn(scheduledDate);
         when(discharge.getActualDate())
                 .thenReturn(null);
 
@@ -299,19 +300,14 @@ class DischargeQueryServiceTest {
 
         assertThat(content.dischargeId())
                 .isEqualTo(dischargeId);
-
         assertThat(content.patientId())
                 .isEqualTo(patientId);
-
         assertThat(content.hospitalName())
                 .isEqualTo("Test Hospital");
-
         assertThat(content.status())
                 .isEqualTo(DischargeStatus.SCHEDULED);
-
         assertThat(content.scheduledDate())
                 .isEqualTo(scheduledDate);
-
         assertThat(content.actualDate())
                 .isNull();
 
