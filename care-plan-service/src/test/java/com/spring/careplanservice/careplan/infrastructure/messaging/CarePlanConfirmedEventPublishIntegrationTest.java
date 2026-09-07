@@ -33,6 +33,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
 class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSupport {
+    /*
+    1) CarePlanConfirmedEventPublishIntegrationTest
+       = 이벤트 발행 측 테스트
+       = Care Plan이 CONFIRMED 되면
+         RabbitMQ로 CarePlanConfirmed 이벤트가 나가는지 검증
+    */
+
     private static final String TEST_QUEUE = "test.care-plan-confirmed.queue";
 
     @Autowired
