@@ -22,9 +22,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import com.todak_todag.user_service.user.domain.entity.Consent.ConsentStatus;
-import static org.hamcrest.Matchers.nullValue;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -600,7 +600,7 @@ class ConsentControllerTest {
                     .andExpect(
                             jsonPath(
                                     "$.data.content[0].withdrawnAt"
-                            ).value(nullValue())
+                            ).doesNotExist()
                     )
                     .andExpect(
                             jsonPath(
@@ -613,7 +613,11 @@ class ConsentControllerTest {
                                     "$.data.content[1].withdrawnAt"
                             )
                                     .value(
-                                            withdrawnAt2.toString()
+                                            withdrawnAt2.format(
+                                                    DateTimeFormatter.ofPattern(
+                                                            "yyyy-MM-dd'T'HH:mm:ss"
+                                                    )
+                                            )
                                     )
                     );
 
