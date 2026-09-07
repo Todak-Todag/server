@@ -3,12 +3,16 @@ package com.todak_todag.schedule_service.schedule.infrastructure.messaging;
 import com.todak_todag.schedule_service.global.config.RabbitMqConfig;
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
+import com.todak_todag.schedule_service.schedule.application.command.MatchingAttemptRetryCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
 import com.todak_todag.schedule_service.schedule.application.facade.ScheduleOutboxRelayFacade;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
+import com.todak_todag.schedule_service.schedule.application.result.MatchingAttemptRetryResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
+import com.todak_todag.schedule_service.schedule.application.service.command.ServiceMatchingAttemptCommandService;
 import com.todak_todag.schedule_service.schedule.application.service.command.ServiceScheduleCommandService;
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
+import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
@@ -58,6 +62,9 @@ class ProviderReMatchedEventPublishIntegrationTest extends PostgresTestSupport {
 
     @Autowired
     private ServiceScheduleCommandService serviceScheduleCommandService;
+
+    @Autowired
+    private ServiceMatchingAttemptCommandService serviceMatchingAttemptCommandService;
 
     @Autowired
     private ScheduleOutboxRelayFacade scheduleOutboxRelayFacade;
@@ -163,6 +170,105 @@ class ProviderReMatchedEventPublishIntegrationTest extends PostgresTestSupport {
                 .get()
                 .extracting(ServiceSchedule::getStatus)
                 .isEqualTo(ScheduleStatus.SCHEDULED);
+    }
+
+    @Test
+    @DisplayName("재매칭 시도 요청 시 문서 스펙대로 ProviderReMatched가 발행된다")
+    void 재매칭을_시도하면_이벤트가_발행된다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        UUID regionId = UUID.randomUUID();
+        UUID provideServiceId = UUID.randomUUID();
+        UUID servicePreferenceId = UUID.randomUUID();
+
+        ServiceMatchingAttempt failed = recordFailedAttempt(carePlanId, regionId, provideServiceId, servicePreferenceId);
+
+        LocalDate requestedDate = LocalDate.now().plusDays(3);
+
+        // when
+        MatchingAttemptRetryResult result = retry(failed, requestedDate, PreferredTimeSlot.MORNING, patientId);
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        assertThat(result.matchingAttemptId()).isEqualTo(failed.getId());
+        assertThat(result.servicePreferenceId()).isEqualTo(servicePreferenceId);
+        assertThat(result.date()).isEqualTo(requestedDate);
+        assertThat(result.preferredTimeSlot()).isEqualTo(PreferredTimeSlot.MORNING);
+
+        List<String> received = receiveAll();
+        assertThat(received).hasSize(1);
+        assertThat(received.getFirst()).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\","
+                        + "\"regionId\":\"" + regionId + "\","
+                        + "\"provideServiceId\":\"" + provideServiceId + "\","
+                        + "\"servicePreferenceId\":\"" + servicePreferenceId + "\","
+                        + "\"date\":\"" + requestedDate + "\","
+                        + "\"preferredTimeSlot\":\"MORNING\"}"
+        );
+
+        assertThat(springDataServiceMatchingAttemptRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("같은 실패 건으로 두 번 재시도하면 409가 나고 이벤트는 한 번만 발행된다")
+    void 두_번_재시도하면_409가_난다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        UUID servicePreferenceId = UUID.randomUUID();
+
+        ServiceMatchingAttempt failed =
+                recordFailedAttempt(carePlanId, UUID.randomUUID(), UUID.randomUUID(), servicePreferenceId);
+
+        LocalDate requestedDate = LocalDate.now().plusDays(3);
+        retry(failed, requestedDate, PreferredTimeSlot.MORNING, patientId);
+
+        // when & then
+        assertThatThrownBy(() -> retry(failed, requestedDate, PreferredTimeSlot.AFTERNOON, patientId))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ScheduleErrorCode.MATCHING_ATTEMPT_RETRY_ALREADY_REQUESTED);
+
+        scheduleOutboxRelayFacade.relay();
+
+        assertThat(receiveAll()).hasSize(1);
+    }
+
+    private MatchingAttemptRetryResult retry(
+            ServiceMatchingAttempt attempt,
+            LocalDate requestedDate,
+            PreferredTimeSlot preferredTimeSlot,
+            UUID patientId
+    ) {
+        return serviceMatchingAttemptCommandService.retry(
+                new MatchingAttemptRetryCommand(attempt.getId(), requestedDate, preferredTimeSlot, patientId),
+                new CarePlanPort.CarePlanRange(attempt.getCarePlanId(), requestedDate.plusDays(10), patientId)
+        );
+    }
+
+    // 매칭에 실패한 시도 기록 — 재시도 대상
+    private ServiceMatchingAttempt recordFailedAttempt(
+            UUID carePlanId,
+            UUID regionId,
+            UUID provideServiceId,
+            UUID servicePreferenceId
+    ) {
+        return springDataServiceMatchingAttemptRepository.save(
+                ServiceMatchingAttempt.record(
+                        carePlanId,
+                        regionId,
+                        provideServiceId,
+                        servicePreferenceId,
+                        null,
+                        LocalDate.now().plusDays(1),
+                        PreferredTimeSlot.AFTERNOON,
+                        MatchingAttemptStatus.FAILED,
+                        "해당 날짜/시간대에 제공 가능한 서비스 제공자 없음",
+                        null,
+                        Instant.now()
+                )
+        );
     }
 
     private ServiceScheduleRescheduleResult reschedule(

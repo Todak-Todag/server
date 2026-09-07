@@ -3,6 +3,7 @@ package com.todak_todag.schedule_service.schedule.presentation.controller.api;
 import com.todak_todag.schedule_service.global.config.SecurityConfig;
 import com.todak_todag.schedule_service.schedule.application.facade.ServiceMatchingAttemptFacade;
 import com.todak_todag.schedule_service.schedule.application.query.MatchingAttemptSearchQuery;
+import com.todak_todag.schedule_service.schedule.application.result.MatchingAttemptRetryResult;
 import com.todak_todag.schedule_service.schedule.application.result.MatchingAttemptSearchResult;
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
@@ -31,6 +33,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -40,6 +43,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class MatchingAttemptApiControllerTest {
 
     private static final String SEARCH_URI = "/api/v1/matching-attempts";
+    private static final String RETRY_URI = "/api/v1/matching-attempts/%s/retry";
 
     @Autowired
     private MockMvc mockMvc;
@@ -299,6 +303,83 @@ class MatchingAttemptApiControllerTest {
 
             // then
             assertThat(captureQuery().userId()).isEqualTo(userId);
+        }
+    }
+
+    @Nested
+    @DisplayName("재매칭 시도")
+    class retryTest {
+
+        @Test
+        @DisplayName("접수되면 202와 Response 표의 필드가 그대로 반환된다")
+        void retry_responsePayloadMatchesSpec() throws Exception {
+            // given
+            UUID matchingAttemptId = UUID.randomUUID();
+            UUID servicePreferenceId = UUID.randomUUID();
+
+            given(serviceMatchingAttemptFacade.retry(any())).willReturn(
+                    new MatchingAttemptRetryResult(
+                            matchingAttemptId,
+                            servicePreferenceId,
+                            LocalDate.of(2026, 9, 10),
+                            PreferredTimeSlot.MORNING
+                    )
+            );
+
+            // when & then
+            mockMvc.perform(post(RETRY_URI.formatted(matchingAttemptId))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"2026-09-10\",\"preferredTimeSlot\":\"MORNING\"}")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isAccepted())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.code").value(202))
+                    .andExpect(jsonPath("$.message").value("재매칭 시도 접수 성공"))
+                    .andExpect(jsonPath("$.data.matchingAttemptId").value(matchingAttemptId.toString()))
+                    .andExpect(jsonPath("$.data.servicePreferenceId").value(servicePreferenceId.toString()))
+                    .andExpect(jsonPath("$.data.date").value("2026-09-10"))
+                    .andExpect(jsonPath("$.data.preferredTimeSlot").value("MORNING"));
+        }
+
+        @Test
+        @DisplayName("preferredTimeSlot은 Nullable이라 없어도 접수되고 null로 반환된다")
+        void retry_withoutPreferredTimeSlot() throws Exception {
+            // given
+            UUID matchingAttemptId = UUID.randomUUID();
+
+            given(serviceMatchingAttemptFacade.retry(any())).willReturn(
+                    new MatchingAttemptRetryResult(
+                            matchingAttemptId,
+                            UUID.randomUUID(),
+                            LocalDate.of(2026, 9, 10),
+                            null
+                    )
+            );
+
+            // when & then
+            mockMvc.perform(post(RETRY_URI.formatted(matchingAttemptId))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"2026-09-10\"}")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isAccepted())
+                    .andExpect(jsonPath("$.data.preferredTimeSlot").doesNotExist());
+        }
+
+        @Test
+        @DisplayName("date가 없으면 400을 반환하고 Facade를 호출하지 않는다")
+        void retry_withoutDate_badRequest() throws Exception {
+            // given & when & then
+            mockMvc.perform(post(RETRY_URI.formatted(UUID.randomUUID()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{}")
+                            .header("X-User-Id", UUID.randomUUID().toString())
+                            .header("X-User-Role", "PATIENT"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(serviceMatchingAttemptFacade, never()).retry(any());
         }
     }
 }
