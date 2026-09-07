@@ -124,7 +124,12 @@ public enum ErrorCode {
     PROVIDER_SERVICE_DATA_MISMATCH(
             HttpStatus.BAD_GATEWAY,
             "Provider-Service의 서비스 정보와 Care Plan 데이터가 일치하지 않습니다."
-    )
+    ),
+
+    CARE_PLAN_COMPLETED_EVENT_INVALID(
+            HttpStatus.BAD_REQUEST,
+            "Care Plan 완료 이벤트 값이 유효하지 않습니다."
+    ),
     ;
 
 

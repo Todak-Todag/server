@@ -1,6 +1,7 @@
 package com.spring.careplanservice.careplan.infrastructure.persistence.command;
 
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.infrastructure.persistence.repository.JpaCarePlanRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,5 +29,10 @@ public class CarePlanCommandRepositoryImpl implements CarePlanCommandRepository 
     @Override
     public Optional<CarePlan> findById(UUID carePlanId) {
         return jpaCarePlanRepository.findByIdAndDeletedAtIsNull(carePlanId);
+    }
+
+    @Override
+    public Optional<CarePlan> findByStatus(CarePlanStatus status) {
+        return jpaCarePlanRepository.findByStatusAndDeletedAtIsNull(status);
     }
 }

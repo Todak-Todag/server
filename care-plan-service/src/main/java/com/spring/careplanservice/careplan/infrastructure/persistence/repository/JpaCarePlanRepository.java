@@ -17,4 +17,8 @@ public interface JpaCarePlanRepository extends JpaRepository<CarePlan, UUID> {
     );
 
     boolean existsByDischargeIdAndDeletedAtIsNull(UUID dischargeId);
+
+    Optional<CarePlan> findByStatusAndDeletedAtIsNull(
+            CarePlanStatus status
+    );
 }

@@ -4,7 +4,10 @@ package com.spring.careplanservice.careplan.application.service.command;
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
+import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.event.ScheduleStatus;
+import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
@@ -46,6 +49,7 @@ public class CarePlanCommandService {
     private final ServicePreferenceCommandRepository servicePreferenceCommandRepository;
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UserQueryPort userQueryPort;
+    private final ScheduleResultQueryPort scheduleResultQueryPort;
 
     @Transactional
     public CarePlanCreateResult createCarePlan(
@@ -107,11 +111,14 @@ public class CarePlanCommandService {
                 carePlanStatusUpdateCommand.status()
         );
 
+        validateStatusUpdateRole(
+                carePlanStatusUpdateCommand
+        );
+
         carePlan.updateStatus(
                 carePlanStatusUpdateCommand.status()
         );
 
-        // TODO: User-Service의 구현/머지 후 실제 연동 확인
         if (carePlan.getStatus() == CarePlanStatus.CONFIRMED) {
             UserFindResult userFindResult = userQueryPort.findById(
                     carePlan.getPatientId()
@@ -162,10 +169,24 @@ public class CarePlanCommandService {
     }
 
     @Transactional
-    public void completeCarePlan(UUID carePlanId) {
+    public void completeCarePlan(
+            CarePlanCompletedEvent carePlanCompletedEvent
+    ) {
+        validateCompletedEvent(carePlanCompletedEvent);
+
+        if (carePlanCompletedEvent.serviceResultId() != null) {
+            scheduleResultQueryPort.findById(
+                    carePlanCompletedEvent.serviceResultId()
+            );
+        }
+
         CarePlan carePlan = carePlanCommandRepository
-                .findById(carePlanId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
+                .findById(carePlanCompletedEvent.carePlanId())
+                .orElseThrow(() ->
+                        new BusinessException(
+                                ErrorCode.CARE_PLAN_NOT_FOUND
+                        )
+                );
 
         carePlan.complete();
     }
@@ -296,5 +317,45 @@ public class CarePlanCommandService {
                     );
                 })
                 .toList();
+    }
+
+    // TODO : validate 분리 시급
+    private void validateCompletedEvent(
+            CarePlanCompletedEvent event
+    ) {
+        if (event.status() == ScheduleStatus.CANCELED) {
+            return;
+        }
+
+        if (event.serviceResultId() == null) {
+            throw new BusinessException(
+                    ErrorCode.CARE_PLAN_COMPLETED_EVENT_INVALID
+            );
+        }
+    }
+
+    private void validateStatusUpdateRole(
+            CarePlanStatusUpdateCommand command
+    ) {
+        UserRole userRole = command.userRole();
+        CarePlanStatus nextStatus = command.status();
+
+        if (userRole == UserRole.ADMIN || userRole == UserRole.MASTER) {
+            return;
+        }
+
+        if (nextStatus == CarePlanStatus.CONFIRMED
+                && userRole != UserRole.PATIENT) {
+            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
+        }
+
+        if (nextStatus == CarePlanStatus.IN_PROGRESS
+                && userRole != UserRole.SERVICE_PROVIDER) {
+            throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
+        }
+
+        if (nextStatus == CarePlanStatus.COMPLETED) {
+            throw new BusinessException(ErrorCode.CARE_PLAN_BAD_REQUEST);
+        }
     }
 }

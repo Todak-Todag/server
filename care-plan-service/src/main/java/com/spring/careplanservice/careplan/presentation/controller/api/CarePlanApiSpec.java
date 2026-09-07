@@ -3,7 +3,10 @@ package com.spring.careplanservice.careplan.presentation.controller.api;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanCreateRequest;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanStatusUpdateRequest;
-import com.spring.careplanservice.careplan.presentation.response.*;
+import com.spring.careplanservice.careplan.presentation.response.CarePlanCreateResponse;
+import com.spring.careplanservice.careplan.presentation.response.CarePlanFindResponse;
+import com.spring.careplanservice.careplan.presentation.response.CarePlanSearchResponse;
+import com.spring.careplanservice.careplan.presentation.response.CarePlanStatusUpdateResponse;
 import com.spring.careplanservice.global.response.ApiResponse;
 import com.spring.careplanservice.global.response.PageResponse;
 import com.spring.careplanservice.global.security.UserContext;
@@ -93,8 +96,13 @@ public interface CarePlanApiSpec {
             description = """
                     Care Plan 상태를 변경한다.
                     
-                    현재 Care Plan 상태에서 허용된 다음 상태로만 변경할 수 있다.
-                    CONFIRMED 상태로 변경되면 서비스 제공자 매칭을 위한 Care Plan 확정 이벤트를 발행한다.
+                     현재 Care Plan 상태에서 허용된 다음 상태로만 변경할 수 있다.
+                     퇴원 예정자는 UNDER_REVIEW → CONFIRMED,
+                     서비스 제공자는 CONFIRMED → IN_PROGRESS 상태 변경을 수행한다.
+                     COMPLETED 상태는 Schedule-Service의 완료 이벤트를 통해서만 변경된다.
+                    
+                     CONFIRMED 상태로 변경되면 서비스 제공자 매칭을 위한
+                     Care Plan 확정 이벤트를 발행한다.
                     """
     )
     @ApiResponses
@@ -135,6 +143,4 @@ public interface CarePlanApiSpec {
             )
             UUID carePlanId
     );
-
-
 }

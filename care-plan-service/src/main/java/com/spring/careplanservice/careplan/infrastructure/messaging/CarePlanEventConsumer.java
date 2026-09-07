@@ -14,13 +14,13 @@ public class CarePlanEventConsumer {
     private final CarePlanCommandService carePlanCommandService;
 
     @RabbitListener(
-            queues = RabbitMqConfig.CARE_PLAN_COMPLETED_QUEUE
+            queues = RabbitMqConfig.CARE_PLAN_SCHEDULE_COMPLETED_QUEUE
     )
     public void consumeCarePlanCompleted(
             CarePlanCompletedEvent carePlanCompletedEvent
     ) {
         carePlanCommandService.completeCarePlan(
-                carePlanCompletedEvent.carePlanId()
+                carePlanCompletedEvent
         );
     }
 }
