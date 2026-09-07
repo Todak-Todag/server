@@ -33,9 +33,29 @@ public enum ErrorCode {
             "접근 권한이 없습니다."
     ),
 
+    AUTH_UNAUTHORIZED_INTERNAL_REQUEST(
+            HttpStatus.UNAUTHORIZED,
+            "내부 API 인증에 실패했습니다."
+    ),
+
     DISCHARGE_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "퇴원건을 찾을 수 없습니다."
+    ),
+
+    DISCHARGE_INVALID_SCHEDULED_DATE(
+            HttpStatus.BAD_REQUEST,
+            "퇴원 예정일이 올바르지 않습니다."
+    ),
+
+    DISCHARGE_INVALID_UPDATE_REQUEST(
+            HttpStatus.BAD_REQUEST,
+            "퇴원건 수정 요청이 올바르지 않습니다."
+    ),
+
+    DISCHARGE_INVALID_STATUS_TRANSITION(
+            HttpStatus.BAD_REQUEST,
+            "허용되지 않은 퇴원 상태 변경입니다."
     ),
 
     COMMON_INTERNAL_SERVER_ERROR(
