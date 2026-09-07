@@ -1,6 +1,7 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todak_todag.user_service.global.common.UserRole;
+import com.todak_todag.user_service.global.config.MasterAccountInitializer;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 import com.todak_todag.user_service.user.domain.entity.Region;
@@ -77,6 +79,12 @@ class AuthApiControllerIntegrationTest {
 	@Value("${master.username}")
 	private String masterUsername;
 
+	@Value("${master.id}")
+	private String masterId;
+
+	@Autowired
+	private MasterAccountInitializer masterAccountInitializer;
+
 	// Set-Cookie 헤더 원문에서 특정 쿠키의 값만 뽑아낸다
 	private String extractCookieValue(MvcResult result, String cookieName) {
 		return result.getResponse().getHeaders("Set-Cookie").stream()
@@ -119,7 +127,7 @@ class AuthApiControllerIntegrationTest {
 	class MasterBootstrap {
 
 		@Test
-		@DisplayName("서버 기동 시 설정된 마스터 계정이 MASTER/APPROVED 상태로 존재한다")
+		@DisplayName("서버 기동 시 설정된 마스터 계정이 설정된 ID로 MASTER/APPROVED 상태로 존재한다")
 		void masterAccountTest_exists() {
 			Optional<User> master = jpaUserRepository.findByUsernameAndStatusInAndDeletedAtIsNull(
 					masterUsername,
@@ -127,8 +135,20 @@ class AuthApiControllerIntegrationTest {
 			);
 
 			assertThat(master).isPresent();
+			assertThat(master.get().getId()).isEqualTo(UUID.fromString(masterId));
 			assertThat(master.get().getRole()).isEqualTo(UserRole.MASTER);
 			assertThat(master.get().getStatus()).isEqualTo(UserStatus.APPROVED);
+		}
+
+		@Test
+		@DisplayName("초기화가 다시 실행돼도 예외 없이 마스터 계정이 중복 생성되지 않는다")
+		void masterAccountTest_reinitDoesNotDuplicate() {
+			long beforeCount = jpaUserRepository.count();
+
+			assertThatCode(() -> masterAccountInitializer.run())
+					.doesNotThrowAnyException();
+
+			assertThat(jpaUserRepository.count()).isEqualTo(beforeCount);
 		}
 	}
 

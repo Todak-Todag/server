@@ -616,4 +616,68 @@ class UserCreateServiceTest {
 			inOrder.verify(userCommandRepo).save(any(User.class));
 		}
 	}
+
+	@Nested
+	@DisplayName("마스터 계정 초기화")
+	class CreateUserMaster {
+
+		private static final UUID MASTER_ID = UUID.fromString("880e8400-e29b-41d4-a716-446655440000");
+
+		@Test
+		@DisplayName("설정된 ID의 계정이 없으면 MASTER/APPROVED 상태로, 설정된 ID 그대로 저장한다")
+		void createUserMasterTest_success() {
+			// Given
+			given(userQueryRepo.initMasterDuplicate(MASTER_ID)).willReturn(false);
+			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
+
+			// When
+			userCreateService.createUserMaster(MASTER_ID, USERNAME, RAW_PASSWORD, NAME, PHONE);
+
+			// Then
+			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
+			verify(userCommandRepo, times(1)).save(captor.capture());
+
+			User saved = captor.getValue();
+			assertThat(saved.getId()).isEqualTo(MASTER_ID);
+			assertThat(saved.getUsername()).isEqualTo(USERNAME);
+			assertThat(saved.getName()).isEqualTo(NAME);
+			assertThat(saved.getPhone()).isEqualTo(PHONE);
+			assertThat(saved.getRole()).isEqualTo(UserRole.MASTER);
+			assertThat(saved.getStatus()).isEqualTo(UserStatus.APPROVED);
+			assertThat(saved.getPasswordHash())
+					.isEqualTo(HASHED_PASSWORD)
+					.isNotEqualTo(RAW_PASSWORD);
+		}
+
+		@Test
+		@DisplayName("설정된 ID의 계정이 이미 있으면 아무 것도 저장하지 않는다")
+		void createUserMasterTest_alreadyExists_skips() {
+			// Given
+			given(userQueryRepo.initMasterDuplicate(MASTER_ID)).willReturn(true);
+
+			// When
+			userCreateService.createUserMaster(MASTER_ID, USERNAME, RAW_PASSWORD, NAME, PHONE);
+
+			// Then
+			verify(passwordEncoder, never()).encode(anyString());
+			verify(userCommandRepo, never()).save(any(User.class));
+		}
+
+		@Test
+		@DisplayName("정상 흐름은 ID 기준 중복 검증 - 비밀번호 해시 - 저장 순서로 수행된다")
+		void createUserMasterTest_executionOrder() {
+			// Given
+			given(userQueryRepo.initMasterDuplicate(MASTER_ID)).willReturn(false);
+			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
+
+			// When
+			userCreateService.createUserMaster(MASTER_ID, USERNAME, RAW_PASSWORD, NAME, PHONE);
+
+			// Then
+			InOrder inOrder = inOrder(userQueryRepo, passwordEncoder, userCommandRepo);
+			inOrder.verify(userQueryRepo).initMasterDuplicate(MASTER_ID);
+			inOrder.verify(passwordEncoder).encode(RAW_PASSWORD);
+			inOrder.verify(userCommandRepo).save(any(User.class));
+		}
+	}
 }

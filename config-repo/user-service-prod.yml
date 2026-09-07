@@ -50,6 +50,7 @@ master:
   username: ${MASTER_USERNAME}
   password: ${MASTER_PASSWORD}
   name: ${MASTER_NAME}
+  id: ${MASTER_ID}
 
 management:
   endpoints:

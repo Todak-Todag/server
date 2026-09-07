@@ -27,7 +27,6 @@ import lombok.NoArgsConstructor;
 public class User extends BaseAuditableEntity {
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.UUID)
 	@Column(name = "user_id")
 	private UUID id;
 
@@ -72,6 +71,7 @@ public class User extends BaseAuditableEntity {
 		
 		User user = new User();
 		
+		user.id = UUID.randomUUID();
 		user.regionId = regionId;
 		user.username = username;
 		user.passwordHash = passwordHash;
@@ -93,6 +93,7 @@ public class User extends BaseAuditableEntity {
 		
 		User user = new User();
 		
+		user.id = UUID.randomUUID();
 		user.regionId = regionId;
 		user.username = username;
 		user.passwordHash = passwordHash;
@@ -115,6 +116,7 @@ public class User extends BaseAuditableEntity {
 		
 		User user = new User();
 		
+		user.id = UUID.randomUUID();
 		user.regionId = regionId;
 		user.username = username;
 		user.passwordHash = passwordHash;
@@ -128,6 +130,7 @@ public class User extends BaseAuditableEntity {
 	}
 	
 	public static User createMaster(
+			UUID userId,
 			String username,
 			String passwordHash,
 			String name,
@@ -135,6 +138,7 @@ public class User extends BaseAuditableEntity {
 	) {
 		User user = new User();
 
+		user.id = userId;
 		user.regionId = null;
 		user.username = username;
 		user.passwordHash = passwordHash;
