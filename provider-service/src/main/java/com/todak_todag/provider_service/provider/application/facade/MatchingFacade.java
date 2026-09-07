@@ -12,6 +12,7 @@ import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -200,6 +201,12 @@ public class MatchingFacade {
     // 외부 서비스 장애처럼 잠시 뒤 성공할 수 있는 실패인지
     // 재시도할 가치가 있는 것만 다시 던져 리스너 재시도를 받는다
     private boolean isRetryable(RuntimeException e) {
+        // 연결 실패·타임아웃은 status가 -1, 상대 서버 오류는 5xx
+        // 4xx는 다시 보내도 같은 결과라 재시도하지 않는다
+        if (e instanceof FeignException feignException) {
+            return feignException.status() < 0 || feignException.status() >= 500;
+        }
+
         return e instanceof BusinessException businessException
                 && businessException.getErrorCode() == ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE;
     }
