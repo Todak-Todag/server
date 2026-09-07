@@ -1,6 +1,7 @@
 package com.todak_todag.user_service.user.application.service.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,9 +43,11 @@ import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.application.result.UserUpdateResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
+import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
+import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -76,6 +80,9 @@ class UserUpdateServiceTest {
 
 	@Mock
 	private TokenStorePort tokenStorePort;
+
+	@Mock
+	private AuthQueryRepository authQueryRepo;
 
 	@InjectMocks
 	private UserUpdateService userUpdateService;
@@ -874,12 +881,17 @@ class UserUpdateServiceTest {
 		}
 
 		@Test
-		@DisplayName("정상 흐름은 요청자 조회 - 비밀번호 검증 - 액세스 토큰 삭제 순서로 수행된다")
-		void userDeleteTest_executionOrder() {
+		@DisplayName("탈퇴 시 활성 로그인 세션이 있으면 로그아웃(만료) 처리된다")
+		void userDeleteTest_success_expiresActiveLoginSession() {
 			// Given
 			User target = approvedTarget(REGION_ID);
 			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
 			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+
+			Auth activeSession = Auth.login(
+					TARGET_ID, "refresh-token-hash", LocalDateTime.now().plusDays(7), LocalDateTime.now()
+			);
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.of(activeSession));
 
 			UserDeleteCommand command = deleteCommand(
 					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
@@ -889,9 +901,48 @@ class UserUpdateServiceTest {
 			userUpdateService.userDelete(command);
 
 			// Then
-			InOrder order = inOrder(userQueryRepo, passwordEncoder, tokenStorePort);
+			assertThat(activeSession.getLogoutAt()).isNotNull();
+		}
+
+		@Test
+		@DisplayName("탈퇴 시 활성 로그인 세션이 없어도 예외 없이 탈퇴 처리된다")
+		void userDeleteTest_success_noActiveLoginSession() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatCode(() -> userUpdateService.userDelete(command)).doesNotThrowAnyException();
+			assertThat(target.isDeleted()).isTrue();
+		}
+
+		@Test
+		@DisplayName("정상 흐름은 요청자 조회 - 비밀번호 검증 - 로그인 세션 조회 - 액세스 토큰 삭제 순서로 수행된다")
+		void userDeleteTest_executionOrder() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			InOrder order = inOrder(userQueryRepo, passwordEncoder, authQueryRepo, tokenStorePort);
 			order.verify(userQueryRepo).findActiveById(TARGET_ID);
 			order.verify(passwordEncoder).matches("currentPw123!", target.getPasswordHash());
+			order.verify(authQueryRepo).findActiveByUserId(TARGET_ID);
 			order.verify(tokenStorePort).deleteAccessToken("access-token-value");
 		}
 	}
