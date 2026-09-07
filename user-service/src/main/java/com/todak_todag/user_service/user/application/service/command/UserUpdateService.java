@@ -20,7 +20,9 @@ import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.application.result.UserUpdateResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
+import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
+import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,8 @@ public class UserUpdateService {
 	
 	private final UserQueryRepository userQueryRepo;
 	
+	private final AuthQueryRepository authQueryRepo;
+	
 	public void userDelete(UserDeleteCommand command) {
 		// 1. 요청자 조회
 		User user = userQueryRepo.findActiveById(command.requesterId())
@@ -51,7 +55,15 @@ public class UserUpdateService {
 		// 3. 회원탈퇴 진행
 		user.delete(command.requesterId());
 		
-		// 4. 저장된 액세스 토큰 삭제
+		// 4. 로그인 세션 만료
+		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.orElse(null);
+		
+		if(loginSession != null) {
+			loginSession.logout();
+		}
+		
+		// 5. 저장된 액세스 토큰 삭제
 		tokenStorePort.deleteAccessToken(command.accessToken());
 	}
 	
