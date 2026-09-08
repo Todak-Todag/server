@@ -60,4 +60,22 @@ public interface AuthApiSpec {
 			@Parameter(hidden = true)
 			HttpServletRequest httpServletRequest
 	);
+	
+	@Operation(
+			summary = "토큰 재발급",
+			description = """
+					액세스 토큰이 만료된 경우 리프레시 토큰으로 재발급을 진행합니다.
+					
+					새로운 액세스 토큰과 리프레시 토큰이 발급되며
+					
+					발급된 액세스 토큰과 새로운 Jwt Access Token 이 Redis 에 저장됩니다.		
+			"""
+	)
+	ResponseEntity<ApiResponse<Void>> reissue(
+			@Parameter(hidden = true)
+			HttpServletResponse httpServletResponse,
+			
+			@Parameter(hidden = true)
+			HttpServletRequest httpServletRequest
+	);
 }

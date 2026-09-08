@@ -278,6 +278,18 @@ class AuthenticationRoutingIntegrationTest {
 				TokenErrorCode.INVALID_ACCESS_TOKEN
 		);
 	}
+	
+	@Test
+	@DisplayName("AccessToken 쿠키 없이 RefreshToken 쿠키만 보내면 401 EXPIRED_ACCESS_TOKEN")
+	void returnsExpiredAccessTokenWhenOnlyRefreshCookieSent() {
+		webTestClient.get()
+				.uri("/api/v1/users/1")
+				.cookie("RefreshToken", "any-refresh-token-value")
+				.exchange()
+				.expectStatus().isUnauthorized()
+				.expectBody()
+				.jsonPath("$.error.errorCode").isEqualTo("EXPIRED_ACCESS_TOKEN");
+	}
 
 	private void expectBlocked(
 			WebTestClient.RequestHeadersSpec<?> request,

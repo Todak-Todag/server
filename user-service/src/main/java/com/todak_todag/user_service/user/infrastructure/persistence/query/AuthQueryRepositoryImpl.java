@@ -21,6 +21,11 @@ public class AuthQueryRepositoryImpl implements AuthQueryRepository {
 	public Optional<Auth> findActiveByUserId(UUID userId) {
 		return jpaRepo.findByUserIdAndLogoutAtIsNull(userId);
 	}
+
+	@Override
+	public Optional<Auth> findActiveByRefreshTokenHash(String refreshTokenHash) {
+		return jpaRepo.findByRefreshTokenHashAndLogoutAtIsNull(refreshTokenHash);
+	}
 	
 	
 }

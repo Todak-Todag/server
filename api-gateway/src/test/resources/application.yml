@@ -6,10 +6,12 @@ internal:
 
 authentication:
   access-token:
-    cookie-name: AccessToken
+    cookie-name: ${ACCESS_COOKIE_NAME:AccessToken}
     redis-key-prefix: "test:access-token:"
     user-id-claim: sub
     role-claim: role
+  refresh-token:
+    cookie-name: ${REFRESH_COOKIE_NAME:RefreshToken}
 
 spring:
   data:

@@ -3,6 +3,9 @@ package com.todak_todag.user_service.user.domain.entity.auth;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+import com.todak_todag.user_service.global.exception.AuthErrorCode;
+import com.todak_todag.user_service.global.exception.BusinessException;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -60,5 +63,11 @@ public class Auth {
 	public void renew(String refreshTokenHash, LocalDateTime expiresAt) {
 		this.refreshTokenHash = refreshTokenHash;
 		this.expiresAt = expiresAt;
+	}
+	
+	public void validateExpiration(LocalDateTime now) {
+		if(this.expiresAt.isBefore(now)) {
+			throw new BusinessException(AuthErrorCode.AUTH_REFRESH_TOKEN_EXPIRED);
+		}
 	}
 }
