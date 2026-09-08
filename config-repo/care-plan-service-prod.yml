@@ -51,3 +51,9 @@ management:
 
 internal:
   key: ${INTERNAL_API_KEY}
+
+schedule:
+  outbox:
+    relay:
+      enabled: true
+      fixed-delay-ms: 5000
