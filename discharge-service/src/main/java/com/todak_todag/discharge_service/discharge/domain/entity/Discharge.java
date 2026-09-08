@@ -84,4 +84,11 @@ public class Discharge extends BaseAuditableEntity {
             this.scheduledDate = scheduledDate;
         }
     }
+
+    public void complete(
+            LocalDate actualDate
+    ) {
+        this.status = DischargeStatus.COMPLETED;
+        this.actualDate = actualDate;
+    }
 }

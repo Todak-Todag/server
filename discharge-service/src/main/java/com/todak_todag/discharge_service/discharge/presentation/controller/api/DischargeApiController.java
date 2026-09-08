@@ -1,7 +1,9 @@
 package com.todak_todag.discharge_service.discharge.presentation.controller.api;
 
+import com.todak_todag.discharge_service.discharge.application.command.DischargeCompleteCommand;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeCreateCommand;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeUpdateCommand;
+import com.todak_todag.discharge_service.discharge.application.result.DischargeCompleteResult;
 import com.todak_todag.discharge_service.discharge.application.query.DischargeSearchQuery;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeFindResult;
@@ -9,9 +11,11 @@ import com.todak_todag.discharge_service.discharge.application.result.DischargeS
 import com.todak_todag.discharge_service.discharge.application.result.DischargeUpdateResult;
 import com.todak_todag.discharge_service.discharge.application.service.command.DischargeCommandService;
 import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;
+import com.todak_todag.discharge_service.discharge.presentation.request.DischargeCompleteRequest;
 import com.todak_todag.discharge_service.discharge.domain.entity.DischargeStatus;
 import com.todak_todag.discharge_service.discharge.presentation.request.DischargeCreateRequest;
 import com.todak_todag.discharge_service.discharge.presentation.request.DischargeUpdateRequest;
+import com.todak_todag.discharge_service.discharge.presentation.response.DischargeCompleteResponse;
 import com.todak_todag.discharge_service.discharge.presentation.response.DischargeCreateResponse;
 import com.todak_todag.discharge_service.discharge.presentation.response.DischargeFindResponse;
 import com.todak_todag.discharge_service.discharge.presentation.response.DischargeSearchResponse;
@@ -158,6 +162,35 @@ public class DischargeApiController {
         return ResponseEntity.ok(
                 ApiResponse.ok(
                         "퇴원건이 수정되었습니다.",
+                        response
+                )
+        );
+    }
+
+    @PreAuthorize("hasRole('HOSPITAL_STAFF')")
+    @PatchMapping("/{dischargeId}/completed")
+    public ResponseEntity<ApiResponse<DischargeCompleteResponse>> completeDischarge(
+            @AuthenticationPrincipal UserContext user,
+            @PathVariable UUID dischargeId,
+            @Valid @RequestBody DischargeCompleteRequest request
+    ) {
+
+        DischargeCompleteCommand command =
+                new DischargeCompleteCommand(
+                        dischargeId,
+                        user.getUserId(),
+                        request.actualDate()
+                );
+
+        DischargeCompleteResult result =
+                dischargeCommandService.completeDischarge(command);
+
+        DischargeCompleteResponse response =
+                DischargeCompleteResponse.from(result);
+
+        return ResponseEntity.ok(
+                ApiResponse.ok(
+                        "퇴원 완료 처리 성공",
                         response
                 )
         );

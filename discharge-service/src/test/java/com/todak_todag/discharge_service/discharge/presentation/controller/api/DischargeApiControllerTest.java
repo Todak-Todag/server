@@ -20,6 +20,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import com.todak_todag.discharge_service.discharge.application.result.DischargeCompleteResult;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -576,5 +577,165 @@ class DischargeApiControllerTest {
                                 )
                 )
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void 병원_담당자가_퇴원_완료_처리에_성공한다() throws Exception {
+        UUID dischargeId = UUID.randomUUID();
+        UUID hospitalStaffId = UUID.randomUUID();
+        LocalDate actualDate = LocalDate.now();
+
+        when(dischargeCommandService.completeDischarge(any()))
+                .thenReturn(
+                        new DischargeCompleteResult(
+                                dischargeId,
+                                DischargeStatus.COMPLETED,
+                                actualDate
+                        )
+                );
+
+        String requestBody = """
+            {
+              "actualDate": "%s"
+            }
+            """.formatted(actualDate);
+
+        mockMvc.perform(
+                        patch(
+                                "/api/v1/discharges/{dischargeId}/completed",
+                                dischargeId
+                        )
+                                .header(
+                                        "X-User-Id",
+                                        hospitalStaffId.toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "HOSPITAL_STAFF"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(
+                        jsonPath("$.data.dischargeId")
+                                .value(dischargeId.toString())
+                )
+                .andExpect(
+                        jsonPath("$.data.status")
+                                .value("COMPLETED")
+                )
+                .andExpect(
+                        jsonPath("$.data.actualDate")
+                                .value(actualDate.toString())
+                );
+    }
+
+    @Test
+    void 병원_담당자가_아니면_퇴원_완료_처리를_할_수_없다() throws Exception {
+        UUID dischargeId = UUID.randomUUID();
+
+        String requestBody = """
+            {
+              "actualDate": "%s"
+            }
+            """.formatted(LocalDate.now());
+
+        mockMvc.perform(
+                        patch(
+                                "/api/v1/discharges/{dischargeId}/completed",
+                                dischargeId
+                        )
+                                .header(
+                                        "X-User-Id",
+                                        UUID.randomUUID().toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "PATIENT"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void 실제_퇴원일이_없으면_퇴원_완료_처리를_할_수_없다() throws Exception {
+        UUID dischargeId = UUID.randomUUID();
+
+        String requestBody = """
+            {
+            }
+            """;
+
+        mockMvc.perform(
+                        patch(
+                                "/api/v1/discharges/{dischargeId}/completed",
+                                dischargeId
+                        )
+                                .header(
+                                        "X-User-Id",
+                                        UUID.randomUUID().toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "HOSPITAL_STAFF"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(
+                        jsonPath("$.code")
+                                .value("COMMON_INVALID_INPUT_VALUE")
+                )
+                .andExpect(
+                        jsonPath("$.details.actualDate")
+                                .exists()
+                );
+    }
+
+    @Test
+    void 미래_날짜로는_퇴원_완료_처리를_할_수_없다() throws Exception {
+        UUID dischargeId = UUID.randomUUID();
+
+        String requestBody = """
+            {
+              "actualDate": "%s"
+            }
+            """.formatted(
+                LocalDate.now().plusDays(1)
+        );
+
+        mockMvc.perform(
+                        patch(
+                                "/api/v1/discharges/{dischargeId}/completed",
+                                dischargeId
+                        )
+                                .header(
+                                        "X-User-Id",
+                                        UUID.randomUUID().toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "HOSPITAL_STAFF"
+                                )
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(requestBody)
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(
+                        jsonPath("$.code")
+                                .value("COMMON_INVALID_INPUT_VALUE")
+                )
+                .andExpect(
+                        jsonPath("$.details.actualDate")
+                                .exists()
+                );
     }
 }
