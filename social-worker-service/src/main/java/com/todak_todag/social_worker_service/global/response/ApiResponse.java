@@ -7,7 +7,7 @@ public record ApiResponse<T>(
         T data
 ) {
 
-    public static <T> ApiResponse<T> success(
+    public static <T> ApiResponse<T> of(
             int code,
             String message,
             T data
@@ -24,7 +24,7 @@ public record ApiResponse<T>(
             String message,
             T data
     ) {
-        return success(
+        return of(
                 200,
                 message,
                 data
@@ -35,7 +35,7 @@ public record ApiResponse<T>(
             String message,
             T data
     ) {
-        return success(
+        return of(
                 201,
                 message,
                 data
@@ -46,7 +46,7 @@ public record ApiResponse<T>(
             String message,
             T data
     ) {
-        return success(
+        return of(
                 202,
                 message,
                 data

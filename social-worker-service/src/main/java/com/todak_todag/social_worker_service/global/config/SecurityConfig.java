@@ -40,8 +40,18 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(
-                        auth ->
-                                auth.anyRequest().authenticated()
+                        auth -> auth
+                                .requestMatchers(
+                                        "/actuator/health",
+                                        "/actuator/info",
+                                        "/actuator/prometheus",
+                                        "/swagger-ui.html",
+                                        "/swagger-ui/**",
+                                        "/v3/api-docs/**"
+                                )
+                                .permitAll()
+                                .anyRequest()
+                                .authenticated()
                 );
 
         return http.build();
