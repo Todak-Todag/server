@@ -3,6 +3,7 @@ package com.todak_todag.user_service.user.application.service.command;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,8 @@ import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.AuthCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
+import com.todak_todag.user_service.user.domain.repository.query.ConsentHistoryView;
+import com.todak_todag.user_service.user.domain.repository.query.ConsentQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +51,8 @@ public class AuthCommandService {
 	
 	private final UserQueryRepository userQueryRepo;
 	
+	private final ConsentQueryRepository consentQueryRepo;
+	
 	public AuthCommandService(
 			@Value("${jwt.refresh.expiration}") Duration refreshExpiration,
 			TokenValidator tokenValidator,
@@ -56,7 +61,8 @@ public class AuthCommandService {
 			PasswordEncoderPort passwordEncoder,
 			AuthCommandRepository authCommandRepo,
 			AuthQueryRepository authQueryRepo,
-			UserQueryRepository userQueryRepo
+			UserQueryRepository userQueryRepo,
+			ConsentQueryRepository consentQueryRepo
 	) {
 		if(refreshExpiration == null) {
 			log.error("[User] 서버 구동 실패 jwt.refresh.expiration 설정 값이 비어있습니다.");
@@ -78,6 +84,7 @@ public class AuthCommandService {
 		this.authCommandRepo = authCommandRepo;
 		this.authQueryRepo = authQueryRepo;
 		this.userQueryRepo = userQueryRepo;
+		this.consentQueryRepo = consentQueryRepo;
 	}
 	
 	public AuthReissueResult reissue(String refreshToken) {
@@ -142,8 +149,27 @@ public class AuthCommandService {
 			throw new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
 		}
 		
-		// 4. 로그인은 가능한데 WITHDRAWN 상태인가?
+		// 4. 로그인은 가능한데 WITHDRAWN 상태인가? - 치명적인 버그 발견
 		if(loginUser.isWithdrawn()) {
+
+			// WITHDRAWN 이면서 PATIENT 이면 - 첫 로그인 시점일 가능성이 있다.
+			if(loginUser.isPatient()) {
+			
+				// 동의했던 내역이 존재하면 첫 로그인 시점이 아닌 퇴원 예정자가 동의를 철회한 것이다.
+				if(consentQueryRepo.findAllByUserId(loginUser.getId()).isEmpty()) {
+					log.info("[User] 퇴원 예정자가 첫 로그인을 시작하였습니다. userId={}", loginUser.getId());
+					String accessToken = tokenPort.createToken();
+					
+					String jwtAccessToken = tokenPort.createJwtAccessToken(loginUser.getId(), loginUser.getRole());
+					
+					String refreshToken = tokenPort.createToken();
+					
+					// 3분짜리 임시 토큰 발급
+					tokenStorePort.storeAccessTokenTemp(accessToken, jwtAccessToken, Duration.ofMinutes(3));
+					
+					return new AuthLoginResult(loginUser.getId(), accessToken, refreshToken);
+				}
+			}
 			throw new BusinessException(UserErrorCode.USER_LOGIN_WITHDRAWN);
 		}
 		
