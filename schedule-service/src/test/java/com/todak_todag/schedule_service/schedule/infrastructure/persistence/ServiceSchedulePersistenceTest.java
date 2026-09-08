@@ -4,6 +4,7 @@ import com.todak_todag.schedule_service.global.config.JpaConfig;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.command.ServiceScheduleCommandRepositoryImpl;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -22,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @ActiveProfiles("test")
 @Import({JpaConfig.class, ServiceScheduleCommandRepositoryImpl.class})
-class ServiceSchedulePersistenceTest {
+class ServiceSchedulePersistenceTest extends PostgresTestSupport {
 
     @Autowired
     private ServiceScheduleCommandRepository serviceScheduleCommandRepository;

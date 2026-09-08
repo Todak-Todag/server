@@ -61,7 +61,9 @@ public class  CarePlanCompletionEventAppender {
         ServiceSchedule lastSchedule = serviceScheduleCommandRepository.findLastSchedule(carePlanId)
                 .orElse(handledSchedule);
 
+        // carePlanId도 페이로드 기준 일정(lastSchedule)에서 읽어와 serviceResultId/status와 출처를 일치
         CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                lastSchedule.getCarePlanId(),
                 resolveServiceResultId(lastSchedule),
                 lastSchedule.getStatus()
         );
