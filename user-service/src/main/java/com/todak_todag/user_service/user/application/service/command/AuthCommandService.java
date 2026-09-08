@@ -110,7 +110,7 @@ public class AuthCommandService {
 					return existingSession;
 				})
 				.orElseGet(() -> authCommandRepo.save(
-						Auth.login(loginUser.getId(), refreshTokenHash, now.plusDays(7), now)
+						Auth.login(loginUser.getId(), refreshTokenHash, now.plus(refreshExpiration), now)
 				));
 
 		// 10. 발급한 AccessToken을 Redis에 저장 (실패 시 트랜잭션 전체 롤백)
