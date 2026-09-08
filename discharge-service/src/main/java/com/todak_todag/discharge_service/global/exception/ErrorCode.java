@@ -33,6 +33,11 @@ public enum ErrorCode {
             "접근 권한이 없습니다."
     ),
 
+    AUTH_UNAUTHORIZED_INTERNAL_REQUEST(
+            HttpStatus.UNAUTHORIZED,
+            "내부 API 인증에 실패했습니다."
+    ),
+
     DISCHARGE_NOT_FOUND(
             HttpStatus.NOT_FOUND,
             "퇴원건을 찾을 수 없습니다."

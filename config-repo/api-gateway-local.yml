@@ -1,0 +1,34 @@
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+internal:
+  key: ${INTERNAL_API_KEY}
+
+jwt:
+  secret: ${JWT_SECRET}
+
+authentication:
+  access-token:
+    redis-key-prefix: ${ACCESS_KEY_PREFIX}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_SERVER_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
+
+logging:
+  level:
+    com.todak_todag.api_gateway: debug

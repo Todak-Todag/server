@@ -18,6 +18,9 @@ spring:
       port: 6379
 
   cloud:
+    config:
+      enabled: false
+
     gateway:
       server:
         webflux:
