@@ -22,6 +22,9 @@ import com.todak_todag.user_service.user.domain.repository.command.AuthCommandRe
 import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 @Transactional(rollbackFor = Exception.class)
 public class AuthCommandService {
@@ -49,6 +52,18 @@ public class AuthCommandService {
 			AuthQueryRepository authQueryRepo,
 			UserQueryRepository userQueryRepo
 	) {
+		if(refreshExpiration == null) {
+			log.error("[User] 서버 구동 실패 jwt.refresh.expiration 설정 값이 비어있습니다.");
+			
+			throw new IllegalArgumentException("[User] 서버 구동 실패 jwt.refresh.expiration 설정 오류");
+		}
+		
+		if(refreshExpiration.isNegative() || refreshExpiration.isZero()) {
+			log.error("[User] 서버 구동 실패 jwt.refresh.expiration 설정 값이 유효하지 않습니다.");
+			
+			throw new IllegalArgumentException("[User] 서버 구동 실패 jwt.refresh.expiration 설정 오류");
+		}
+		
 		this.refreshExpiration = refreshExpiration;
 		this.tokenStorePort = tokenStorePort;
 		this.tokenPort = tokenPort;
