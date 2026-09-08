@@ -10,4 +10,6 @@ import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 public interface JpaAuthRepository extends JpaRepository<Auth, UUID> {
 
 	Optional<Auth> findByUserIdAndLogoutAtIsNull(UUID userId);
+
+	Optional<Auth> findByRefreshTokenHashAndLogoutAtIsNull(String refreshTokenHash);
 }

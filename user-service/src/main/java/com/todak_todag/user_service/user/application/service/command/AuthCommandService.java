@@ -73,6 +73,17 @@ public class AuthCommandService {
 		this.userQueryRepo = userQueryRepo;
 	}
 	
+	public void reissue(String refreshToken) {
+		if(refreshToken == null || refreshToken.isBlank()) {
+			return;
+		}
+		
+		// 1. 리프레시 토큰 해시
+		String refreshTokenHash = tokenPort.hashToken(refreshToken);
+		
+		// 2. 리프레시 토큰 해시로 조회
+	}
+	
 	public void logout(AuthLogoutCommand command) {
 		Auth auth = authQueryRepo.findActiveByUserId(command.requesterId())
 				.orElse(null);

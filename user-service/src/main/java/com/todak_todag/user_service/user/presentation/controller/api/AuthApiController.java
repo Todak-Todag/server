@@ -145,6 +145,22 @@ public class AuthApiController implements AuthApiSpec {
 		
 		return ResponseEntity.noContent().build();
 	}
+
+
+
+	@Override
+	@PostMapping("/reissue")
+	public ResponseEntity<ApiResponse<Void>> reissue(
+			HttpServletResponse httpServletResponse,
+			HttpServletRequest httpServletRequest
+	) {
+		
+		String refreshToken = cookieProvider.getCookieValue(refreshTokenCookieName, httpServletRequest);
+		
+		
+		
+		return null;
+	}
 	
 	
 }
