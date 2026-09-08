@@ -1,0 +1,37 @@
+spring:
+  config:
+    import: optional:configserver:http://localhost:8888
+
+  cloud:
+    config:
+      enabled: false
+
+    discovery:
+      enabled: false
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+
+    hibernate:
+      ddl-auto: update
+
+    properties:
+      hibernate:
+        default_schema: social_worker_schema
+        hbm2ddl:
+          create_namespaces: true
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+internal:
+  key: test-internal-key

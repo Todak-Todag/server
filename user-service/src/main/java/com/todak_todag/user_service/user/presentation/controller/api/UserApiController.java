@@ -1,11 +1,14 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import java.time.Duration;
 import java.util.UUID;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,6 +25,8 @@ import com.todak_todag.user_service.user.application.service.command.UserCreateS
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
 import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
+import com.todak_todag.user_service.user.presentation.cookie.CookieProvider;
+import com.todak_todag.user_service.user.presentation.request.UserDeleteRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPasswordUpdateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
@@ -32,20 +37,42 @@ import com.todak_todag.user_service.user.presentation.response.UserPatientCreate
 import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
 import com.todak_todag.user_service.user.presentation.response.UserUpdateResponse;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/v1/users")
-@RequiredArgsConstructor
 @Validated
 public class UserApiController implements UserApiSpec {
 
+	private final String accessTokenCookieName;
+	
+	private final String refreshTokenCookieName;
+	
+	private final CookieProvider cookieProvider;
+	
 	private final UserCreateService userCreateService;
 	
 	private final UserUpdateService userUpdateService;
 	
 	private final UserQueryService userQueryService;
+	
+	public UserApiController(
+			@Value("${authentication.access-token.cookie-name}") String accessTokenCookieName,
+			@Value("${authentication.refresh-token.cookie-name}") String refreshTokenCookieName,
+			CookieProvider cookieProvider,
+			UserCreateService userCreateService,
+			UserUpdateService userUpdateService,
+			UserQueryService userQueryService
+	) {
+		this.accessTokenCookieName = accessTokenCookieName;
+		this.refreshTokenCookieName = refreshTokenCookieName;
+		this.cookieProvider = cookieProvider;
+		this.userCreateService = userCreateService;
+		this.userUpdateService = userUpdateService;
+		this.userQueryService = userQueryService;
+	}
 	
 	@Override
 	@PostMapping("/signup")
@@ -130,6 +157,25 @@ public class UserApiController implements UserApiSpec {
 		return ResponseEntity
 				.status(200)
 				.body(ApiResponse.ok("회원정보가 수정되었습니다.", response));
+	}
+
+	@Override
+	@DeleteMapping("/me")
+	public ResponseEntity<ApiResponse<Void>> userDelete(
+			@Valid @RequestBody UserDeleteRequest userDeleteRequest,
+			@AuthenticationPrincipal UserContext user,
+			HttpServletRequest request,
+			HttpServletResponse response
+	) {
+		
+		String accessToken = cookieProvider.getCookieValue(accessTokenCookieName, request);
+		
+		userUpdateService.userDelete(userDeleteRequest.toCommand(user, accessToken));
+		
+		cookieProvider.addCookie(accessTokenCookieName, Duration.ZERO, "", response);
+		cookieProvider.addCookie(refreshTokenCookieName, Duration.ZERO, "", response);
+		
+		return ResponseEntity.noContent().build();
 	}
 	
 }

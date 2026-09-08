@@ -4,6 +4,7 @@ import org.springframework.http.ResponseEntity;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.presentation.request.UserDeleteRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPasswordUpdateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
@@ -18,11 +19,41 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 @Tag(name = "Service User", description = "User API")
 public interface UserApiSpec {
 
+	@Operation(
+			summary = "회원탈퇴",
+			description = """
+					사용자는 회원탈퇴를 할 수 있습니다.
+					
+					회원탈퇴를 진행하게 되면
+					  - 개인정보 데이터는 임의의 데이터로 교체됩니다.
+					  - 로그인 시 발급받은 쿠키가 만료되고 서버에서 저장중이던 인증 토큰이 만료됩니다.
+					  - 현재 로그인 세션이 만료됩니다.
+					
+					회원탈퇴는 요청에 현재 비밀번호를 입력하여 일치하는 경우에만 진행됩니다.		
+			"""
+	)
+	ResponseEntity<ApiResponse<Void>> userDelete(
+			@Parameter(description = "회원탈퇴 진행 정보", required = true)
+			@Valid
+			UserDeleteRequest userDeleteRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user,
+			
+			@Parameter(hidden = true)
+			HttpServletRequest request,
+			
+			@Parameter(hidden = true)
+			HttpServletResponse response
+	);
+	
 	@Operation(
 			summary = "회원정보 수정",
 			description = """
