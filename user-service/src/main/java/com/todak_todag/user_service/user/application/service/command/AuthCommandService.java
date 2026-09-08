@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.todak_todag.user_service.global.exception.AuthErrorCode;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.AuthLoginCommand;
@@ -16,6 +17,7 @@ import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.AuthLoginResult;
+import com.todak_todag.user_service.user.application.support.TokenValidator;
 import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.AuthCommandRepository;
@@ -31,6 +33,8 @@ public class AuthCommandService {
 	
 	private final Duration refreshExpiration;
 	
+	private final TokenValidator tokenValidator;
+	
 	private final TokenStorePort tokenStorePort;
 
 	private final TokenPort tokenPort;
@@ -45,6 +49,7 @@ public class AuthCommandService {
 	
 	public AuthCommandService(
 			@Value("${jwt.refresh.expiration}") Duration refreshExpiration,
+			TokenValidator tokenValidator,
 			TokenStorePort tokenStorePort,
 			TokenPort tokenPort,
 			PasswordEncoderPort passwordEncoder,
@@ -64,6 +69,7 @@ public class AuthCommandService {
 			throw new IllegalArgumentException("[User] 서버 구동 실패 jwt.refresh.expiration 설정 오류");
 		}
 		
+		this.tokenValidator = tokenValidator;
 		this.refreshExpiration = refreshExpiration;
 		this.tokenStorePort = tokenStorePort;
 		this.tokenPort = tokenPort;
@@ -74,14 +80,37 @@ public class AuthCommandService {
 	}
 	
 	public void reissue(String refreshToken) {
-		if(refreshToken == null || refreshToken.isBlank()) {
-			return;
-		}
+		// 1. 리프레시 토큰 검증
+		tokenValidator.validateRefreshTokenCookie(refreshToken);
 		
-		// 1. 리프레시 토큰 해시
+		// 2. 리프레시 토큰 해시
 		String refreshTokenHash = tokenPort.hashToken(refreshToken);
 		
-		// 2. 리프레시 토큰 해시로 조회
+		// 3. 리프레시 토큰 해시로 조회
+		Auth loginSession = authQueryRepo.findActiveByRefreshTokenHash(refreshTokenHash)
+				.orElseThrow(() -> new BusinessException(AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID));
+		
+		// 4. 만료 검증
+		LocalDateTime now = LocalDateTime.now();
+		
+		loginSession.validateExpiration(now);
+		
+		// 5. 세션 소유자 조회 -> 계정 상태 조회.. 조회 되면 Approved 상태이며 삭제되지 않은 것
+		User user = userQueryRepo.findActiveById(loginSession.getId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
+		// 6. 새로운 토큰 발급
+		String newAccessToken = tokenPort.createToken();
+		String newJwtAccessToken = tokenPort.createJwtAccessToken(user.getId(), user.getRole());
+		String newRefreshToken = tokenPort.createToken();
+		
+		// 7. 토큰 회전
+		String newRefreshTokenHash = tokenPort.hashToken(newRefreshToken);
+		
+		loginSession.renew(newRefreshTokenHash, now.plus(refreshExpiration));
+		
+		// 8. Redis 저장
+		tokenStorePort.storeAccessToken(newAccessToken, newJwtAccessToken);
 	}
 	
 	public void logout(AuthLogoutCommand command) {
