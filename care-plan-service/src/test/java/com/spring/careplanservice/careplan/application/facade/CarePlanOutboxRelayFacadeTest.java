@@ -20,8 +20,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class CarePlanOutboxRelayFacadeTest {
@@ -78,4 +77,37 @@ class CarePlanOutboxRelayFacadeTest {
         verify(carePlanOutboxCommandService, never()).recordFailure(any(), anyString());
     }
 
+    @Test
+    @DisplayName("Outbox 이벤트 발행 실패 시 실패 횟수 기록을 요청")
+    void relay_failure() {
+        CarePlanOutboxEventResult pendingEvent = new CarePlanOutboxEventResult(
+                outboxEventId,
+                carePlanId,
+                "{}"
+        );
+
+        CarePlanCompletionEvent event = new CarePlanCompletionEvent(
+                UUID.randomUUID(),
+                carePlanId,
+                UUID.randomUUID(),
+                Instant.now()
+        );
+
+        given(carePlanOutboxQueryService.findPending(100)).willReturn(List.of(pendingEvent));
+        given(carePlanCompletionEventPayloadSerializer.deserialize("{}")).willReturn(event);
+
+        doThrow(new RuntimeException("RabbitMQ 발행 실패"))
+                .when(carePlanCompletedEventPort)
+                .publish(event);
+
+        carePlanOutboxRelayFacade.relay();
+
+        verify(carePlanCompletedEventPort).publish(event);
+        verify(carePlanOutboxCommandService, never()).markSent(any());
+        verify(carePlanOutboxCommandService)
+                .recordFailure(
+                        outboxEventId,
+                        "RabbitMQ 발행 실패"
+                );
+    }
 }
