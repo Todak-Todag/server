@@ -15,6 +15,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -71,5 +72,38 @@ public class CarePlanOutboxCommandServiceTest {
         assertThat(event.getLastErrorMessage()).isEqualTo("RabbitMQ connection failed");
 
         verify(carePlanOutboxEventCommandRepository).save(event);
+    }
+
+    @Test
+    @DisplayName("RabbitMQ 발행이 3회 실패하면 Outbox 이벤트를 FAILED 상태로 변경")
+    void recordFailure_maxRetry_failed() {
+        CarePlanOutboxEvent event = CarePlanOutboxEvent.create(
+                UUID.randomUUID(),
+                "{}"
+        );
+
+        given(carePlanOutboxEventCommandRepository.findById(outboxEventId))
+                .willReturn(Optional.of(event));
+
+        carePlanOutboxCommandService.recordFailure(
+                outboxEventId,
+                "1차 발행 실패"
+        );
+
+        carePlanOutboxCommandService.recordFailure(
+                outboxEventId,
+                "2차 발행 실패"
+        );
+
+        carePlanOutboxCommandService.recordFailure(
+                outboxEventId,
+                "3차 발행 실패"
+        );
+
+        assertThat(event.getRetryCount()).isEqualTo(3);
+        assertThat(event.getStatus()).isEqualTo(CarePlanOutboxEventStatus.FAILED);
+        assertThat(event.getLastErrorMessage()).isEqualTo("3차 발행 실패");
+
+        verify(carePlanOutboxEventCommandRepository, times(3)).save(event);
     }
 }
