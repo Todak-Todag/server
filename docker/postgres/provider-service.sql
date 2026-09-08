@@ -50,3 +50,31 @@ CREATE TABLE IF NOT EXISTS provider_schema.p_provide_works (
     deleted_by UUID
 
 );
+
+CREATE TABLE IF NOT EXISTS provider_schema.p_provider_outbox_events (
+    outbox_event_id UUID PRIMARY KEY,
+
+    -- PROVIDER_MATCHED / PROVIDER_MATCH_FAILED
+    event_type VARCHAR(50) NOT NULL,
+
+    -- 논리 FK -> care_plan_schema 의 service_preference_id
+    aggregate_id UUID NOT NULL,
+
+    payload TEXT NOT NULL,
+
+    -- 발행에 성공한 시각. null 이면 아직 발행되지 않은 건이다
+    published_at TIMESTAMPTZ,
+
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    last_error_message TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL,
+    created_by UUID NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+    updated_by UUID NOT NULL
+);
+
+-- 릴레이는 미발행 건만 생성 순서로 폴링한다
+CREATE INDEX IF NOT EXISTS ix_provider_outbox_events_pending
+    ON provider_schema.p_provider_outbox_events (created_at)
+    WHERE published_at IS NULL;

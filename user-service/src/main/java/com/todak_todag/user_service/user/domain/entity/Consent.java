@@ -57,6 +57,14 @@ public class Consent extends BaseUpdatableEntity {
         return consent;
     }
 
+    // 동의 이력을 삭제하지 않고 철회 상태와 시각을 기록
+    public void withdraw(
+            LocalDateTime withdrawnAt
+    ) {
+        this.status = ConsentStatus.WITHDRAWN;
+        this.withdrawnAt = withdrawnAt;
+    }
+
     public enum ConsentStatus {
         AGREED,
         WITHDRAWN

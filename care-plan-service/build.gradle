@@ -66,6 +66,14 @@ dependencies {
 
     // Test
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+
+    // Spring Boot + Testcontainers
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+
+    // Testcontainers
+    testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+    testImplementation 'org.testcontainers:testcontainers-rabbitmq'
+    testImplementation 'org.testcontainers:testcontainers-postgresql'
 }
 
 dependencyManagement {

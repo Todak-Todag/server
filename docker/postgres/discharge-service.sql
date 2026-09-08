@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS discharge_schema.p_discharge (
     -- 논리 FK -> user_schema.p_users(user_id)
     hospital_staff_id UUID NOT NULL,
     hospital_name VARCHAR(50) NOT NULL,
-    schedule_date DATE NOT NULL,
+    schedule_date DATE,
     actual_date DATE,
     status discharge_schema.discharge_status NOT NULL DEFAULT 'SCHEDULED',
     created_at TIMESTAMPTZ NOT NULL,

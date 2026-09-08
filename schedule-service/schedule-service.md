@@ -1,7 +1,7 @@
 # 🗓️ Schedule-Service 기능 명세
 
 > 담당 서비스: `schedule-service` (Port `19004`)
-출처: 아키텍처 다이어그램, Notion `Table 명세서` / `API 명세서`(13개 엔드포인트), 팀 대화 확인 내용
+기준: **실제 구현 코드** (2026-09-08 기준). 문서와 코드가 어긋나던 항목은 코드를 기준으로 정정했다.
 API 상세 스펙은 `api/` 하위 개별 문서를 참고한다.
 >
 
@@ -9,15 +9,43 @@ API 상세 스펙은 `api/` 하위 개별 문서를 참고한다.
 
 ## 1. 서비스 개요
 
-Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일정(예약)을 관리**하는 도메인 서비스다. Care-Plan-Service에서 Care Plan이 확정되면 Provider-Service의 매칭 결과를 이벤트로 수신하여 일정을 생성하고, 퇴원 예정자의 일정 변경/취소, 서비스 제공자의 수행 완료 처리, 수행 결과 등록·조회를 담당한다.
+Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일정(예약)을 관리**하는 도메인 서비스다. Provider-Service의 매칭 결과를 이벤트로 수신하여 매칭 이력과 일정을 생성하고, 퇴원 예정자의 일정 변경/취소·재매칭 시도, 서비스 제공자의 수행 완료 처리, 수행 결과 등록·조회를 담당한다.
 
-담당 테이블: `p_service_schedules`(서비스 일정), `p_care_plan_service_results`(서비스 수행 결과), `p_service_matching_attempts`(서비스 매칭 결과)
+담당 테이블: `p_service_matching_attempts`(서비스 매칭 시도), `p_service_schedules`(서비스 일정), `p_care_plan_service_results`(서비스 수행 결과), `p_schedule_outbox_events`(이벤트 아웃박스)
+
+패키지 구조는 DDD + Layered Architecture를 따르며, 커맨드/쿼리를 서비스·리포지토리 레벨에서 분리한다.
+
+```
+schedule/
+├── presentation/   controller(api, internal) · request · response
+├── application/    facade · service(command, query) · command · query · result · event · port · support
+├── domain/         entity · repository(command, query)
+└── infrastructure/ persistence(command, query) · client · adapter · messaging
+```
+
+- **Facade**: 유스케이스 조합. Internal API(Feign) 호출처럼 **DB 트랜잭션 밖에서 처리해야 하는 작업**을 담당하고, 조회 결과의 존재 여부 판단(403 전환)도 여기서 한다.
+- **CommandService**: 순수 트랜잭션 경계. 검증 → 엔티티 상태 전이 → 아웃박스 적재까지를 한 트랜잭션으로 묶는다.
+- **Port/Adapter**: 상대 서비스 호출(`CarePlanPort`, `ProviderOfferingPort`)과 브로커 발행(`ProviderReMatchEventPort`, `CarePlanCompletedEventPort`)을 application이 인터페이스로 소유하고, infrastructure가 구현한다.
+- 이벤트 관련 컴포넌트(페이로드 record, Serializer, 발행 판단 Appender)는 `application/event`에 둔다.
 
 ---
 
 ## 2. 도메인 모델
 
-### `p_service_matching_attempts` — 서비스 매칭 결과
+공통 감사 컬럼은 상속으로 처리한다.
+
+| 상위 클래스 | 포함 컬럼 |
+| --- | --- |
+| `BaseEntity` | `created_at`(Instant, NOT NULL) / `created_by`(UUID, NOT NULL) |
+| `BaseUpdatableEntity` | 위 + `updated_at`(Instant, NOT NULL) / `updated_by`(UUID, NOT NULL) |
+| `BaseAuditableEntity` | 위 + `deleted_at`(Instant) / `deleted_by`(UUID) — 논리 삭제 |
+
+> 감사 컬럼의 `created_by`/`updated_by`는 `SpringSecurityAuditorAware`가 채운다. 외부 API 요청은 `UserContext.userId`, 내부 API·이벤트 수신처럼 인증 주체가 없는 요청은 `SystemId.SYSTEM_USER_ID`로 기록된다.
+>
+
+### `p_service_matching_attempts` — 서비스 매칭 시도 (`BaseAuditableEntity`)
+
+매칭 결과 이벤트를 수신할 때마다 **누적(append)** 되는 이력 테이블이다. 갱신하지 않는다.
 
 | 컬럼명 | 타입 | PK | FK/참조 | Nullable | 설명 |
 | --- | --- | --- | --- | --- | --- |
@@ -25,266 +53,284 @@ Schedule-Service는 **확정된 Care Plan에 포함된 서비스의 실제 일�
 | care_plan_id | UUID |  | 논리 참조 → Care Plan | X | 케어플랜 ID |
 | region_id | UUID |  | 논리 참조 → p_regions | X | 지역 ID |
 | provide_service_id | UUID |  | 논리 참조 → p_provide_services | X | 제공 서비스 ID |
-| service_preference_id | UUID |  | 논리 참조 → p_care_plan_service_preferences | X | 서비스 희망 ID |
-| service_offering_id | UUID |  | 논리 참조 → p_provide_service_offerings | O | 제공자별 서비스 ID |
-| date | LocalDate |  |  | X | 원하는 매칭 일시 |
-| preferred_time_slot | ENUM |  |  | O | `MORNING` / `AFTERNOON` |
-| status | ENUM |  |  | X | `MATCHED` / `FAILED`  |
+| service_preference_id | UUID |  | 논리 참조 → p_care_plan_service_preferences | X | 서비스 희망 일정 ID |
+| service_offering_id | UUID |  | 논리 참조 → p_provide_service_offerings | O | 매칭된 제공자별 서비스 ID (실패 시 `null`) |
+| date | LocalDate |  |  | X | 매칭을 시도한 날짜 |
+| preferred_time_slot | ENUM |  |  | O | `MORNING` / `AFTERNOON` (성공 이벤트에는 없어 `null`) |
+| status | ENUM |  |  | X | `MATCHED` / `FAILED` |
 | failure_reason | TEXT |  |  | O | 매칭 실패 사유 |
-| matched_at | TIMESTAMPZ |  |  | O | 매칭 성공 일시 |
-| failed_at | TIMESTAMPZ |  |  | O | 매칭 실패 일시 |
-| created_at / created_by | TIMESTAMPZ / UUID |  |  | X | 생성 정보 |
-| updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X | 수정 정보 |
-| deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O | 논리 삭제 정보 |
+| matched_at | Instant |  |  | O | 매칭 성공 일시 |
+| failed_at | Instant |  |  | O | 매칭 실패 일시 |
 
-> 참고 (2026-09-05, 2026-09-06 갱신): `region_id`/`provide_service_id`(둘 다 Not Null)는 매칭을 시도할 때 검색 조건(지역, 서비스 종류)으로 쓰인 값을 그대로 기록해두는 컬럼으로 보이고, `service_offering_id`(Nullable로 재확인됨)는 그 조건으로 검색해서 **실제로 매칭된 구체적인 제공자·서비스 관계**를 담는 컬럼으로 보인다 — 매칭 실패(`FAILED`) 시에는 구체적으로 매칭된 대상이 없으므로 `service_offering_id`가 비어있고, 검색 조건(`region_id`/`provide_service_id`)만 남는 구조로 추정된다. 이번 Nullable 재배치(`provide_service_id`는 필수로, `service_offering_id`는 선택으로)가 이 추정과 일치해 신뢰도가 높아졌으나, 여전히 실제 매칭 로직 문서는 없어 추정임을 밝혀둔다.
->
-
-> ⚠️ **확인 필요 (신규, 중요)**: 이 테이블은 `status`가 `MATCHED`/`FAILED`뿐이라 초기 매칭(`ProviderMatched`/`ProviderMatchFailed`)의 결과만 기록하는 용도인지, 아니면 일정 변경 시의 **재매칭**(`ProviderReMatched`) 시도 결과도 이 테이블에 함께 기록하는지 문서에 명시되어 있지 않다. 만약 재매칭 결과도 이 테이블에 기록된다면, 그동안 8장에서 미해소로 남아있던 **"`ProviderReMatched`의 수신(확인) 측이 없다"는 문제가 이 테이블을 통해 해소될 가능성**이 있다 — 즉 Schedule-Service가 별도 이벤트 수신 없이 이 테이블을 폴링하거나, 이 테이블에 대한 쓰기 자체가 Provider-Service의 콜백 역할을 하는 구조일 수 있다. 다만 이는 추정이며, 실제 매칭/재매칭 흐름에서 이 테이블에 누가(Schedule-Service 자신인지 Provider-Service인지) 언제 쓰는지가 확인되지 않아 임의로 결론짓지 않는다.
->
-
-### `p_service_schedules` — 서비스 일정
+### `p_service_schedules` — 서비스 일정 (`BaseAuditableEntity`)
 
 | 컬럼명 | 타입 | PK | FK/참조 | Nullable | 제약조건/기본값 | 설명 |
 | --- | --- | --- | --- | --- | --- | --- |
 | service_schedule_id | UUID | O |  | X |  | 서비스 일정 ID |
-| care_plan_id | UUID |  | 논리 FK → p_care_plans.care_plan_id | X |  | 케어플랜 ID |
-| service_preference_id | UUID |  | 논리 FK → p_care_plan_service_preferences.service_preference_id | X |  | 서비스 희망 ID |
-| service_offering_id | UUID |  | 논리 FK → p_provide_service_offerings.service_offering_id | X |  | 제공 서비스 ID |
-| status | ENUM |  |  | X | SCHEDULED / RESCHEDULING / CHANGED / COMPLETED / CANCELED / NO_SHOW, 기본값 SCHEDULED | 일정 상태 |
-| date | DATE |  |  | X |  | 날짜 |
-| started_at | TIMESTAMP |  |  | X |  | 시작 시간 |
-| finished_at | TIMESTAMP |  |  | X |  | 종료 시간 |
+| care_plan_id | UUID |  | 논리 FK → p_care_plans | X |  | 케어플랜 ID |
+| service_preference_id | UUID |  | 논리 FK → p_care_plan_service_preferences | X |  | 서비스 희망 일정 ID |
+| service_offering_id | UUID |  | 논리 FK → p_provide_service_offerings | X |  | 제공 서비스 ID |
+| status | ENUM |  |  | X | SCHEDULED / RESCHEDULING / CHANGED / COMPLETED / CANCELED / NO_SHOW, 생성 시 SCHEDULED 고정 | 일정 상태 |
+| date | LocalDate |  |  | X |  | 일정 날짜 |
+| started_at | LocalDateTime |  |  | X |  | 시작 일시 |
+| finished_at | LocalDateTime |  |  | X |  | 종료 일시 |
 | cancel_reason | TEXT |  |  | O |  | 취소 사유 |
-| canceled_at | TIMESTAMP |  |  | O |  | 취소 일시 |
-| created_at / created_by | TIMESTAMPZ / UUID |  |  | X |  | 생성 정보 |
-| updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X |  | 수정 정보 |
-| deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O |  | 논리 삭제 정보 |
+| canceled_at | LocalDateTime |  |  | O |  | 취소 일시 |
 
-> ⚠️ **확인 필요 (신규, 중요)**: `p_service_schedules`에 `care_plan_id`가 이미 로컬 컬럼으로 존재하는데, 03/04번 문서(`schedule-service.md` 5.5절)에서는 "`servicePreferenceId`를 기준으로 care-plan-service Internal API를 호출하여 **`carePlanId`**, `finishDate`, `patientId`를 조회한다"고 되어 있다. `carePlanId`가 이미 로컬에 있다면 Internal API로 다시 조회할 필요가 없어 보이는데(비효율), 왜 API 응답에 `carePlanId`가 포함되어 있는지, 혹시 Internal API 호출 기준을 `servicePreferenceId`가 아니라 **로컬에 이미 있는 `care_plan_id`로 직접 호출하는 것이 맞는지** 확인이 필요하다 — 03/04번 문서와 이 Table 명세서 사이의 잠재적 설계 불일치이므로 임의로 어느 한쪽에 맞춰 고치지 않았다.
->
+**생성 시 불변식** (`ServiceSchedule.confirm`)
 
-### `p_care_plan_service_results` — 서비스 수행 결과
+- `carePlanId` / `servicePreferenceId` / `serviceOfferingId` 필수
+- `date`는 **오늘 이후**여야 한다 (당일 일정 생성 불가)
+- `startedAt` / `finishedAt` 필수이며, 둘 다 `date`와 같은 날짜여야 하고 `finishedAt > startedAt`
+- 위반 시 `INVALID_PARAMETER`(400)
+
+### `p_care_plan_service_results` — 서비스 수행 결과 (`BaseAuditableEntity`)
 
 | 컬럼명 | 타입 | PK | FK/참조 | Nullable | 설명 |
 | --- | --- | --- | --- | --- | --- |
-| service_result_id | UUID | O |  | X | 케어플랜 내의 서비스 결과 ID |
-| service_schedule_id | UUID |  | 논리 FK → p_service_schedules.service_schedule_id | X | 서비스 일정 ID |
-| started_at | TIMESTAMP |  |  | X | 서비스 시작 일시 |
-| finished_at | TIMESTAMP |  |  | X | 서비스 종료 일시 |
+| service_result_id | UUID | O |  | X | 서비스 수행 결과 ID |
+| service_schedule_id | UUID |  | 논리 FK → p_service_schedules | X | 서비스 일정 ID (일정당 1건) |
+| started_at | LocalDateTime |  |  | X | 실제 서비스 시작 일시 |
+| finished_at | LocalDateTime |  |  | X | 실제 서비스 종료 일시 |
 | note | TEXT |  |  | O | 비고 |
-| created_at / created_by | TIMESTAMPZ / UUID |  |  | X | 생성 정보 |
-| updated_at / updated_by | TIMESTAMPZ / UUID |  |  | X | 수정 정보 |
-| deleted_at / deleted_by | TIMESTAMPZ / UUID |  |  | O | 논리 삭제 정보 |
 
-> ⚠️  참고: 이 테이블에는 `service_preference_id`/`service_offering_id`가 없어 08/09번 문서에서 소유권 검증을 위해 `p_service_schedules`와 조인이 필요할 것으로 추정했었다(8장 참고). `p_service_schedules`가 `care_plan_id`를 직접 갖게 됨을 이번에 확인했으나, 08/09번이 필요로 하는 것은 `service_offering_id`/`service_preference_id`이므로 이 조인 필요성 자체는 해소되지 않는다.
->
+**생성 시 불변식** (`CarePlanServiceResult.record`): `serviceScheduleId`/`startedAt`/`finishedAt` 필수, `finishedAt > startedAt`.
+
+### `p_schedule_outbox_events` — 이벤트 아웃박스 (`BaseUpdatableEntity`)
+
+이벤트를 브로커로 바로 보내지 않고 **커맨드 트랜잭션과 같은 로컬 트랜잭션 안에서 먼저 적재**하기 위한 테이블. 논리 삭제 대상이 아니라 `deleted_at`이 없다.
+
+| 컬럼명 | 타입 | PK | Nullable | 설명 |
+| --- | --- | --- | --- | --- |
+| outbox_event_id | UUID | O | X | 아웃박스 레코드 ID |
+| event_type | String |  | X | `ProviderReMatched` / `CarePlanCompleted` |
+| aggregate_id | UUID |  | X | 이벤트가 대변하는 대상 ID (아래 표 참고) |
+| payload | TEXT |  | X | 이벤트 페이로드 JSON |
+| status | ENUM |  | X | `PENDING` / `SENT` / `FAILED` |
+| retry_count | int |  | X | 발행 실패 횟수 (기본 0) |
+| last_error_message | TEXT |  | O | 마지막 발행 실패 사유 |
+| published_at | Instant |  | O | 실제 발행 성공 일시 |
+
+| event_type | aggregate_id | 사용처 |
+| --- | --- | --- |
+| `ProviderReMatched` (03번 경로) | `serviceScheduleId` | 변경 요청한 서비스 일정 |
+| `ProviderReMatched` (16번 경로) | `matchingAttemptId` | 재시도 중복 접수(409) 판별 키 |
+| `CarePlanCompleted` | `carePlanId` | 케어플랜당 1회 발행 보장(멱등) 키 |
 
 ---
 
 ## 3. 상태(status) 정의
 
+### `p_service_schedules.status`
+
+| 상태 | 의미 | 진입 경로 |
+| --- | --- | --- |
+| `SCHEDULED` | 예정 (생성 시 기본값) | `ProviderMatched` 수신 / 재매칭 실패로 복구 |
+| `RESCHEDULING` | 변경 중 (재매칭 진행 중인 중간 상태) | 03번 서비스 일정 변경 |
+| `CHANGED` | 변경 완료 (재매칭 성공으로 새 일정에 자리를 넘긴 과거 이력) | 재매칭 성공 시 `ProviderMatched` 수신 |
+| `COMPLETED` | 수행 완료 | 05번 서비스 수행 완료 |
+| `NO_SHOW` | 예약 부도(미수행) | 05번 서비스 수행 완료 |
+| `CANCELED` | 취소됨 (`cancel_reason`, `canceled_at` 기록) | 04번 서비스 일정 취소 |
+
+**상태 전이 규칙** (엔티티가 스스로 검증)
+
+| 메서드 | 허용 진입 상태 | 결과 | 위반 시 |
+| --- | --- | --- | --- |
+| `rescheduling()` | `SCHEDULED` | `RESCHEDULING` | 400 `SERVICE_SCHEDULE_INVALID_STATUS_FOR_RESCHEDULING` |
+| `markChanged()` | `RESCHEDULING` | `CHANGED` | 409 `SERVICE_SCHEDULE_INVALID_STATUS_FOR_CHANGED` |
+| `restoreToScheduled()` | `RESCHEDULING` | `SCHEDULED` | 409 `SERVICE_SCHEDULE_INVALID_STATUS_FOR_RESTORE` |
+| `cancel(reason)` | `SCHEDULED`, `RESCHEDULING` | `CANCELED` | 409 `SERVICE_SCHEDULE_INVALID_STATUS_FOR_CANCEL` |
+| `complete()` / `markNoShow()` | `SCHEDULED` | `COMPLETED` / `NO_SHOW` | 409 `SERVICE_SCHEDULE_INVALID_STATUS_FOR_COMPLETED` |
+| `assertResultRegistrable()` | `COMPLETED`, `NO_SHOW` | (검증만) | 409 `SERVICE_RESULTS_INVALID_SCHEDULE_STATUS` |
+
+### `p_service_matching_attempts.status`
+
+`MATCHED` / `FAILED` 두 가지뿐이며, 이력 레코드이므로 생성 이후 전이하지 않는다.
+
+### `p_schedule_outbox_events.status`
+
 | 상태 | 의미 |
 | --- | --- |
-| `SCHEDULED` | 예정 (기본값) |
-| `RESCHEDULING` | **변경 중** (일정 변경 요청 후 재매칭 진행 중인 중간 상태) |
-| `CHANGED` | **변경 완료** (재매칭이 성공하여 변경이 확정된 최종 상태) |
-| `CANCELED` | 취소됨 (`cancel_reason`, `canceled_at` 기록) |
-| `COMPLETED` | 수행 완료 |
-| `NO_SHOW` | 예약 부도(미수행) |
-
->
->
->
-> ```
-> [신규 생성]
-> CarePlanConfirmed → Provider-Service 매칭 → ProviderMatched 발행 → Schedule-Service 수신
->   → p_service_matching_attempts, p_service_schedules에 새 레코드 생성 (SCHEDULED)
-> 
-> [기존 건 갱신] (03_서비스일정변경.md 또는 "재매칭 시도 API"를 통한 요청)
-> SCHEDULED → RESCHEDULING → ProviderRematched 발행 (Schedule-Service → Provider-Service)
->   → Provider-Service가 매칭 가능 Provider 조회
->   → 성공 시 → ProviderMatched 발행 → Schedule-Service 수신 → CHANGED
->   → 실패 시 → ProviderMatchFailed 발행 → Schedule-Service 수신 → CANCELED
-> ```
->
-> ⚠️ **확인 필요 (신규)**: `ProviderMatchFailed` 이벤트 처리 결과에 "일정 상태를 `CANCELED`로 변경하고 **note**에 매칭 실패 사유를 기록한다"고 되어 있으나, `p_service_schedules`에는 `note` 컬럼이 없고 `cancel_reason`만 존재한다(2장 도메인 모델 참고). `cancel_reason`을 쓰는 것으로 추정되나 문서 표현이 아직 부정확해 확인 필요.
->
+| `PENDING` | 발행 대기 (신규 적재 또는 발행 실패 후 재시도 대기) — 릴레이가 폴링하는 유일한 상태 |
+| `SENT` | 브로커 발행 성공 (최종) |
+| `FAILED` | 재시도 상한(`MAX_RETRY_COUNT = 3`) 초과 (최종, DLQ 역할) |
 
 ---
 
 ## 4. 핵심 비즈니스 규칙
 
-### 4.1 서비스 일정 변경(연기)
+### 4.1 서비스 일정 변경(연기) — 03번
 
-- **요청 주체는 퇴원 예정자다** (확정).
-- 일정 **시작 24시간 전까지만** 변경 가능하다.
-- 본인에게 배정된 일정만 변경 가능하며, `status`가 `SCHEDULED`인 경우에만 가능하다.
+- 요청 주체는 **퇴원 예정자**(`@PreAuthorize("hasRole('PATIENT')")`).
+- 일정 **시작 24시간 전까지만** 변경 가능하다 (`ServiceScheduleValidator.validateDeadline`).
+- 본인에게 배정된 일정만 변경 가능하며(`patientId` 대조), `status`가 `SCHEDULED`인 경우에만 가능하다.
 - 기존 일정 날짜 `D` 기준 **하루 앞당기기(D-1)** 또는 **하루 미루기(D+1)** 만 가능하다.
   - 하루 앞당기기: 변경일이 오늘(당일)인 경우 불가
   - 하루 미루기: Care Plan의 일정 범위(`finishDate`)를 초과할 수 없음
-- "하루 미루기" 범위 검증 및 소유권 검증을 위해 `servicePreferenceId`를 기준으로 **care-plan-service Internal API(Feign)를 호출**하여 `carePlanId`, `finishDate`, `patientId`를 조회한다. schedule-service와 care-plan-service는 데이터 소유권이 분리되어 있으므로 DB 직접 조인이 아닌 Internal API 호출로 처리한다 (상세: 5.5절 참고).
-- 변경 요청이 접수되면 `status`는 `RESCHEDULING`(**변경 중**, 중간 상태)으로 바뀌고, 변경된 날짜에 대해 `ProviderReMatched` 이벤트를 발행한다.
-- 재매칭 **성공** 시 `status`는 `CHANGED`(**변경 완료**, 최종 상태)로 전환된다.
-- 재매칭 **실패** 시 `status`는 `SCHEDULED`로 복구된다 — ⚠️ 단, `13_이벤트수신_ProviderMatchFailed.md`(기존)는 "`CANCELED`로 전환"이라고 되어 있어 상충 상태다 (3장, 8장 참고 — 확인 필요).
+- 소유권·범위 검증에 필요한 `carePlanId`/`finishDate`/`patientId`는 `servicePreferenceId`를 기준으로 **care-plan-service Internal API(Feign)** 를 호출해 조회한다 (5.5절).
+- 검증 순서는 **소유권(403) → 마감 시각 → 날짜 규칙 → 상태 전이**다. 비소유자가 400/409 응답으로 대상의 존재나 상태를 알아내지 못하게 하기 위함이다.
+- 변경 요청이 접수되면 `status`가 `RESCHEDULING`으로 바뀌고, **같은 트랜잭션에서** `ProviderReMatched` 이벤트가 아웃박스에 적재된다.
+  - 페이로드의 `regionId`/`provideServiceId`는 해당 `servicePreferenceId`의 **가장 최근 `MATCHED` 매칭 시도 레코드**에서 읽어온다. 없으면 404 `SERVICE_MATCHING_ATTEMPT_NOT_FOUND`.
+  - 이 경로에서는 시간대를 선택하지 않으므로 `preferredTimeSlot`은 `null`이다.
+- 재매칭 **성공** 시 기존 일정은 `CHANGED`가 되고 **새 일정 레코드**가 `SCHEDULED`로 생성된다.
+- 재매칭 **실패** 시 기존 일정은 `SCHEDULED`로 복구된다.
 
-### 4.2 서비스 일정 취소
+### 4.2 서비스 일정 취소 — 04번
 
 - 요청 주체는 퇴원 예정자다.
-- **일정 시작 24시간 전까지만** 취소 가능하다.
-- 취소 시 `status`는 `CANCELED`로 변경되고 `cancelReason`, `canceledAt`이 기록된다.
-- 이미 완료되었거나 취소된 서비스는 `409 CONFLICT`를 반환한다.
+- **일정 시작 24시간 전까지만** 취소 가능하다. 위반 시 **409** `SERVICE_SCHEDULE_CANCEL_DEADLINE_EXCEEDED`.
+- `SCHEDULED`뿐 아니라 **`RESCHEDULING`(변경 중) 상태에서도 취소할 수 있다.**
+- 취소 시 `status`는 `CANCELED`로 변경되고 `cancelReason`(필수), `canceledAt`이 기록된다.
+- 이미 완료/부도/변경완료/취소된 일정은 `409 CONFLICT`.
+- 마지막 일정이 취소되면 그 시점에 `CarePlanCompleted` 발행 조건을 판정한다 (5.2절).
 
-### 4.3 서비스 수행 완료 처리
+### 4.3 서비스 수행 완료 처리 — 05번
 
-- 요청 주체는 서비스 제공자다.
-- `status`가 `SCHEDULED`일 때만 변경 가능하며, 요청 시점이 일정의 `finishedAt` 이후여야 한다.
-- 이미 취소/연기/변경완료/완료/부도 처리된 서비스는 `409 CONFLICT`를 반환한다.
-- 결과 값은 `COMPLETED` 또는 `NO_SHOW` 중 하나다.
-- URL: `PATCH /api/v1/service-schedules/{serviceScheduleId}/complete`
-- "본인이 배정된 서비스 제공자인지" 검증은 **provider-service Internal API**(`GET /internal/v1/service-offerings/{serviceOfferingId}`)를 호출해 `providerId`를 조회하고 요청자 `userId`와 비교하는 방식으로 확정됨 (상세: 5.6절 참고).
+- 요청 주체는 서비스 제공자다(`hasRole('SERVICE_PROVIDER')`).
+- URL: `PATCH /api/v1/service-schedules/{serviceScheduleId}/result`
+- `status`가 `SCHEDULED`일 때만 변경 가능하며, 결과 값은 `COMPLETED` 또는 `NO_SHOW`다.
+- 요청 시점이 일정의 `finishedAt` **이후**여야 한다. 위반 시 **400** `SERVICE_SCHEDULE_STATUS_UPDATE_TOO_EARLY`.
+- "본인이 배정된 서비스 제공자인지" 검증은 **provider-service Internal API**(`GET /internal/v1/service-offerings/{serviceOfferingId}`)로 `providerId`를 조회해 요청자 `userId`와 비교한다 (5.6절).
+- 이미 취소/변경 중/변경완료/완료/부도인 일정은 `409 CONFLICT`.
 
-### 4.4 서비스 수행 결과 등록
+### 4.4 서비스 수행 결과 등록 — 07번
 
-- 요청 주체는 서비스 제공자다.
-- 실제 서비스 시작/종료 일시와 비고(`note`)를 등록한다.
+- 요청 주체는 서비스 제공자이며, 4.3과 같은 방식으로 배정 여부를 검증한다.
+- 대상 일정의 `status`가 **`COMPLETED` 또는 `NO_SHOW`** 여야 한다(409). 즉 **05번이 반드시 선행**된다.
+- 하나의 일정에는 결과 1건만 등록할 수 있다. 재등록 시 409 `SERVICE_RESULTS_ALREADY_EXISTS`.
+- 실제 시작/종료 일시와 비고(`note`)를 기록하며 `finishedAt > startedAt`이어야 한다.
+- 등록 후 `CarePlanCompleted` 발행 조건을 판정한다 (5.2절).
 
-### 4.5 조회 권한 공통 규칙
+### 4.5 재매칭 시도 — 16번
 
-- 퇴원 예정자는 **본인이 받은** 일정/결과만 조회할 수 있다.
-- 서비스 제공자는 **본인이 제공한** 일정/결과만 조회할 수 있다.
+- 요청 주체는 퇴원 예정자이며, 대상 매칭 시도의 `status`가 `FAILED`일 때만 재시도할 수 있다(409).
+- **동기적으로는 아무 레코드도 쓰지 않고** `ProviderReMatched`만 아웃박스에 적재하므로 `202 ACCEPTED`로 응답한다. 새 매칭 시도 이력은 결과 이벤트를 수신할 때 생성된다.
+- 같은 `matchingAttemptId`로 이미 아웃박스에 `ProviderReMatched`가 적재됐다면 409 `MATCHING_ATTEMPT_RETRY_ALREADY_REQUESTED`. (동기 상태 변경이 없어 `status`로는 "재시도 중"을 표현할 수 없기 때문에 아웃박스를 판별 키로 쓴다.)
+- 희망 날짜는 Care Plan의 `startDate`~`finishDate` 범위 안이어야 한다(400). Internal API 응답에 `startDate`가 없어 **`startDate = finishDate - 29일`(30일 고정 기간)** 로 역산한다.
+
+### 4.6 매칭 실패 내역 조회 — 15번
+
+- 요청 주체는 퇴원 예정자다.
+- Care Plan이 `CONFIRMED`가 아니면(재매칭이 의미 없으므로) 빈 페이지를 반환한다.
+- `status` 미지정 시 기본값은 `FAILED`이며, **`FAILED` 조회일 때만** "해당 `servicePreferenceId`로 생성된 일정이 아직 하나도 없는" 조건을 함께 적용한다. 매칭 시도는 누적되므로 나중에 성공해 해소된 과거 실패를 이 조건으로 걸러낸다.
+
+### 4.7 조회 권한 공통 규칙
+
+- 퇴원 예정자는 **본인이 받은** 일정/결과만, 서비스 제공자는 **본인이 제공한** 일정/결과만 조회할 수 있다.
+- **단건 조회**는 점(point) 검증 — 대상 레코드의 `servicePreferenceId`/`serviceOfferingId`로 Internal API를 호출해 `patientId`/`providerId`를 요청자와 대조한다.
+- **목록 조회**는 배치 검증 — 요청자가 소유한 ID 목록을 Internal API로 1회 조회해 `IN` 조건으로 필터링한다 (5.7절). 소유 ID가 0건이면 DB 조회 없이 빈 페이지를 반환한다.
+- 대상이 없거나 남의 것이면 모두 **403 `AUTH_FORBIDDEN`** 으로 통일한다 (404로 리소스 존재 여부를 노출하지 않기 위함).
+
+### 4.8 페이지네이션 공통 규칙
+
+`PageableFactory`가 보정한다.
+
+- `page`: `null`이거나 음수면 `0`
+- `size`: `10`/`30`/`50`만 허용, 그 외에는 `10`
+- `sort`: 정렬 필드는 **`createdAt` 고정**이고 방향만 파싱한다. 기본값 `createdAt,DESC`
+- 응답 `pageInfo.paginationType`은 `OFFSET`
 
 ---
 
 ## 5. 서비스 간 연동 (이벤트 & 내부 API)
 
-메시징 브로커: **RabbitMQ** (확정)
+메시징 브로커: **RabbitMQ** (Direct Exchange)
 
 ### 5.1 전체 흐름
 
 ```
 Care-Plan-Service (CarePlanConfirmed 발행)
         ↓
-Provider-Service (매칭 가능 Provider 조회 시, 내부 API로 Schedule-Service 호출, 5.4절)
+Provider-Service (매칭 가능 Provider 판단 시 06번 내부 API로 Schedule-Service 호출, 5.4절)
         ↓
-Provider-Service (ProviderMatched 발행) ──▶ Schedule-Service 수신
-   ──▶ p_service_matching_attempts, p_service_schedules에 새 레코드 생성 (SCHEDULED)
-        ↓ (매칭 실패 시)
-Provider-Service (ProviderMatchFailed 발행) ──▶ Schedule-Service 수신
-   ──▶ p_service_schedules 상태를 CANCELED로 변경 (cancel_reason에 실패 사유 기록 추정)
+[성공] Provider-Service (ProviderMatched 발행) ──▶ Schedule-Service 수신
+   ──▶ p_service_matching_attempts에 MATCHED 이력 추가
+   ──▶ (재매칭이면) 기존 RESCHEDULING 일정을 CHANGED로 변경
+   ──▶ p_service_schedules에 새 일정 생성 (SCHEDULED)
 
-Schedule-Service (일정 연기, 03번 API 또는 "재매칭 시도 API"를 통한 요청)
-   → (03번인 경우) Care-Plan-Service Internal API 호출 (carePlanId/finishDate/patientId 조회, 5.5절)
-   → ProviderRematched 발행 ──▶ Provider-Service 재매칭
-   → 재매칭 결과는 초기 매칭과 동일하게 ProviderMatched(성공→CHANGED)/
-     ProviderMatchFailed(실패→CANCELED)로 수신
+[실패] Provider-Service (ProviderMatchFailed 발행) ──▶ Schedule-Service 수신
+   ──▶ p_service_matching_attempts에 FAILED 이력 추가
+   ──▶ (재매칭이면) 기존 RESCHEDULING 일정을 SCHEDULED로 복구
+   ──▶ (초기 매칭이면) p_service_schedules는 건드리지 않음 (아직 일정 레코드가 없음)
 
-Schedule-Service (모든 서비스 수행 완료) ──▶ CarePlanCompleted 발행
-   ──▶ Care-Plan-Service 수신 → 10번 Internal API로 serviceResultId 존재 검증 → p_care_plans.status를 COMPLETED로 변경
+Schedule-Service 재매칭 트리거 (둘 다 아웃박스 적재)
+   ① 16번 재매칭 시도 API  — 초기 매칭 실패 건 (사용자가 15번으로 확인 후 호출)
+   ② 03번 서비스 일정 변경 API — 이미 확정된 일정의 날짜 변경
+   → 릴레이가 ProviderReMatched 발행 ──▶ Provider-Service 재매칭
+   → 결과는 초기 매칭과 동일하게 ProviderMatched / ProviderMatchFailed로 수신
+
+Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlanCompleted 아웃박스 적재 → 발행
+   ──▶ Care-Plan-Service 수신 → 10번 내부 API로 serviceResultId 존재 검증 → p_care_plans 상태 변경
 ```
-
-> ⚠️ **확인 필요 (신규, 중요)**: 위 흐름에서 언급된 **"재매칭 시도 API"** — Care Plan 확정 후 첫 매칭이 실패했을 때 사용자가 희망 일정/시간대를 다시 선택해 재매칭을 시작하는 API — 는 지금까지 확인된 01~10번 API 어디에도 해당하지 않는 **완전히 새로운, 아직 문서화되지 않은 API**다. `ProviderRematched` 발행 시나리오 2가지 중 하나가 이 API에 의존하므로, 이 API의 실제 명세(Method/URL/Request/Response)를 별도로 확인해야 한다.
->
 
 ### 5.2 발행(Publish) 이벤트
 
-| 이벤트명 | 발행 시점 | Exchange / Routing Key / Queue | 상세 문서 |
+| 이벤트명 | 발행 트리거 | Exchange / Routing Key / Queue | 상세 문서 |
 | --- | --- | --- | --- |
-| `CarePlanCompleted` | 서비스 수행 결과 등록으로 케어플랜의 마지막 일정까지 수행 결과가 기록되었을 때 (재매칭 실패로 취소된 경우 마지막으로 수행된 결과 기준) | `schedule.exchange` / `schedule.completed.key` / `care-plan.schedule-completed.queue` | CarePlanCompleted |
-| `ProviderRematched` | ① Care Plan 확정 후 첫 매칭 실패 시 사용자의 재매칭 시도(위 확인 필요 API), ② 확정된 일정을 변경(03번 API)할 때 | `schedule.exchange` / `schedule.rematched.key` / `provider.schedule-rematched.queue` | ProviderRematched |
+| `CarePlanCompleted` | 07번 수행 결과 등록, 04번 일정 취소 — 각 트랜잭션 끝에서 완료 조건을 판정해 적재 | `schedule.exchange` / `schedule.completed.key` / `care-plan.schedule-completed.queue` | `11_...md` |
+| `ProviderReMatched` | 03번 일정 변경, 16번 재매칭 시도 | `schedule.exchange` / `schedule.rematched.key` / `provider.schedule-rematched.queue` | `12_...md` |
 
->
->
->
-> **발행 시점**: 아웃박스 패턴 사용. `CarePlanCompleted`는 수행 결과 등록 트랜잭션 커밋 시점, `ProviderRematched`는 일정 변경/재매칭 시도 API 로직 내에서 발행.
->
-> **`ProviderRematched` 페이로드**: `carePlanId`, `regionId`, `provideServiceId`, `servicePreferenceId`, `date`, `preferredTimeSlot`(Nullable — 03번의 "일정 변경"으로 발행될 때는 시간대를 재선택하지 않으므로 `null`로 전송, 재매칭 시도 API로 발행될 때만 값이 있음).
->
+**`CarePlanCompleted` 발행 조건** (`CarePlanCompletionEventAppender`) — 두 조건을 모두 만족해야 적재한다.
+
+1. 해당 케어플랜에 **아직 끝나지 않은 일정이 하나도 없다.**
+  - "끝나지 않음" = `status`가 `SCHEDULED`/`RESCHEDULING`이거나, `COMPLETED`/`NO_SHOW`인데 수행 결과가 아직 없는 경우
+2. 해당 케어플랜으로 `CarePlanCompleted`가 **아직 적재된 적이 없다** (`aggregate_id = carePlanId` 기준 멱등).
+
+페이로드 기준이 되는 "마지막 일정"은 트리거가 된 일정이 아니라 `finished_at DESC, created_at DESC` 정렬로 다시 조회하며, `CHANGED`와 논리 삭제 건은 제외한다.
+
+**페이로드**: `carePlanId`, `serviceResultId`(마지막 일정의 결과, `CANCELED`면 `null`), `status`(마지막 일정의 상태)
 
 ### 5.3 수신(Consume) 이벤트
 
 | 이벤트명 | 처리 내용 | Exchange / Routing Key / Queue | 상세 문서 |
 | --- | --- | --- | --- |
-| `ProviderMatched` | 매칭 성공 수신 → `p_service_matching_attempts` + `p_service_schedules`에 새 레코드 생성 (`status: SCHEDULED`). 초기 매칭/재매칭 공통 | `provider.exchange` / `provider.matched.key` / `schedule.provider-matched.queue` | ProviderMatched |
-| `ProviderMatchFailed` | 매칭 실패 수신 → `p_service_schedules` 상태를 `CANCELED`로 변경 | `provider.exchange` / `provider.match-failed.key` / `schedule.provider-match-failed.queue` | ProviderMatchFailed |
+| `ProviderMatched` | `MATCHED` 이력 추가 → (재매칭이면) 기존 `RESCHEDULING` 일정 `CHANGED` → 새 일정 생성(`SCHEDULED`) | `provider.exchange` / `provider.matched.key` / `schedule.provider-matched.queue` | `13_...md` |
+| `ProviderMatchFailed` | `FAILED` 이력 추가 → (재매칭이면) 기존 `RESCHEDULING` 일정 `SCHEDULED` 복구 | `provider.exchange` / `provider.match-failed.key` / `schedule.provider-match-failed.queue` | `14_...md` |
+- **신규/재매칭 구분**: 같은 `servicePreferenceId`로 `RESCHEDULING` 상태인 일정이 있는지로 판단한다. 0건이면 신규 매칭, 1건이면 재매칭, 2건 이상이면 데이터 이상으로 409 `SERVICE_SCHEDULE_MULTIPLE_RESCHEDULING`.
+- **중복 수신 방어**: 페이로드에 이벤트 ID가 없어, 같은 매칭 결과를 특정하는 값 조합을 대체 키로 쓴다.
+  - 성공: `servicePreferenceId` + `serviceOfferingId` + `date` + `matchedAt`
+  - 실패: `servicePreferenceId` + `date` + `failedAt`
+- 페이로드에 `finishedAt`이 없는 문제는 **MVP 단계에서 서비스 소요 시간을 1시간으로 고정**(`ServiceMatchingCommandService.DEFAULT_SERVICE_DURATION`)해 `finishedAt = startedAt + 1h`로 계산하는 것으로 처리했다. 서비스별 소요 시간이 달라지면 페이로드 확장이 필요하다.
+- 리스너는 `BusinessException`을 잡아 로그만 남기고 메시지를 버린다 (재시도해도 같은 결과이기 때문). 그 외 예외는 리스너 컨테이너의 재시도 설정을 따른다.
 
->
->
->
-> ⚠️ **확인 필요 (신규)**: `ProviderMatched` 페이로드(`carePlanId`, `regionId`, `provideServiceId`, `servicePreferenceId`, `serviceOfferingId`, `date`, `startedAt`, `matchedAt`)에 `p_service_schedules`의 NOT NULL 컬럼인 **`finishedAt`이 여전히 빠져 있다**. `date`/`startedAt`은 추가되어 해소됐으나 `finishedAt` 하나가 남음 — Provider-Service 팀과 확인 필요.
->
-> ⚠️ **확인 필요 (신규)**: `ProviderMatchFailed` 처리 결과에 "note에 매칭 실패 사유를 기록"한다고 되어 있으나 `p_service_schedules`에는 `note` 컬럼이 없고 `cancel_reason`만 있다. `cancel_reason`을 쓰는 것으로 추정되나 문서 표현이 정확하지 않아 확인 필요 (기존에도 있던 항목, 이번 재확인으로 재확인됨).
->
-> ⚠️ **참고 (사소)**: `ProviderMatchFailed` 문서의 Example JSON에 `providerServiceId`(오타, r 추가)로 잘못 표기되어 있음 — 페이로드 표 자체는 `provideServiceId`로 올바르게 되어 있어 Example만의 오타로 보임.
->
+### 5.4 내부 API — Provider-Service → Schedule-Service (06번, 수신 방향)
 
-### 5.4 내부(Internal) API — Provider-Service → Schedule-Service (수신 방향)
+- **엔드포인트**: `GET /internal/v1/service-schedules?serviceOfferingIds={...}&startDate={...}`
+- **인증**: `X-Internal-Api-Key`. `InternalResponseInterceptor`가 `/internal/v1/**` 전체에 대해 검증하며, 불일치 시 401 `UNAUTHORIZED_INTERNAL_REQUEST`. Controller는 헤더를 직접 다루지 않는다.
+- **설계 근거**: 서비스 간 관계가 논리 FK뿐이라 DB JOIN이 불가능하다. Provider-Service의 `p_provide_works`는 제공 가능 요일/시간대만 알고 실제 예약 현황은 `p_service_schedules`에만 있다.
+- **응답 원칙**: 가능/불가능을 판단하지 않고 기존 일정 목록을 그대로 반환한다. 시간대 겹침 판단은 Provider-Service의 책임이다.
+- **조회 대상 상태**: `SCHEDULED`, `RESCHEDULING`만. 나머지는 향후 일정과 충돌하지 않아 제외한다.
+- **Batch 조회**: `startDate`부터 **30일**(`BATCH_QUERY_DAYS = 30`, `startDate ~ startDate+29`)을 한 번에 반환한다.
 
-Schedule-Service는 Provider-Service가 매칭 가능 Provider를 판단할 때 호출하는 동기 내부 API를 제공한다.
+### 5.5 내부 API — Schedule-Service → Care-Plan-Service (호출 방향)
 
-- **엔드포인트**: `GET /internal/v1/service-schedules`
-- **인증**: `X-Internal-Api-Key` 헤더 (서비스별 환경변수로 보유한 Key와 대조하여 검증).
-- **설계 근거**: 서비스 간 관계가 모두 "논리 FK"로만 연결되어 있어 DB가 분리되어 있다. Provider-Service의 `p_provide_works`는 "제공 가능한 요일/시간대"만 알고 있고, 실제 예약 현황은 Schedule-Service의 `p_service_schedules`에만 있어 SQL JOIN이 불가능하므로 동기 내부 호출로 대체한다.
-- **응답 설계 원칙**: 이 API는 "가능/불가능" boolean을 직접 판단하지 않고 해당 기간의 기존 일정 목록을 그대로 반환한다. 시간대 겹침 판단은 Provider-Service가 직접 수행한다(책임 분리).
-- **조회 대상 상태** : `SCHEDULED`, `RESCHEDULING` 상태 일정만 반환 (기존엔 `SCHEDULED`만이었으나 확장됨). `COMPLETED`/`NO_SHOW`/`CANCELED`는 향후 일정과 충돌하지 않아 제외.
-- **Batch 조회 전략** : 개별 호출 대신 `startDate`부터 **30일간(고정값)**의 일정을 한 번에 반환 (Care Plan 최대 일정 범위 기준, Care Plan마다 가변적이지 않음). 파라미터도 `from`/`to`에서 `startDate` 단일 필수값으로 변경됨.
-- 상세 스펙: `api/06_내부API_서비스제공자일정조회.md`
+`CarePlanPort` / `CarePlanAdapter` / `CarePlanClient`(Feign, `infrastructure/client/care_plan`). 인증 헤더는 `FeignConfig`의 `RequestInterceptor`가 모든 요청에 자동으로 붙인다.
 
-### 5.5 내부(Internal) API — Schedule-Service → Care-Plan-Service (호출 방향)
-
-Schedule-Service가 서비스 일정 변경(4.1) 처리 중 Care Plan의 일정 범위를 검증하기 위해 호출하는 동기 내부 API. `03_서비스일정변경.md` 최신화 과정에서 팀 확인을 거쳐 반영되었다.
-
-- **호출 방향**: Schedule-Service → Care-Plan-Service (5.4의 Provider-Service → Schedule-Service 호출과 반대 방향)
-- **조회 기준**: `servicePreferenceId`
-- **조회 결과**: `carePlanId`, `finishDate`, `patientId`
-- **용도**: "하루 미루기" 요청 시 변경하려는 날짜가 Care Plan의 일정 범위(`finishDate`)를 초과하지 않는지 검증(03번), 일정 소유권(`patientId`) 검증(03/04번 공통)
-- **구현 위치**: `infrastructure/client/` (Feign)
-- **인증**: `X-Internal-Api-Key` 헤더 기반 (5.4와 동일 패턴)
-
-> ⚠️ **확인 필요 (신규)**:
->
-> 1. 이 호출이 연기 요청 접수 시점(사전 검증)에만 1회 이뤄지는지, 재매칭 실패로 `SCHEDULED` 복구 시에도 재조회가 필요한지 명시되어 있지 않음.
-> 2. Care-Plan-Service Internal API 자체가 실패(서비스 장애, Care Plan 미존재 등)했을 때의 에러 처리/상태 코드가 정해져 있지 않음.
-> 3. Care-Plan-Service 측에 이 조회를 위한 Internal API 엔드포인트가 실제로 존재하는지, 엔드포인트 URL/응답 필드 스펙이 무엇인지 아직 문서화되어 있지 않음 (Care-Plan-Service 쪽 API 명세서 확인 필요).
-
-### 5.6 내부(Internal) API — Schedule-Service → Provider-Service (호출 방향)
-
-Schedule-Service가 서비스 수행 완료 처리(4.3) 시 요청자가 해당 일정에 배정된 서비스 제공자 본인인지 검증하기 위해 호출하는 동기 내부 API. `05_서비스수행완료.md` 최신화 과정에서 확인되었다.
-
-- **호출 방향**: Schedule-Service → Provider-Service (5.4의 Provider-Service → Schedule-Service 호출과 반대 방향, 5.5와는 별개의 서비스/API)
-- **엔드포인트**: `GET /internal/v1/service-offerings/{serviceOfferingId}`
-- **조회 결과**: `providerId`
-- **용도**: 조회한 `providerId`와 요청자(`UserContext`)의 `userId`를 비교하여 서비스 일정에 배정된 서비스 제공자 본인인지 검증
-- **구현 위치**: `infrastructure/client/` (Feign)
-- **인증**: `X-Internal-Api-Key` 헤더 기반 (5.4, 5.5와 동일 패턴)
-
-> ⚠️ **확인 필요 (신규)**:
->
-> 1. 이 API의 정확한 Response 필드 구조(`providerId`가 최상위 필드인지, 다른 객체에 중첩되어 있는지)가 명시되어 있지 않음.
-> 2. 존재하지 않는 `serviceOfferingId`로 조회했을 때의 에러 처리/상태 코드가 정해져 있지 않음.
-
-### 5.7 내부(Internal) API — Schedule-Service → Care-Plan-Service / Provider-Service (ID 목록 조회)
-
-Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 소유 레코드만 필터링하기 위해 호출하는 동기 내부 API. `01_서비스일정목록조회.md` 최신화 과정에서 팀 논의를 거쳐 확정되었다.
-
-- **배경**: 5.5/5.6절의 Internal API는 모두 특정 레코드 하나의 소유권을 검증하는 **단건(point) 조회**다. 목록 조회에 이 방식을 그대로 적용하면 레코드 수만큼 개별 호출이 필요해 (1) 네트워크 호출이 N번으로 늘어나고 (2) 필터링이 애플리케이션 레벨에서 끝난 뒤에야 가능해 DB 레벨 페이지네이션이 불가능해진다. 따라서 목록 조회 전용으로 "소유 ID 전체 목록"을 한 번에 반환하는 별도의 배치(batch) 조회 방식이 필요하다.
-- **퇴원 예정자가 조회하는 경우**: care-plan-service Internal API에 `patientId`(요청자 `userId`)를 전달하여 해당 환자의 Care Plan에 속한 **모든 `servicePreferenceId` 목록**을 조회한다.
-- **서비스 제공자가 조회하는 경우**: provider-service Internal API에 `providerId`(요청자 `userId`)를 전달하여 해당 제공자의 **모든 `serviceOfferingId` 목록**을 조회한다.
-- 조회한 ID 목록으로 `p_service_schedules WHERE service_preference_id IN (:ids)` 또는 `WHERE service_offering_id IN (:ids)`를 적용하고, `status`/`date` 필터와 페이지네이션을 함께 적용한다.
-- **구현 위치**: `infrastructure/client/` (Feign, 5.5/5.6과 동일 위치)
-- **인증**: `X-Internal-Api-Key` 헤더 기반 (5.4~5.6과 동일 패턴)
-
-### 엔드포인트 스펙
-
-| 대상 | Method/URL | Request | Response |
+| 용도 | Method/URL | 응답 필드 | 사용처 |
 | --- | --- | --- | --- |
-| care-plan-service | `GET /internal/v1/service-preferences?patientId={patientId}` | `patientId` (UUID, Query Parameter) | `data.content`: `servicePreferenceId` UUID 배열 |
-| provider-service | `GET /internal/v1/service-offerings?providerId={providerId}` | `providerId` (UUID, Query Parameter) | `data.content`: `serviceOfferingId` UUID 배열 |
+| Care Plan 범위/소유자 조회 | `GET /internal/v1/service-preferences/{servicePreferenceId}/care-plan` | `carePlanId`, `finishDate`, `patientId` | 02·03·04·09·16번의 소유권/날짜 범위 검증 |
+| 소유 희망 일정 ID 목록 | `GET /internal/v1/service-preferences?patientId={patientId}` | `content`: UUID 배열 | 01·08·15번 목록 필터 |
+| Care Plan 상태 조회 | `GET /internal/v1/care-plans/{patientId}` | `carePlanId`, `patientId`, `status` | 15번의 `CONFIRMED` 선검사 |
+- 16번이 필요로 하던 `startDate`는 **응답에 없다.** Care Plan 기간이 30일 고정이라는 점을 이용해 `CarePlanRange.startDate() = finishDate - 29일`로 역산한다(`CARE_PLAN_PERIOD_DAYS = 30`).
+- `status`는 `String`으로 받아 `CarePlanStatus`(`UNDER_REVIEW`/`CONFIRMED`/`IN_PROGRESS`/`COMPLETED`)로 변환하며, 상대 서비스가 ENUM을 확장해도 터지지 않도록 알 수 없는 값은 `null`(= `CONFIRMED` 아님)로 취급한다.
+- 호출은 모두 **Facade에서 DB 트랜잭션 밖으로** 수행한다.
 
-두 API 모두 공통 `ApiResponse` 포맷(`success`/`code`/`message`/`data`)을 따르며, `data.content`는 UUID 문자열 배열이다 (객체 배열이 아님).
+### 5.6 내부 API — Schedule-Service → Provider-Service (호출 방향)
 
-```jsx
-// GET /internal/v1/service-offerings?providerId={providerId} 응답 예시
+`ProviderOfferingPort` / `ProviderOfferingAdapter` / `ProviderServiceOfferingClient`.
+
+| 용도 | Method/URL | 응답 필드 | 사용처 |
+| --- | --- | --- | --- |
+| 배정 제공자 조회 | `GET /internal/v1/service-offerings/{serviceOfferingId}` | `providerId` (응답 `data`의 최상위 필드) | 02·05·07·09번의 제공자 본인 검증 |
+| 소유 제공 서비스 ID 목록 | `GET /internal/v1/service-offerings?providerId={providerId}` | `content`: UUID 배열 | 01·08번 목록 필터 |
+
+### 5.7 목록 조회용 ID 목록 조회 전략
+
+- 5.5/5.6의 단건 조회를 목록에 그대로 쓰면 레코드 수만큼 호출이 발생하고, 필터링이 애플리케이션 레벨로 밀려 DB 페이지네이션이 불가능해진다.
+- 따라서 목록 조회는 요청자 소유 ID 전체를 **요청당 1회** 조회한 뒤 `WHERE service_preference_id IN (:ids)` / `WHERE service_offering_id IN (:ids)`로 필터링하고, `status`/`date` 필터와 페이지네이션을 같은 쿼리에 적용한다.
+- 두 API 모두 공통 `ApiResponse` 포맷을 따르며 `data.content`는 **UUID 문자열 배열**이다(객체 배열 아님).
+
+```json
 {
   "success": true,
   "code": 200,
@@ -295,47 +341,63 @@ Schedule-Service가 서비스 일정 목록 조회(01번 API)에서 요청자 �
 }
 ```
 
-### 5.8 내부(Internal) API — Care-Plan-Service → Schedule-Service (수신 방향)
+- `p_care_plan_service_results`에는 소유권 컬럼이 없으므로, 08번은 `p_service_schedules`와 `service_schedule_id`로 조인한 뒤 필터를 적용한다. 09번(단건)은 결과의 `serviceScheduleId`로 일정을 먼저 조회해 `servicePreferenceId`/`serviceOfferingId`를 얻은 뒤 Internal API를 호출한다. 두 테이블 모두 schedule-service 소유라 DB 조인에 문제가 없다.
 
-Care-Plan-Service가 `CarePlanCompleted` 이벤트(5.2절)를 수신한 뒤, 이벤트 페이로드에 담긴 `serviceResultId`가 실제 존재하는 데이터인지 검증하기 위해 호출하는 동기 내부 API. 5.4절과 같은 **수신(inbound) 방향**이지만 호출 주체가 Provider-Service가 아닌 Care-Plan-Service라는 점이 다르다.
+### 5.8 내부 API — Care-Plan-Service → Schedule-Service (10번, 수신 방향)
 
 - **엔드포인트**: `GET /internal/v1/service-results/{serviceResultId}`
-- **용도**: `CarePlanCompleted` 이벤트 페이로드의 `serviceResultId` 존재 검증
-- **응답 필드**: `serviceResultId`, `serviceScheduleId`, `startedAt`, `finishedAt`
-- **필터**: `deletedAt IS NULL`인 수행 결과만 반환
-- **인증**: `X-Internal-Api-Key` 헤더, Interceptor에서 검증 (Controller는 직접 처리하지 않음 — 5.4절과 동일 패턴)
-- 상세 스펙: `10_내부API_서비스수행결과조회.md` 참고
+- **용도**: `CarePlanCompleted` 페이로드의 `serviceResultId` 존재 검증
+- **응답 필드**: `serviceResultId` **하나만** (존재 검증이 목적이므로 최소 필드만 노출. `carePlanId`는 `CarePlanCompleted` 페이로드로 이미 전달되고, 나머지 필드는 수신 측이 쓰지 않는다)
+- **필터**: `deleted_at IS NULL`. 없으면 404 `SERVICE_RESULTS_NOT_FOUND`
+- **인증**: 5.4절과 동일 (Interceptor)
+
+### 5.9 아웃박스 릴레이
+
+| 항목 | 값 |
+| --- | --- |
+| 트리거 | `ScheduleOutboxRelayScheduler` — `@Scheduled(fixedDelay = ${schedule.outbox.relay.fixed-delay-ms:5000})` |
+| 활성화 스위치 | `schedule.outbox.relay.enabled` (미설정 시 활성) |
+| 배치 크기 | 한 폴링당 `PENDING` 최대 100건, `created_at ASC` |
+| 재시도 | 실패 시 `retry_count++` 후 `PENDING` 유지 → 3회 도달 시 `FAILED` |
+- 커맨드 트랜잭션은 적재만 하고, 실제 브로커 발행은 커밋 이후 릴레이가 담당한다. "DB는 커밋됐는데 이벤트만 유실" 또는 "이벤트는 나갔는데 DB는 롤백"이 발생하지 않는다.
+- 이벤트 1건 처리 실패가 배치 전체를 중단시키지 않는다. 알 수 없는 `event_type`은 정상 처리할 방법이 없으므로 실패로 기록한다.
+- Queue와 Binding은 **발행 측(schedule-service)에서도 선언한다.** Direct Exchange는 바인딩된 큐가 없으면 메시지를 조용히 버리기 때문이다.
+- `FAILED` 건의 재발행/재처리 기능은 현재 범위 밖(백로그)이며, 운영자가 직접 확인한다.
 
 ---
 
 ## 6. API 목록
 
-| # | 기능 | Method | URL | 문서 |
+| # | 기능 | Method | URL | 권한 |
 | --- | --- | --- | --- | --- |
-| 01 | 서비스 일정 목록 조회 | GET | `/api/v1/service-schedules` | 01 |
-| 02 | 서비스 일정 상세 조회 | GET | `/api/v1/service-schedules/{serviceScheduleId}` | 02 |
-| 03 | 서비스 일정 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | 03 |
-| 04 | 서비스 일정 취소 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/cancel` | 04 |
-| 05 | 서비스 수행 완료 상태 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/complete` | 05 |
-| 06 | \[내부 API\] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | 06 |
-| 07 | 서비스 수행 결과 등록 | POST | `/api/v1/service-results/{serviceScheduleId}` | 07 |
-| 08 | 서비스 수행 결과 목록 조회 | GET | `/api/v1/service-results` | 08 |
-| 09 | 서비스 수행 결과 상세 조회 | GET | `/api/v1/service-results/{serviceResultId}` | 09 |
-| 10 | \[내부 API\] 서비스 수행 결과 조회 | GET | `/internal/v1/service-results/{serviceResultId}` | 10 |
-| 11 | \[이벤트 발행\] CarePlanCompleted | - | RabbitMQ Publish | `11_이벤트발행_CarePlanCompleted.md` |
-| 12 | \[이벤트 발행\] ProviderRematched | - | RabbitMQ Publish | `12_이벤트발행_ProviderRematched.md` |
-| 13 | \[이벤트 수신\] ProviderMatched | - | RabbitMQ Consume | `13_이벤트수신_ProviderMatched.md` |
-| 14 | \[이벤트 수신\] ProviderMatchFailed | - | RabbitMQ Consume | `14_이벤트수신_ProviderMatchFailed.md` |
+| 01 | 서비스 일정 목록 조회 | GET | `/api/v1/service-schedules` | PATIENT, SERVICE_PROVIDER |
+| 02 | 서비스 일정 상세 조회 | GET | `/api/v1/service-schedules/{serviceScheduleId}` | PATIENT, SERVICE_PROVIDER |
+| 03 | 서비스 일정 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/status` | PATIENT |
+| 04 | 서비스 일정 취소 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/cancel` | PATIENT |
+| 05 | 서비스 수행 완료 상태 변경 | PATCH | `/api/v1/service-schedules/{serviceScheduleId}/result` | SERVICE_PROVIDER |
+| 06 | \[내부 API\] 서비스 제공자 일정 조회 | GET | `/internal/v1/service-schedules` | Internal Key |
+| 07 | 서비스 수행 결과 등록 | POST | `/api/v1/service-results/{serviceScheduleId}` | SERVICE_PROVIDER |
+| 08 | 서비스 수행 결과 목록 조회 | GET | `/api/v1/service-results` | PATIENT, SERVICE_PROVIDER |
+| 09 | 서비스 수행 결과 상세 조회 | GET | `/api/v1/service-results/{serviceResultId}` | PATIENT, SERVICE_PROVIDER |
+| 10 | \[내부 API\] 서비스 수행 결과 조회 | GET | `/internal/v1/service-results/{serviceResultId}` | Internal Key |
+| 11 | \[이벤트 발행\] CarePlanCompleted | - | RabbitMQ Publish | - |
+| 12 | \[이벤트 발행\] ProviderRematched | - | RabbitMQ Publish | - |
+| 13 | \[이벤트 수신\] ProviderMatched | - | RabbitMQ Consume | - |
+| 14 | \[이벤트 수신\] ProviderMatchFailed | - | RabbitMQ Consume | - |
+| 15 | 매칭 실패 내역 조회 | GET | `/api/v1/matching-attempts` | PATIENT |
+| 16 | 재매칭 시도 | POST | `/api/v1/matching-attempts/{matchingAttemptId}/retry` | PATIENT |
 
-> ⚠️ 참고: API 목록에는 Schedule-Service가 **호출하는** Care-Plan-Service Internal API(5.5절, `carePlanId`/`finishDate`/`patientId` 단건 조회), Provider-Service Internal API(5.6절, `providerId` 단건 조회), 그리고 목록 조회용 ID 목록 반환 API(5.7절)가 아직 별도 번호로 등록되어 있지 않다. 세 API 모두 상대 서비스 쪽 명세이므로 이 목록에는 포함하지 않되, 각각 03/04번, 05번, 01번 문서와 5.5/5.6/5.7절에서 연동 대상으로 참조만 한다.
+> Schedule-Service가 **호출하는** care-plan-service / provider-service Internal API(5.5·5.6절)는 상대 서비스 소유 명세이므로 이 목록에 번호를 두지 않는다.
 >
 
 ---
 
 ## 7. 인증/인가
 
-- **인증(Authentication)**: API Gateway에서 수행 (JWT 검증). 인증된 요청자 정보는 `X-User-Id`, `X-User-Role` 헤더로 각 서비스에 전달된다.
-  - Controller는 이 헤더를 직접 읽지 않고 **`@AuthenticationPrincipal UserContext user`*로 주입받는다 (Spring Security 기반, 06번 내부 API의 Interceptor 처리와 유사한 패턴). 헤더→`UserContext` 변환 로직(Filter/Resolver)은 아직 코드에 없음.
-  - ⚠️ **확인 필요**: 이 패턴이 03번 문서에서만 확인됐다. 나머지 8개 REST API(01,02,04,05,07,08,09 + 06은 내부용이라 별개)도 동일하게 `@AuthenticationPrincipal UserContext user`를 쓰는지, 각 API 문서에 개별적으로 반영이 필요한지 확인 필요.
-- **인가(Authorization)**: 각 API를 처리하는 Schedule-Service 내부에서 수행한다 (예: 본인 소유 일정인지, 역할이 일치하는지 검증).
-- **내부 API**(`/internal/v1/*`)는 API Gateway를 거치지 않는 서비스 간 통신이며, `X-Internal-Api-Key` 헤더 기반으로 별도 인증한다. 5.5절의 Schedule-Service → Care-Plan-Service 호출도 동일한 인증 패턴을 따른다.
+- **인증**: API Gateway에서 JWT를 검증하고 `X-User-Id`, `X-User-Role` 헤더로 전달한다. `HeaderAuthenticationFilter`가 이를 `UserContext`로 변환해 `SecurityContext`에 담고, Controller는 `@AuthenticationPrincipal UserContext user`로만 주입받는다(모든 외부 API 공통). 헤더가 없거나 값이 잘못되면 인증 주체 없이 진행된다.
+- **인가**: 메서드 레벨 `@PreAuthorize`(`ROLE_` 접두사 자동 부여)로 역할을 제한하고, 소유권 검증은 각 유스케이스에서 Internal API 조회 결과와 대조해 수행한다.
+- **내부 API**(`/internal/v1/**`): API Gateway를 거치지 않으며 `X-Internal-Api-Key`를 `InternalResponseInterceptor`가 검증한다. Schedule-Service가 다른 서비스를 호출할 때는 `FeignConfig`가 같은 헤더를 자동으로 붙인다. 키는 `internal.key` 설정값이며 미설정 시 애플리케이션이 기동되지 않는다.
+- **에러 응답 포맷**: `success`(false) / `code`(ErrorCode 이름) / `message` / `details.reason` / `timestamp`(Instant). `GlobalExceptionHandler`가 `BusinessException`, 검증 예외(400), `AccessDeniedException`(403), 그 외(500)를 처리한다.
+
+> ⚠️ **임시 설정 (코드 내 TODO)**: `SecurityConfig`가 개발 테스트를 위해 `/api/v1/service-schedules/**`, `/api/v1/service-results/**`, `/internal/v1/**` 등을 `permitAll`로 열어두고 있다. **2026-09-09 이후 변경 예정**이며, 현재는 `@PreAuthorize`만 실질적인 인가 장치로 동작한다.
+>

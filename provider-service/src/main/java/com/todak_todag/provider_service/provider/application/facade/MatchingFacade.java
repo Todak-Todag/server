@@ -1,6 +1,8 @@
 package com.todak_todag.provider_service.provider.application.facade;
 
 import com.todak_todag.provider_service.global.common.TimeSlot;
+import com.todak_todag.provider_service.global.exception.BusinessException;
+import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.event.*;
 import com.todak_todag.provider_service.provider.application.port.MatchingEventPort;
 import com.todak_todag.provider_service.provider.application.port.SchedulePort;
@@ -10,6 +12,7 @@ import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -45,17 +48,32 @@ public class MatchingFacade {
     }
 
     public void rematch(ProviderRematchedEvent event) {
-        List<ServiceOffering> candidates = serviceOfferingQueryRepository
-                .findAllByRegionIdAndProvideServiceId(event.regionId(), event.provideServiceId());
+        // 예외가 리스너 밖으로 나가면 메시지가 재큐잉되므로 원칙적으로 여기서 가둔다
+        // 다만 외부 서비스 장애는 잠시 뒤 성공할 수 있어 리스너 재시도에 맡긴다
+        // (재시도를 소진하면 default-requeue-rejected: false 설정에 따라 폐기된다)
+        try {
+            List<ServiceOffering> candidates = serviceOfferingQueryRepository
+                    .findAllByRegionIdAndProvideServiceId(event.regionId(), event.provideServiceId());
 
-        Map<UUID, List<ProvideWork>> works = loadWorks(candidates);
-        List<ScheduleSlot> occupied = new ArrayList<>(loadSchedules(candidates, event.date()));
+            Map<UUID, List<ProvideWork>> works = loadWorks(candidates);
+            List<ScheduleSlot> occupied = new ArrayList<>(loadSchedules(candidates, event.date()));
 
-        matchOne(
-                event.carePlanId(), event.regionId(), event.provideServiceId(),
-                event.servicePreferenceId(), event.date(), event.preferredTimeSlot(),
-                candidates, works, occupied
-        );
+            matchOne(
+                    event.carePlanId(), event.regionId(), event.provideServiceId(),
+                    event.servicePreferenceId(), event.date(), event.preferredTimeSlot(),
+                    candidates, works, occupied
+            );
+        } catch (RuntimeException e) {
+            if (isRetryable(e)) {
+                log.warn("[Provider] 외부 서비스 장애로 재매칭 재시도 servicePreferenceId={} date={}",
+                        event.servicePreferenceId(), event.date());
+
+                throw e;
+            }
+
+            log.error("[Provider] 재매칭 처리 실패 carePlanId={} servicePreferenceId={} date={}",
+                    event.carePlanId(), event.servicePreferenceId(), event.date(), e);
+        }
     }
 
     private void matchService(UUID carePlanId, UUID regionId, CarePlanConfirmedEvent.Service service) {
@@ -110,20 +128,46 @@ public class MatchingFacade {
                 matchingService.match(candidates, works, occupied, date, preferredTimeSlot);
 
         if (matched.isEmpty()) {
-            log.info("[Provider] 매칭 실패 servicePreferenceId={} date={}", servicePreferenceId, date);
-
-            matchingEventPort.publishMatchFailed(new ProviderMatchFailedEvent(
+            ProviderMatchFailedEvent failedEvent = new ProviderMatchFailedEvent(
                     carePlanId, regionId, servicePreferenceId, provideServiceId,
                     date, preferredTimeSlot,
                     ProviderMatchFailedEvent.NO_AVAILABLE_PROVIDER, Instant.now()
-            ));
+            );
+
+            log.info("[Provider] 매칭 실패 servicePreferenceId={} date={}", servicePreferenceId, date);
+
+            try {
+                matchingEventPort.publishMatchFailed(failedEvent);
+            } catch (Exception e) {
+                // 아웃박스 적재가 실패하면 Schedule은 매칭 실패 사실을 알지 못한 채 RESCHEDULING에 머문다
+                // 릴레이가 집어갈 레코드조차 없으므로 페이로드 전체를 남긴다
+                log.error("[Provider] 매칭 실패 이벤트 적재 실패 event={}", failedEvent, e);
+
+                throw e;
+            }
 
             return;
         }
 
         MatchingService.Match match = matched.get();
 
-        // 같은 이벤트 안의 다음 희망 일정이 같은 제공자에게 같은 시간으로 또 배정되지 않도록 메모리에 반영한다
+        ProviderMatchedEvent matchedEvent = new ProviderMatchedEvent(
+                carePlanId, regionId, servicePreferenceId, provideServiceId,
+                match.serviceOfferingId(), date, date.atTime(match.startedAt()), Instant.now()
+        );
+
+        try {
+            matchingEventPort.publishMatched(matchedEvent);
+        } catch (Exception e) {
+            // 아웃박스 적재가 실패하면 이 배정은 어디에도 남지 않는다
+            // 릴레이가 집어갈 레코드조차 없으므로 페이로드 전체를 남긴다
+            log.error("[Provider] 매칭 결과 적재 실패 event={}", matchedEvent, e);
+
+            throw e;
+        }
+
+        // 적재에 성공한 뒤에야 메모리에 반영한다
+        // 실패한 배정을 미리 넣으면 뒤따르는 희망 일정이 존재하지 않는 일정을 피해 배정된다
         occupied.add(new ScheduleSlot(
                 match.serviceOfferingId(), date, match.startedAt(), match.finishedAt()
         ));
@@ -131,11 +175,6 @@ public class MatchingFacade {
         // 매칭 결과를 추적할 수 있도록 성공도 남긴다
         log.info("[Provider] 매칭 성공 servicePreferenceId={} serviceOfferingId={} date={} startedAt={}",
                 servicePreferenceId, match.serviceOfferingId(), date, match.startedAt());
-
-        matchingEventPort.publishMatched(new ProviderMatchedEvent(
-                carePlanId, regionId, servicePreferenceId, provideServiceId,
-                match.serviceOfferingId(), date, date.atTime(match.startedAt()), Instant.now()
-        ));
     }
 
     private Map<UUID, List<ProvideWork>> loadWorks(List<ServiceOffering> candidates) {
@@ -157,5 +196,18 @@ public class MatchingFacade {
         List<UUID> ids = candidates.stream().map(ServiceOffering::getId).toList();
 
         return schedulePort.findSchedules(ids, startDate);
+    }
+
+    // 외부 서비스 장애처럼 잠시 뒤 성공할 수 있는 실패인지
+    // 재시도할 가치가 있는 것만 다시 던져 리스너 재시도를 받는다
+    private boolean isRetryable(RuntimeException e) {
+        // 연결 실패·타임아웃은 status가 -1, 상대 서버 오류는 5xx
+        // 4xx는 다시 보내도 같은 결과라 재시도하지 않는다
+        if (e instanceof FeignException feignException) {
+            return feignException.status() < 0 || feignException.status() >= 500;
+        }
+
+        return e instanceof BusinessException businessException
+                && businessException.getErrorCode() == ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE;
     }
 }

@@ -1,7 +1,9 @@
 package com.todak_todag.discharge_service.discharge.application.service.command;
 
+import com.todak_todag.discharge_service.discharge.application.command.DischargeCompleteCommand;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeCreateCommand;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeUpdateCommand;
+import com.todak_todag.discharge_service.discharge.application.result.DischargeCompleteResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeUpdateResult;
 import com.todak_todag.discharge_service.discharge.domain.entity.Discharge;
@@ -91,6 +93,43 @@ public class DischargeCommandService {
         );
 
         return DischargeUpdateResult.from(discharge);
+    }
+
+    @Transactional
+    public DischargeCompleteResult completeDischarge(
+            DischargeCompleteCommand command
+    ) {
+
+        Discharge discharge =
+                dischargeQueryRepository.findById(command.dischargeId())
+                        .orElseThrow(
+                                () -> new BusinessException(
+                                        ErrorCode.DISCHARGE_NOT_FOUND,
+                                        Map.of(
+                                                "reason",
+                                                "퇴원건을 찾을 수 없습니다."
+                                        )
+                                )
+                        );
+
+        validateCompletePermission(
+                discharge,
+                command.hospitalStaffId()
+        );
+
+        validateCompletableStatus(
+                discharge.getStatus()
+        );
+
+        validateActualDate(
+                command.actualDate()
+        );
+
+        discharge.complete(
+                command.actualDate()
+        );
+
+        return DischargeCompleteResult.from(discharge);
     }
 
     private void validateUpdatePermission(
@@ -189,6 +228,64 @@ public class DischargeCommandService {
                     Map.of(
                             "reason",
                             "퇴원 예정일은 요청일 이후여야 합니다."
+                    )
+            );
+        }
+    }
+
+    private void validateCompletePermission(
+            Discharge discharge,
+            UUID hospitalStaffId
+    ) {
+
+        if (!discharge.getHospitalStaffId().equals(hospitalStaffId)) {
+            throw new BusinessException(
+                    ErrorCode.AUTH_FORBIDDEN,
+                    Map.of(
+                            "reason",
+                            "퇴원 완료 처리 권한이 없습니다."
+                    )
+            );
+        }
+    }
+
+    private void validateCompletableStatus(
+            DischargeStatus status
+    ) {
+
+        if (status != DischargeStatus.SCHEDULED
+                && status != DischargeStatus.POSTPONED) {
+
+            throw new BusinessException(
+                    ErrorCode.DISCHARGE_INVALID_STATUS_TRANSITION,
+                    Map.of(
+                            "reason",
+                            "SCHEDULED 또는 POSTPONED 상태에서만 완료 처리가 가능합니다."
+                    )
+            );
+        }
+    }
+
+    private void validateActualDate(
+            LocalDate actualDate
+    ) {
+
+        if (actualDate == null) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_INVALID_INPUT_VALUE,
+                    Map.of(
+                            "reason",
+                            "실제 퇴원일은 필수입니다."
+                    )
+            );
+        }
+
+        if (actualDate.isAfter(LocalDate.now())) {
+            throw new BusinessException(
+                    ErrorCode.COMMON_INVALID_INPUT_VALUE,
+                    Map.of(
+                            "reason",
+                            "실제 퇴원일은 미래일 수 없습니다."
                     )
             );
         }

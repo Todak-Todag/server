@@ -3,18 +3,23 @@ package com.todak_todag.schedule_service.schedule.infrastructure.messaging;
 import com.todak_todag.schedule_service.global.config.RabbitMqConfig;
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
+import com.todak_todag.schedule_service.schedule.application.command.MatchingAttemptRetryCommand;
 import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
 import com.todak_todag.schedule_service.schedule.application.facade.ScheduleOutboxRelayFacade;
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
+import com.todak_todag.schedule_service.schedule.application.result.MatchingAttemptRetryResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
+import com.todak_todag.schedule_service.schedule.application.service.command.ServiceMatchingAttemptCommandService;
 import com.todak_todag.schedule_service.schedule.application.service.command.ServiceScheduleCommandService;
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
+import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataScheduleOutboxEventRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceMatchingAttemptRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceScheduleRepository;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,19 +44,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // ProviderReMatched 발행 통합 테스트
-//
-// 검증 범위: 03번 API의 커맨드 트랜잭션(RESCHEDULING 전이 → 아웃박스 적재) → 릴레이 → 실제 RabbitMQ 발행 → 큐 수신
-// 11번(CarePlanCompleted) 통합 테스트에서 정한 방식을 그대로 재사용한다:
-//   - Testcontainers로 실제 브로커를 띄워 문서에 명시된 Exchange/Routing Key/Queue로 정말 라우팅되는지까지 확인
-//   - 릴레이 스케줄러는 test 프로필에서 꺼져 있으므로(schedule.outbox.relay.enabled=false)
-//     ScheduleOutboxRelayFacade.relay()를 직접 호출해 발행 시점을 결정적으로 만든다
-//
-// 이번 범위는 03번(일정 변경) 경로뿐이다. 12번 문서의 또 다른 발행 시나리오인 "재매칭 시도 API"는
-// 01~14번 어디에도 문서화되어 있지 않아 구현 대상에서 제외했다(schedule-service.md 5.1절 ⚠️).
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
-class ProviderReMatchedEventPublishIntegrationTest {
+class ProviderReMatchedEventPublishIntegrationTest extends PostgresTestSupport {
 
     @Container
     static final RabbitMQContainer RABBIT_MQ = new RabbitMQContainer("rabbitmq:4-alpine");
@@ -68,6 +64,9 @@ class ProviderReMatchedEventPublishIntegrationTest {
     private ServiceScheduleCommandService serviceScheduleCommandService;
 
     @Autowired
+    private ServiceMatchingAttemptCommandService serviceMatchingAttemptCommandService;
+
+    @Autowired
     private ScheduleOutboxRelayFacade scheduleOutboxRelayFacade;
 
     @Autowired
@@ -82,7 +81,7 @@ class ProviderReMatchedEventPublishIntegrationTest {
     @Autowired
     private SpringDataScheduleOutboxEventRepository springDataScheduleOutboxEventRepository;
 
-    // 테스트 간 아웃박스/큐 잔여물이 서로의 검증을 오염시키지 않도록 매번 비운다
+    // 테스트 간 아웃박스/큐 잔여물이 서로의 검증을 오염시키지 않도록 매번 비움
     @BeforeEach
     void clear() {
         springDataScheduleOutboxEventRepository.deleteAll();
@@ -97,7 +96,7 @@ class ProviderReMatchedEventPublishIntegrationTest {
     @Test
     @DisplayName("일정 변경(하루 미루기) 요청 시 문서 스펙대로 ProviderReMatched가 발행된다")
     void 일정을_미루면_이벤트가_발행된다() {
-        // given — SCHEDULED 일정 1건과 그 일정을 성사시킨 MATCHED 매칭 시도 1건
+        // given
         UUID carePlanId = UUID.randomUUID();
         UUID patientId = UUID.randomUUID();
         UUID regionId = UUID.randomUUID();
@@ -108,14 +107,13 @@ class ProviderReMatchedEventPublishIntegrationTest {
 
         LocalDate requestedDate = schedule.getDate().plusDays(1);
 
-        // when — 03번 API의 커맨드 트랜잭션을 태우고 릴레이를 돌린다
+        // when
         ServiceScheduleRescheduleResult result = reschedule(schedule, requestedDate, carePlanId, patientId);
         scheduleOutboxRelayFacade.relay();
 
-        // then — 일정은 RESCHEDULING 중간 상태가 되고
+        // then
         assertThat(result.status()).isEqualTo(ScheduleStatus.RESCHEDULING);
 
-        // 문서에 명시된 큐로 페이로드 표와 동일한 JSON이 도착한다 (preferredTimeSlot은 03번 경로이므로 null)
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
         assertThat(received.getFirst()).isEqualTo(
@@ -144,7 +142,7 @@ class ProviderReMatchedEventPublishIntegrationTest {
         reschedule(schedule, requestedDate, carePlanId, patientId);
         scheduleOutboxRelayFacade.relay();
 
-        // then — 기존 날짜가 아니라 "재매칭을 원하는 날짜"가 실린다
+        // then
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
         assertThat(received.getFirst()).contains("\"date\":\"" + requestedDate + "\"");
@@ -154,12 +152,12 @@ class ProviderReMatchedEventPublishIntegrationTest {
     @Test
     @DisplayName("매칭 시도 기록이 없으면 발행되지 않고 일정도 SCHEDULED로 남는다")
     void 매칭_시도_기록이_없으면_발행되지_않는다() {
-        // given — regionId/provideServiceId를 얻을 곳이 없는 상황 (매칭 시도 기록을 만들지 않는다)
+        // given
         UUID carePlanId = UUID.randomUUID();
         UUID patientId = UUID.randomUUID();
         ServiceSchedule schedule = scheduledSchedule(carePlanId, 5);
 
-        // when & then — 이벤트만 건너뛰는 게 아니라 일정 변경 자체가 실패한다
+        // when & then
         assertThatThrownBy(() -> reschedule(schedule, schedule.getDate().plusDays(1), carePlanId, patientId))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
@@ -174,9 +172,105 @@ class ProviderReMatchedEventPublishIntegrationTest {
                 .isEqualTo(ScheduleStatus.SCHEDULED);
     }
 
-    // 03번 API의 커맨드 트랜잭션 호출
-    // carePlanRange는 Facade가 care-plan-service Internal API(5.5절)로 채워 넘기는 값이라
-    // 이 테스트에서는 검증을 통과하는 값으로 직접 구성한다 (요청자 = 소유자, 일정 범위는 충분히 넉넉하게)
+    @Test
+    @DisplayName("재매칭 시도 요청 시 문서 스펙대로 ProviderReMatched가 발행된다")
+    void 재매칭을_시도하면_이벤트가_발행된다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        UUID regionId = UUID.randomUUID();
+        UUID provideServiceId = UUID.randomUUID();
+        UUID servicePreferenceId = UUID.randomUUID();
+
+        ServiceMatchingAttempt failed = recordFailedAttempt(carePlanId, regionId, provideServiceId, servicePreferenceId);
+
+        LocalDate requestedDate = LocalDate.now().plusDays(3);
+
+        // when
+        MatchingAttemptRetryResult result = retry(failed, requestedDate, PreferredTimeSlot.MORNING, patientId);
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        assertThat(result.matchingAttemptId()).isEqualTo(failed.getId());
+        assertThat(result.servicePreferenceId()).isEqualTo(servicePreferenceId);
+        assertThat(result.date()).isEqualTo(requestedDate);
+        assertThat(result.preferredTimeSlot()).isEqualTo(PreferredTimeSlot.MORNING);
+
+        List<String> received = receiveAll();
+        assertThat(received).hasSize(1);
+        assertThat(received.getFirst()).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\","
+                        + "\"regionId\":\"" + regionId + "\","
+                        + "\"provideServiceId\":\"" + provideServiceId + "\","
+                        + "\"servicePreferenceId\":\"" + servicePreferenceId + "\","
+                        + "\"date\":\"" + requestedDate + "\","
+                        + "\"preferredTimeSlot\":\"MORNING\"}"
+        );
+
+        assertThat(springDataServiceMatchingAttemptRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("같은 실패 건으로 두 번 재시도하면 409가 나고 이벤트는 한 번만 발행된다")
+    void 두_번_재시도하면_409가_난다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        UUID servicePreferenceId = UUID.randomUUID();
+
+        ServiceMatchingAttempt failed =
+                recordFailedAttempt(carePlanId, UUID.randomUUID(), UUID.randomUUID(), servicePreferenceId);
+
+        LocalDate requestedDate = LocalDate.now().plusDays(3);
+        retry(failed, requestedDate, PreferredTimeSlot.MORNING, patientId);
+
+        // when & then
+        assertThatThrownBy(() -> retry(failed, requestedDate, PreferredTimeSlot.AFTERNOON, patientId))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ScheduleErrorCode.MATCHING_ATTEMPT_RETRY_ALREADY_REQUESTED);
+
+        scheduleOutboxRelayFacade.relay();
+
+        assertThat(receiveAll()).hasSize(1);
+    }
+
+    private MatchingAttemptRetryResult retry(
+            ServiceMatchingAttempt attempt,
+            LocalDate requestedDate,
+            PreferredTimeSlot preferredTimeSlot,
+            UUID patientId
+    ) {
+        return serviceMatchingAttemptCommandService.retry(
+                new MatchingAttemptRetryCommand(attempt.getId(), requestedDate, preferredTimeSlot, patientId),
+                new CarePlanPort.CarePlanRange(attempt.getCarePlanId(), requestedDate.plusDays(10), patientId)
+        );
+    }
+
+    // 매칭에 실패한 시도 기록 — 재시도 대상
+    private ServiceMatchingAttempt recordFailedAttempt(
+            UUID carePlanId,
+            UUID regionId,
+            UUID provideServiceId,
+            UUID servicePreferenceId
+    ) {
+        return springDataServiceMatchingAttemptRepository.save(
+                ServiceMatchingAttempt.record(
+                        carePlanId,
+                        regionId,
+                        provideServiceId,
+                        servicePreferenceId,
+                        null,
+                        LocalDate.now().plusDays(1),
+                        PreferredTimeSlot.AFTERNOON,
+                        MatchingAttemptStatus.FAILED,
+                        "해당 날짜/시간대에 제공 가능한 서비스 제공자 없음",
+                        null,
+                        Instant.now()
+                )
+        );
+    }
+
     private ServiceScheduleRescheduleResult reschedule(
             ServiceSchedule schedule,
             LocalDate requestedDate,
@@ -206,7 +300,6 @@ class ProviderReMatchedEventPublishIntegrationTest {
     }
 
     // 이 일정을 성사시킨 매칭 시도 기록
-    // 실제 운영에서는 13번(ProviderMatched 수신)이 남기지만 아직 미구현이라 테스트에서 직접 심는다
     private void recordMatchedAttempt(ServiceSchedule schedule, UUID regionId, UUID provideServiceId) {
         springDataServiceMatchingAttemptRepository.save(
                 ServiceMatchingAttempt.record(
@@ -225,7 +318,7 @@ class ProviderReMatchedEventPublishIntegrationTest {
         );
     }
 
-    // 문서에 명시된 큐에 도착한 메시지 본문을 모두 꺼낸다
+    // 문서에 명시된 큐에 도착한 메시지 본문을 모두 꺼냄
     private List<String> receiveAll() {
         List<String> payloads = new ArrayList<>();
 

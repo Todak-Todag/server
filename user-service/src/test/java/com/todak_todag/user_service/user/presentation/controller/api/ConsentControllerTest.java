@@ -4,8 +4,10 @@ import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.ConsentErrorCode;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.ConsentCreateCommand;
+import com.todak_todag.user_service.user.application.command.ConsentWithdrawCommand;
 import com.todak_todag.user_service.user.application.result.ConsentCreateResult;
 import com.todak_todag.user_service.user.application.result.ConsentFindHistoryResult;
+import com.todak_todag.user_service.user.application.result.ConsentWithdrawResult;
 import com.todak_todag.user_service.user.application.service.command.ConsentCommandService;
 import com.todak_todag.user_service.user.application.service.query.ConsentQueryService;
 import org.junit.jupiter.api.AfterEach;
@@ -681,6 +683,287 @@ class ConsentControllerTest {
             then(consentQueryService)
                     .should()
                     .findMyConsents(userId);
+        }
+    }
+
+    @Nested
+    @DisplayName("약관 동의 철회")
+    class WithdrawConsent {
+
+        @Test
+        @DisplayName("로그인 사용자가 본인의 약관 동의를 철회한다")
+        void withdrawConsent_success()
+                throws Exception {
+
+            // given
+            UUID userId = UUID.randomUUID();
+            UUID consentId = UUID.randomUUID();
+
+            LocalDateTime withdrawnAt =
+                    LocalDateTime.of(
+                            2026,
+                            9,
+                            7,
+                            14,
+                            30
+                    );
+
+            setAuthentication(userId);
+
+            ConsentWithdrawResult result =
+                    new ConsentWithdrawResult(
+                            consentId,
+                            ConsentStatus.WITHDRAWN,
+                            withdrawnAt
+                    );
+
+            given(
+                    consentCommandService.withdraw(
+                            any()
+                    )
+            ).willReturn(result);
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    URI
+                                            + "/{consentId}/withdraw",
+                                    consentId
+                            )
+                    )
+                    .andExpect(
+                            status().isOk()
+                    )
+                    .andExpect(
+                            jsonPath("$.success")
+                                    .value(true)
+                    )
+                    .andExpect(
+                            jsonPath("$.code")
+                                    .value(200)
+                    )
+                    .andExpect(
+                            jsonPath("$.message")
+                                    .value(
+                                            "약관 동의 철회 성공"
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.data.consentId"
+                            )
+                                    .value(
+                                            consentId.toString()
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.data.status"
+                            )
+                                    .value(
+                                            "WITHDRAWN"
+                                    )
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.data.withdrawnAt"
+                            )
+                                    .value(
+                                            withdrawnAt.format(
+                                                    DateTimeFormatter
+                                                            .ofPattern(
+                                                                    "yyyy-MM-dd'T'HH:mm:ss"
+                                                            )
+                                            )
+                                    )
+                    );
+
+            ArgumentCaptor<ConsentWithdrawCommand> captor =
+                    ArgumentCaptor.forClass(
+                            ConsentWithdrawCommand.class
+                    );
+
+            then(consentCommandService)
+                    .should()
+                    .withdraw(
+                            captor.capture()
+                    );
+
+            ConsentWithdrawCommand command =
+                    captor.getValue();
+
+            // userId는 PathVariable이 아닌 인증 객체에서 가져와야 한다.
+            assertThat(command.userId())
+                    .isEqualTo(userId);
+
+            assertThat(command.consentId())
+                    .isEqualTo(consentId);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 동의 내역을 철회하면 404를 반환한다")
+        void withdrawConsent_notFound()
+                throws Exception {
+
+            // given
+            UUID userId = UUID.randomUUID();
+            UUID consentId = UUID.randomUUID();
+
+            setAuthentication(userId);
+
+            given(
+                    consentCommandService.withdraw(
+                            any()
+                    )
+            ).willThrow(
+                    new BusinessException(
+                            ConsentErrorCode.CONSENT_NOT_FOUND
+                    )
+            );
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    URI
+                                            + "/{consentId}/withdraw",
+                                    consentId
+                            )
+                    )
+                    .andExpect(
+                            status().isNotFound()
+                    )
+                    .andExpect(
+                            jsonPath("$.success")
+                                    .value(false)
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.error.errorCode"
+                            )
+                                    .value(
+                                            "CONSENT_NOT_FOUND"
+                                    )
+                    );
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 동의 내역을 철회하면 403을 반환한다")
+        void withdrawConsent_accessDenied()
+                throws Exception {
+
+            // given
+            UUID userId = UUID.randomUUID();
+            UUID consentId = UUID.randomUUID();
+
+            setAuthentication(userId);
+
+            given(
+                    consentCommandService.withdraw(
+                            any()
+                    )
+            ).willThrow(
+                    new BusinessException(
+                            ConsentErrorCode
+                                    .CONSENT_ACCESS_DENIED
+                    )
+            );
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    URI
+                                            + "/{consentId}/withdraw",
+                                    consentId
+                            )
+                    )
+                    .andExpect(
+                            status().isForbidden()
+                    )
+                    .andExpect(
+                            jsonPath("$.success")
+                                    .value(false)
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.error.errorCode"
+                            )
+                                    .value(
+                                            "CONSENT_ACCESS_DENIED"
+                                    )
+                    );
+        }
+
+        @Test
+        @DisplayName("이미 철회된 동의 내역을 다시 철회하면 409를 반환한다")
+        void withdrawConsent_alreadyWithdrawn()
+                throws Exception {
+
+            // given
+            UUID userId = UUID.randomUUID();
+            UUID consentId = UUID.randomUUID();
+
+            setAuthentication(userId);
+
+            given(
+                    consentCommandService.withdraw(
+                            any()
+                    )
+            ).willThrow(
+                    new BusinessException(
+                            ConsentErrorCode
+                                    .CONSENT_ALREADY_WITHDRAWN
+                    )
+            );
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    URI
+                                            + "/{consentId}/withdraw",
+                                    consentId
+                            )
+                    )
+                    .andExpect(
+                            status().isConflict()
+                    )
+                    .andExpect(
+                            jsonPath("$.success")
+                                    .value(false)
+                    )
+                    .andExpect(
+                            jsonPath(
+                                    "$.error.errorCode"
+                            )
+                                    .value(
+                                            "CONSENT_ALREADY_WITHDRAWN"
+                                    )
+                    );
+        }
+
+        @Test
+        @DisplayName("동의 내역 ID가 UUID 형식이 아니면 400을 반환한다")
+        void withdrawConsent_invalidConsentId()
+                throws Exception {
+
+            // given
+            UUID userId = UUID.randomUUID();
+
+            setAuthentication(userId);
+
+            // when & then
+            mockMvc.perform(
+                            post(
+                                    URI
+                                            + "/{consentId}/withdraw",
+                                    "invalid-consent-id"
+                            )
+                    )
+                    .andExpect(
+                            status().isBadRequest()
+                    );
+
+            then(consentCommandService)
+                    .shouldHaveNoInteractions();
         }
     }
 }

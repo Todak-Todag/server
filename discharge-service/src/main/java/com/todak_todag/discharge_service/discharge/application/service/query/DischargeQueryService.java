@@ -1,13 +1,16 @@
 package com.todak_todag.discharge_service.discharge.application.service.query;
 
+import com.todak_todag.discharge_service.discharge.application.query.DischargeSearchQuery;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeFindResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeInternalFindResult;
+import com.todak_todag.discharge_service.discharge.application.result.DischargeSearchResult;
 import com.todak_todag.discharge_service.discharge.domain.entity.Discharge;
 import com.todak_todag.discharge_service.discharge.domain.repository.query.DischargeQueryRepository;
 import com.todak_todag.discharge_service.global.common.UserRole;
 import com.todak_todag.discharge_service.global.exception.BusinessException;
 import com.todak_todag.discharge_service.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +48,18 @@ public class DischargeQueryService {
         );
 
         return DischargeFindResult.from(discharge);
+    }
+
+    public Page<DischargeSearchResult> searchDischarges(
+            DischargeSearchQuery query
+    ) {
+        return dischargeQueryRepository.search(
+                        query.hospitalStaffId(),
+                        query.status(),
+                        query.scheduledDate(),
+                        query.pageable()
+                )
+                .map(DischargeSearchResult::from);
     }
 
     public DischargeInternalFindResult findById(UUID dischargeId) {

@@ -19,8 +19,7 @@ public class ScheduleResultClientAdapter implements ScheduleResultQueryPort {
         ScheduleInternalResponse scheduleInternalResponse = scheduleFeignClient.findServiceResult(serviceResultId);
 
         return new ScheduleResultFindResult(
-                scheduleInternalResponse.data().serviceResultId(),
-                scheduleInternalResponse.data().carePlanId()
+                scheduleInternalResponse.data().serviceResultId()
         );
     }
 }

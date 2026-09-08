@@ -46,9 +46,6 @@ class InternalServiceResultQueryServiceTest {
 
         // then
         assertThat(result.serviceResultId()).isEqualTo(carePlanServiceResult.getServiceResultId());
-        assertThat(result.serviceScheduleId()).isEqualTo(serviceScheduleId);
-        assertThat(result.startedAt()).isEqualTo(startedAt);
-        assertThat(result.finishedAt()).isEqualTo(finishedAt);
     }
 
     @Test
