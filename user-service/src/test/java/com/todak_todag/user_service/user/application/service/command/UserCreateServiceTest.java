@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
@@ -42,9 +43,12 @@ import com.todak_todag.user_service.user.application.result.UserAdminCreatedResu
 import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
+import com.todak_todag.user_service.user.application.support.ConsentDocumentValidator;
+import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
+import com.todak_todag.user_service.user.domain.repository.command.ConsentCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
@@ -87,6 +91,12 @@ class UserCreateServiceTest {
 
 	@Mock
 	private RegionQueryRepository regionQueryRepo;
+
+	@Mock
+	private ConsentDocumentValidator consentDocumentValidator;
+
+	@Mock
+	private ConsentCommandRepository consentCommandRepo;
 
 	@InjectMocks
 	private UserCreateService userCreateService;
@@ -283,12 +293,13 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("정상 흐름은 지역 검증 - 중복 검증 - 비밀번호 해시 - 저장 순서로 수행된다")
+		@DisplayName("정상 흐름은 지역 검증 - 중복 검증 - 약관 검증 - 비밀번호 해시 - User 저장 - Consent 저장 순서로 수행된다")
 		void createUserSignupTest_executionOrder() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
 			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
+			given(consentDocumentValidator.signupConsentDocumentValidate(command)).willReturn(Set.of(TERMS_ID));
 			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
@@ -296,11 +307,79 @@ class UserCreateServiceTest {
 			userCreateService.createUserSignup(command);
 
 			// Then
-			InOrder inOrder = inOrder(regionQueryRepo, userQueryRepo, passwordEncoder, userCommandRepo);
+			InOrder inOrder = inOrder(
+					regionQueryRepo, userQueryRepo, consentDocumentValidator, passwordEncoder,
+					userCommandRepo, consentCommandRepo
+			);
 			inOrder.verify(regionQueryRepo).existsAvailableRegion(REGION_ID);
 			inOrder.verify(userQueryRepo).duplicateUsername(USERNAME);
+			inOrder.verify(consentDocumentValidator).signupConsentDocumentValidate(command);
 			inOrder.verify(passwordEncoder).encode(RAW_PASSWORD);
 			inOrder.verify(userCommandRepo).save(any(User.class));
+			inOrder.verify(consentCommandRepo).saveAll(any());
+		}
+
+		@Test
+		@DisplayName("정상 가입 시 검증기가 반환한 동의 약관들이 저장된 유저 id로 저장된다")
+		void createUserSignupTest_success_savesConsents() {
+			// Given
+			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
+			givenAvailableRegion();
+			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
+			given(consentDocumentValidator.signupConsentDocumentValidate(command)).willReturn(Set.of(TERMS_ID));
+			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
+			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+
+			// When
+			userCreateService.createUserSignup(command);
+
+			// Then
+			ArgumentCaptor<List<Consent>> captor = ArgumentCaptor.forClass(List.class);
+			verify(consentCommandRepo).saveAll(captor.capture());
+
+			List<Consent> saved = captor.getValue();
+			assertThat(saved).hasSize(1);
+			assertThat(saved.get(0).getUserId()).isEqualTo(SAVED_USER_ID);
+			assertThat(saved.get(0).getConsentDocumentVersionId()).isEqualTo(TERMS_ID);
+		}
+
+		@Test
+		@DisplayName("약관 검증에 실패하면 User/Consent 모두 저장하지 않는다")
+		void createUserSignupTest_fail_consentValidationFails() {
+			// Given
+			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
+			givenAvailableRegion();
+			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
+			given(consentDocumentValidator.signupConsentDocumentValidate(command))
+					.willThrow(new BusinessException(UserErrorCode.USER_SIGNUP_REQUIRED_NOT_AGREED));
+
+			// When & Then
+			assertThatThrownBy(() -> userCreateService.createUserSignup(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_SIGNUP_REQUIRED_NOT_AGREED);
+
+			verify(passwordEncoder, never()).encode(anyString());
+			verify(userCommandRepo, never()).save(any(User.class));
+			verify(consentCommandRepo, never()).saveAll(any());
+		}
+
+		@Test
+		@DisplayName("동의한 약관이 없으면 Consent 저장은 빈 리스트로 호출된다")
+		void createUserSignupTest_success_noAgreedConsents_savesEmptyList() {
+			// Given
+			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
+			givenAvailableRegion();
+			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
+			given(consentDocumentValidator.signupConsentDocumentValidate(command)).willReturn(Set.of());
+			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
+			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+
+			// When
+			userCreateService.createUserSignup(command);
+
+			// Then
+			verify(consentCommandRepo).saveAll(List.of());
 		}
 	}
 
