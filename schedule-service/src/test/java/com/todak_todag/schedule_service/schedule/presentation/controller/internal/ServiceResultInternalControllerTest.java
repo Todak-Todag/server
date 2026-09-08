@@ -55,7 +55,9 @@ class ServiceResultInternalControllerTest extends PostgresTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.serviceResultId").value(saved.getServiceResultId().toString()))
-                .andExpect(jsonPath("$.data.serviceScheduleId").value(serviceScheduleId.toString()));
+                .andExpect(jsonPath("$.data.serviceScheduleId").doesNotExist())
+                .andExpect(jsonPath("$.data.startedAt").doesNotExist())
+                .andExpect(jsonPath("$.data.finishedAt").doesNotExist());
     }
 
     @Test
