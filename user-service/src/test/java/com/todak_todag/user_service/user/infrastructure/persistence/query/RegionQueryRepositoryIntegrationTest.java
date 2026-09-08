@@ -63,7 +63,7 @@ class RegionQueryRepositoryIntegrationTest extends PostgresTestSupport {
                 "1168000000"
         );
 
-        // MVP 서비스 대상 지역 3곳만 활성화
+        // MVP 서비스 대상 지역만 활성화
         goheung.updateActive(true);
         uiseong.updateActive(true);
         yeongwol.updateActive(true);
@@ -76,6 +76,8 @@ class RegionQueryRepositoryIntegrationTest extends PostgresTestSupport {
                         gangnam
                 )
         );
+
+        jpaRegionRepository.flush();
     }
 
     @Nested
@@ -138,7 +140,12 @@ class RegionQueryRepositoryIntegrationTest extends PostgresTestSupport {
             assertThat(result.getContent())
                     .hasSize(1);
 
-            assertThat(result.getContent().getFirst().getDistrict())
+            Region region = result.getContent().getFirst();
+
+            assertThat(region.getProvince())
+                    .isEqualTo("전라남도");
+
+            assertThat(region.getDistrict())
                     .isEqualTo("고흥군");
         }
 
@@ -173,6 +180,36 @@ class RegionQueryRepositoryIntegrationTest extends PostgresTestSupport {
         }
 
         @Test
+        @DisplayName("지역 코드 조건으로 지역을 조회한다")
+        void findByRegionCode() {
+
+            // given
+            RegionFindAdminQuery query =
+                    new RegionFindAdminQuery(
+                            0,
+                            20,
+                            null,
+                            null,
+                            "5175000000",
+                            null
+                    );
+
+            // when
+            Page<Region> result =
+                    regionQueryRepository.findAllByAdminConditions(
+                            query,
+                            PageRequest.of(0, 20)
+                    );
+
+            // then
+            assertThat(result.getContent())
+                    .hasSize(1);
+
+            assertThat(result.getContent().getFirst().getDistrict())
+                    .isEqualTo("영월군");
+        }
+
+        @Test
         @DisplayName("활성 여부 조건으로 지역을 조회한다")
         void findByActive() {
 
@@ -198,8 +235,13 @@ class RegionQueryRepositoryIntegrationTest extends PostgresTestSupport {
             assertThat(result.getContent())
                     .hasSize(1);
 
-            assertThat(result.getContent().getFirst().getDistrict())
+            Region region = result.getContent().getFirst();
+
+            assertThat(region.getDistrict())
                     .isEqualTo("강남구");
+
+            assertThat(region.isActive())
+                    .isFalse();
         }
 
         @Test
@@ -241,6 +283,36 @@ class RegionQueryRepositoryIntegrationTest extends PostgresTestSupport {
 
             assertThat(region.isActive())
                     .isTrue();
+        }
+
+        @Test
+        @DisplayName("조건이 없으면 전체 지역을 조회한다")
+        void findAllWithoutConditions() {
+
+            // given
+            RegionFindAdminQuery query =
+                    new RegionFindAdminQuery(
+                            0,
+                            20,
+                            null,
+                            null,
+                            null,
+                            null
+                    );
+
+            // when
+            Page<Region> result =
+                    regionQueryRepository.findAllByAdminConditions(
+                            query,
+                            PageRequest.of(0, 20)
+                    );
+
+            // then
+            assertThat(result.getContent())
+                    .hasSize(4);
+
+            assertThat(result.getTotalElements())
+                    .isEqualTo(4);
         }
     }
 }
