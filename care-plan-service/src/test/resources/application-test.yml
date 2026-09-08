@@ -1,0 +1,24 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        default_schema: care_plan_schema
+        hbm2ddl:
+          create_namespaces: true
+    show-sql: true
+
+eureka:
+  client:
+    enabled: false
+
+internal:
+  key: test-internal-key

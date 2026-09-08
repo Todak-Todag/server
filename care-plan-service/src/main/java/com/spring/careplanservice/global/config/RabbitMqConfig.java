@@ -5,6 +5,10 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.support.converter.DefaultJacksonJavaTypeMapper;
+import org.springframework.amqp.support.converter.JacksonJavaTypeMapper;
+import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,6 +20,28 @@ public class RabbitMqConfig {
             "care-plan.schedule-completed.queue";
     public static final String CARE_PLAN_CONFIRMED_EXCHANGE = "care-plan.exchange";
     public static final String CARE_PLAN_CONFIRMED_ROUTING_KEY = "care-plan.confirmed.key";
+
+    @Bean
+    public MessageConverter messageConverter() {
+        JacksonJsonMessageConverter converter = new JacksonJsonMessageConverter();
+
+        DefaultJacksonJavaTypeMapper typeMapper = new DefaultJacksonJavaTypeMapper();
+
+        typeMapper.setTypePrecedence(
+                JacksonJavaTypeMapper.TypePrecedence.INFERRED
+        );
+
+        typeMapper.setTrustedPackages("*");
+
+        converter.setJavaTypeMapper(typeMapper);
+
+        return converter;
+    }
+
+    @Bean
+    public DirectExchange carePlanConfirmedExchange() {
+        return new DirectExchange(CARE_PLAN_CONFIRMED_EXCHANGE);
+    }
 
     @Bean
     public DirectExchange scheduleExchange() {
