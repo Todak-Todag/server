@@ -1,14 +1,10 @@
 package com.todak_todag.social_worker_service.matching.application.service.async;
 
-import com.todak_todag.social_worker_service.global.response.ApiResponse;
+import com.todak_todag.social_worker_service.matching.application.port.MatchableSocialWorkerPort;
 import com.todak_todag.social_worker_service.matching.application.service.command.MatchingResultCommandService;
 import com.todak_todag.social_worker_service.matching.application.service.query.MatchingQueryService;
-import com.todak_todag.social_worker_service.matching.infrastructure.client.UserMatchableSocialWorkersResponse;
-import com.todak_todag.social_worker_service.matching.infrastructure.client.UserServiceClient;
-import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTask;
-import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTaskStore;
-import feign.FeignException;
-import feign.RetryableException;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTask;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTaskStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -22,9 +18,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class MatchingAsyncProcessor {
 
-    private static final int MAX_ATTEMPTS = 2;
-
-    private final UserServiceClient userServiceClient;
+    private final MatchableSocialWorkerPort matchableSocialWorkerPort;
     private final MatchingQueryService matchingQueryService;
     private final MatchingResultCommandService matchingResultCommandService;
     private final MatchingTaskStore matchingTaskStore;
@@ -36,13 +30,14 @@ public class MatchingAsyncProcessor {
             UUID patientId
     ) {
 
-        MatchingTask task = matchingTaskStore
-                .findByTaskId(taskId)
-                .orElseGet(
-                        () -> MatchingTask.pending(
-                                taskId
-                        )
-                );
+        MatchingTask task =
+                matchingTaskStore
+                        .findByTaskId(taskId)
+                        .orElseGet(
+                                () -> MatchingTask.pending(
+                                        taskId
+                                )
+                        );
 
         matchingTaskStore.save(
                 task.processing()
@@ -50,9 +45,10 @@ public class MatchingAsyncProcessor {
 
         try {
             Set<UUID> candidateIds =
-                    getCandidateIdsWithRetry(
-                            patientId
-                    );
+                    matchableSocialWorkerPort
+                            .findMatchableSocialWorkerIds(
+                                    patientId
+                            );
 
             if (candidateIds == null
                     || candidateIds.isEmpty()) {
@@ -111,78 +107,6 @@ public class MatchingAsyncProcessor {
         }
     }
 
-    private Set<UUID> getCandidateIdsWithRetry(
-            UUID patientId
-    ) {
-
-        RuntimeException lastException = null;
-
-        for (int attempt = 1;
-             attempt <= MAX_ATTEMPTS;
-             attempt++) {
-
-            try {
-                ApiResponse<UserMatchableSocialWorkersResponse> response =
-                        userServiceClient
-                                .getMatchableSocialWorkers(
-                                        patientId
-                                );
-
-                if (response == null
-                        || response.data() == null) {
-                    return Set.of();
-                }
-
-                Set<UUID> socialWorkerIds =
-                        response.data()
-                                .socialWorkerIds();
-
-                return socialWorkerIds != null
-                        ? socialWorkerIds
-                        : Set.of();
-
-            } catch (RetryableException e) {
-
-                lastException = e;
-
-                if (attempt == MAX_ATTEMPTS) {
-                    throw e;
-                }
-
-                log.warn(
-                        "[SocialWorkerMatching] User-Service 호출 재시도 attempt={}, patientId={}",
-                        attempt,
-                        patientId
-                );
-
-            } catch (FeignException e) {
-
-                lastException = e;
-
-                boolean retryableStatus =
-                        e.status() >= 500;
-
-                if (!retryableStatus
-                        || attempt == MAX_ATTEMPTS) {
-                    throw e;
-                }
-
-                log.warn(
-                        "[SocialWorkerMatching] User-Service 5xx 재시도 attempt={}, status={}, patientId={}",
-                        attempt,
-                        e.status(),
-                        patientId
-                );
-            }
-        }
-
-        throw lastException != null
-                ? lastException
-                : new IllegalStateException(
-                        "User-Service 호출에 실패했습니다."
-                );
-    }
-
     private void failMatching(
             UUID taskId,
             UUID matchingResultId
@@ -194,13 +118,14 @@ public class MatchingAsyncProcessor {
             );
         } finally {
 
-            MatchingTask task = matchingTaskStore
-                    .findByTaskId(taskId)
-                    .orElseGet(
-                            () -> MatchingTask.pending(
-                                    taskId
-                            )
-                    );
+            MatchingTask task =
+                    matchingTaskStore
+                            .findByTaskId(taskId)
+                            .orElseGet(
+                                    () -> MatchingTask.pending(
+                                            taskId
+                                    )
+                            );
 
             matchingTaskStore.save(
                     task.failed(

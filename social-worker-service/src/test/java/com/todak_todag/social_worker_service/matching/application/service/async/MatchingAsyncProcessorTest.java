@@ -1,14 +1,11 @@
 package com.todak_todag.social_worker_service.matching.application.service.async;
 
-import com.todak_todag.social_worker_service.global.response.ApiResponse;
+import com.todak_todag.social_worker_service.matching.application.port.MatchableSocialWorkerPort;
 import com.todak_todag.social_worker_service.matching.application.service.command.MatchingResultCommandService;
 import com.todak_todag.social_worker_service.matching.application.service.query.MatchingQueryService;
-import com.todak_todag.social_worker_service.matching.infrastructure.client.UserMatchableSocialWorkersResponse;
-import com.todak_todag.social_worker_service.matching.infrastructure.client.UserServiceClient;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTask;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTaskStatus;
 import com.todak_todag.social_worker_service.matching.infrastructure.task.InMemoryMatchingTaskStore;
-import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTask;
-import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTaskStatus;
-import feign.FeignException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +18,7 @@ import static org.mockito.Mockito.*;
 
 class MatchingAsyncProcessorTest {
 
-    private UserServiceClient userServiceClient;
+    private MatchableSocialWorkerPort matchableSocialWorkerPort;
     private MatchingQueryService matchingQueryService;
     private MatchingResultCommandService matchingResultCommandService;
 
@@ -31,8 +28,8 @@ class MatchingAsyncProcessorTest {
     @BeforeEach
     void setUp() {
 
-        userServiceClient =
-                mock(UserServiceClient.class);
+        matchableSocialWorkerPort =
+                mock(MatchableSocialWorkerPort.class);
 
         matchingQueryService =
                 mock(MatchingQueryService.class);
@@ -45,7 +42,7 @@ class MatchingAsyncProcessorTest {
 
         processor =
                 new MatchingAsyncProcessor(
-                        userServiceClient,
+                        matchableSocialWorkerPort,
                         matchingQueryService,
                         matchingResultCommandService,
                         matchingTaskStore
@@ -53,8 +50,8 @@ class MatchingAsyncProcessorTest {
     }
 
     @Test
-    @DisplayName("사회복지사 후보가 없으면 재시도하지 않고 FAILED 처리한다")
-    void emptyCandidatesFailWithoutRetry() {
+    @DisplayName("사회복지사 후보가 없으면 FAILED 처리한다")
+    void emptyCandidatesFail() {
 
         UUID taskId = UUID.randomUUID();
         UUID resultId = UUID.randomUUID();
@@ -65,15 +62,12 @@ class MatchingAsyncProcessorTest {
         );
 
         when(
-                userServiceClient
-                        .getMatchableSocialWorkers(patientId)
-        ).thenReturn(
-                ApiResponse.ok(
-                        "사회복지사 정보 조회 성공",
-                        new UserMatchableSocialWorkersResponse(
-                                Set.of()
+                matchableSocialWorkerPort
+                        .findMatchableSocialWorkerIds(
+                                patientId
                         )
-                )
+        ).thenReturn(
+                Set.of()
         );
 
         processor.process(
@@ -83,9 +77,11 @@ class MatchingAsyncProcessorTest {
         );
 
         verify(
-                userServiceClient,
+                matchableSocialWorkerPort,
                 times(1)
-        ).getMatchableSocialWorkers(patientId);
+        ).findMatchableSocialWorkerIds(
+                patientId
+        );
 
         verify(
                 matchingResultCommandService,
@@ -113,8 +109,8 @@ class MatchingAsyncProcessorTest {
     }
 
     @Test
-    @DisplayName("User-Service 4xx 오류는 재시도하지 않고 FAILED 처리한다")
-    void clientErrorDoesNotRetry() {
+    @DisplayName("사회복지사 후보 조회 중 예외가 발생하면 FAILED 처리한다")
+    void candidateLookupFailureFailsMatching() {
 
         UUID taskId = UUID.randomUUID();
         UUID resultId = UUID.randomUUID();
@@ -124,167 +120,30 @@ class MatchingAsyncProcessorTest {
                 MatchingTask.pending(taskId)
         );
 
-        FeignException clientError =
-                mock(FeignException.class);
-
-        when(clientError.status())
-                .thenReturn(404);
-
         when(
-                userServiceClient
-                        .getMatchableSocialWorkers(patientId)
-        ).thenThrow(clientError);
-
-        processor.process(
-                taskId,
-                resultId,
-                patientId
-        );
-
-        verify(
-                userServiceClient,
-                times(1)
-        ).getMatchableSocialWorkers(patientId);
-
-        verify(
-                matchingResultCommandService,
-                times(1)
-        ).fail(resultId);
-
-        MatchingTask task =
-                matchingTaskStore
-                        .findByTaskId(taskId)
-                        .orElseThrow();
-
-        assertEquals(
-                MatchingTaskStatus.FAILED,
-                task.status()
-        );
-    }
-
-    @Test
-    @DisplayName("User-Service 5xx 오류 후 재시도 성공하면 매칭을 완료한다")
-    void serverErrorRetriesOnceAndSucceeds() {
-
-        UUID taskId = UUID.randomUUID();
-        UUID resultId = UUID.randomUUID();
-        UUID patientId = UUID.randomUUID();
-        UUID workerId = UUID.randomUUID();
-
-        matchingTaskStore.save(
-                MatchingTask.pending(taskId)
-        );
-
-        FeignException serverError =
-                mock(FeignException.class);
-
-        when(serverError.status())
-                .thenReturn(500);
-
-        when(
-                userServiceClient
-                        .getMatchableSocialWorkers(patientId)
-        )
-                .thenThrow(serverError)
-                .thenReturn(
-                        ApiResponse.ok(
-                                "사회복지사 정보 조회 성공",
-                                new UserMatchableSocialWorkersResponse(
-                                        Set.of(workerId)
-                                )
+                matchableSocialWorkerPort
+                        .findMatchableSocialWorkerIds(
+                                patientId
                         )
-                );
-
-        when(
-                matchingQueryService
-                        .select(Set.of(workerId))
-        ).thenReturn(workerId);
+        ).thenThrow(
+                new RuntimeException(
+                        "User-Service 호출 실패"
+                )
+        );
 
         processor.process(
                 taskId,
                 resultId,
                 patientId
         );
-
-        verify(
-                userServiceClient,
-                times(2)
-        ).getMatchableSocialWorkers(patientId);
-
-        verify(
-                matchingResultCommandService,
-                times(1)
-        ).activate(
-                resultId,
-                workerId
-        );
-
-        verify(
-                matchingResultCommandService,
-                never()
-        ).fail(any());
-
-        MatchingTask task =
-                matchingTaskStore
-                        .findByTaskId(taskId)
-                        .orElseThrow();
-
-        assertEquals(
-                MatchingTaskStatus.COMPLETED,
-                task.status()
-        );
-
-        assertEquals(
-                resultId,
-                task.matchingResultId()
-        );
-    }
-
-    @Test
-    @DisplayName("User-Service 5xx 오류가 계속되면 1회 재시도 후 FAILED 처리한다")
-    void repeatedServerErrorFailsAfterOneRetry() {
-
-        UUID taskId = UUID.randomUUID();
-        UUID resultId = UUID.randomUUID();
-        UUID patientId = UUID.randomUUID();
-
-        matchingTaskStore.save(
-                MatchingTask.pending(taskId)
-        );
-
-        FeignException serverError =
-                mock(FeignException.class);
-
-        when(serverError.status())
-                .thenReturn(500);
-
-        when(
-                userServiceClient
-                        .getMatchableSocialWorkers(patientId)
-        ).thenThrow(serverError);
-
-        processor.process(
-                taskId,
-                resultId,
-                patientId
-        );
-
-        verify(
-                userServiceClient,
-                times(2)
-        ).getMatchableSocialWorkers(patientId);
 
         verify(
                 matchingResultCommandService,
                 times(1)
         ).fail(resultId);
 
-        verify(
-                matchingResultCommandService,
-                never()
-        ).activate(
-                any(),
-                any()
+        verifyNoInteractions(
+                matchingQueryService
         );
 
         MatchingTask task =
@@ -327,15 +186,12 @@ class MatchingAsyncProcessorTest {
         );
 
         when(
-                userServiceClient
-                        .getMatchableSocialWorkers(patientId)
-        ).thenReturn(
-                ApiResponse.ok(
-                        "사회복지사 정보 조회 성공",
-                        new UserMatchableSocialWorkersResponse(
-                                candidates
+                matchableSocialWorkerPort
+                        .findMatchableSocialWorkerIds(
+                                patientId
                         )
-                )
+        ).thenReturn(
+                candidates
         );
 
         when(
@@ -362,6 +218,11 @@ class MatchingAsyncProcessorTest {
                 workerA
         );
 
+        verify(
+                matchingResultCommandService,
+                never()
+        ).fail(any());
+
         MatchingTask task =
                 matchingTaskStore
                         .findByTaskId(taskId)
@@ -370,6 +231,11 @@ class MatchingAsyncProcessorTest {
         assertEquals(
                 MatchingTaskStatus.COMPLETED,
                 task.status()
+        );
+
+        assertEquals(
+                resultId,
+                task.matchingResultId()
         );
     }
 }

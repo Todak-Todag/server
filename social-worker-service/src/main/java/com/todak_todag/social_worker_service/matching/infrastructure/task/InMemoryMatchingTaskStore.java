@@ -1,5 +1,7 @@
 package com.todak_todag.social_worker_service.matching.infrastructure.task;
 
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTask;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTaskStore;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;

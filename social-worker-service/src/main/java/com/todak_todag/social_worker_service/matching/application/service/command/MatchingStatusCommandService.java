@@ -53,7 +53,9 @@ public class MatchingStatusCommandService {
                 command
         );
 
-        matchingResult.end();
+        matchingResult.setStatus(
+                MatchingStatus.ENDED
+        );
 
         return new MatchingStatusChangeResult(
                 matchingResult.getMatchingResultId(),

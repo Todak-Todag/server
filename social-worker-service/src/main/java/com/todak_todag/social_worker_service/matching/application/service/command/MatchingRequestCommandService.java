@@ -6,14 +6,15 @@ import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStat
 import com.todak_todag.social_worker_service.matching.domain.entity.SocialWorkerMatchingResult;
 import com.todak_todag.social_worker_service.matching.domain.repository.command.SocialWorkerMatchingCommandRepository;
 import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
-import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTask;
-import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTaskStore;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTask;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTaskStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -51,10 +52,14 @@ public class MatchingRequestCommandService {
         }
 
         SocialWorkerMatchingResult matchingResult =
-                SocialWorkerMatchingResult
-                        .requested(
-                                patientId
-                        );
+                new SocialWorkerMatchingResult(
+                        UUID.randomUUID(),
+                        patientId,
+                        null,
+                        MatchingStatus.REQUESTED,
+                        Instant.now(),
+                        null
+                );
 
         matchingCommandRepository.save(
                 matchingResult

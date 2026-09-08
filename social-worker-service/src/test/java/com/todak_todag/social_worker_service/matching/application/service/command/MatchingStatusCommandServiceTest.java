@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -40,16 +41,13 @@ class MatchingStatusCommandServiceTest {
     @DisplayName("담당 사회복지사는 ACTIVE 매칭을 ENDED로 변경할 수 있다")
     void socialWorkerCanEndOwnMatching() {
 
-        UUID patientId = UUID.randomUUID();
-        UUID socialWorkerId = UUID.randomUUID();
+        UUID socialWorkerId =
+                UUID.randomUUID();
 
         SocialWorkerMatchingResult matchingResult =
-                SocialWorkerMatchingResult
-                        .requested(patientId);
-
-        matchingResult.assign(
-                socialWorkerId
-        );
+                activeMatching(
+                        socialWorkerId
+                );
 
         when(
                 matchingRepository
@@ -89,17 +87,10 @@ class MatchingStatusCommandServiceTest {
     @DisplayName("관리자는 ACTIVE 매칭을 ENDED로 변경할 수 있다")
     void adminCanEndMatching() {
 
-        UUID socialWorkerId = UUID.randomUUID();
-
         SocialWorkerMatchingResult matchingResult =
-                SocialWorkerMatchingResult
-                        .requested(
-                                UUID.randomUUID()
-                        );
-
-        matchingResult.assign(
-                socialWorkerId
-        );
+                activeMatching(
+                        UUID.randomUUID()
+                );
 
         when(
                 matchingRepository
@@ -141,14 +132,9 @@ class MatchingStatusCommandServiceTest {
                 UUID.randomUUID();
 
         SocialWorkerMatchingResult matchingResult =
-                SocialWorkerMatchingResult
-                        .requested(
-                                UUID.randomUUID()
-                        );
-
-        matchingResult.assign(
-                assignedWorkerId
-        );
+                activeMatching(
+                        assignedWorkerId
+                );
 
         when(
                 matchingRepository
@@ -193,10 +179,7 @@ class MatchingStatusCommandServiceTest {
     void nonActiveMatchingCannotBeEnded() {
 
         SocialWorkerMatchingResult matchingResult =
-                SocialWorkerMatchingResult
-                        .requested(
-                                UUID.randomUUID()
-                        );
+                requestedMatching();
 
         when(
                 matchingRepository
@@ -300,14 +283,9 @@ class MatchingStatusCommandServiceTest {
     void patientCannotEndMatching() {
 
         SocialWorkerMatchingResult matchingResult =
-                SocialWorkerMatchingResult
-                        .requested(
-                                UUID.randomUUID()
-                        );
-
-        matchingResult.assign(
-                UUID.randomUUID()
-        );
+                activeMatching(
+                        UUID.randomUUID()
+                );
 
         when(
                 matchingRepository
@@ -339,6 +317,35 @@ class MatchingStatusCommandServiceTest {
         assertEquals(
                 MatchingErrorCode.MATCHING_STATUS_CHANGE_FORBIDDEN,
                 exception.getErrorCode()
+        );
+    }
+
+    private SocialWorkerMatchingResult requestedMatching() {
+
+        return new SocialWorkerMatchingResult(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                null,
+                MatchingStatus.REQUESTED,
+                Instant.now(),
+                null
+        );
+    }
+
+    private SocialWorkerMatchingResult activeMatching(
+            UUID socialWorkerId
+    ) {
+
+        Instant requestedAt =
+                Instant.now();
+
+        return new SocialWorkerMatchingResult(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                socialWorkerId,
+                MatchingStatus.ACTIVE,
+                requestedAt,
+                requestedAt
         );
     }
 }

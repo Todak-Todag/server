@@ -6,7 +6,7 @@ import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStat
 import com.todak_todag.social_worker_service.matching.domain.repository.command.SocialWorkerMatchingCommandRepository;
 import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
 import com.todak_todag.social_worker_service.matching.infrastructure.task.InMemoryMatchingTaskStore;
-import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTaskStatus;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTaskStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

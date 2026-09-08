@@ -46,58 +46,37 @@ public class SocialWorkerMatchingResult extends BaseAuditableEntity {
     @Column(name = "assigned_at")
     private Instant assignedAt;
 
-    private SocialWorkerMatchingResult(
+    public SocialWorkerMatchingResult(
             UUID matchingResultId,
             UUID patientId,
+            UUID socialWorkerId,
             MatchingStatus status,
-            Instant requestedAt
+            Instant requestedAt,
+            Instant assignedAt
     ) {
         this.matchingResultId = matchingResultId;
         this.patientId = patientId;
+        this.socialWorkerId = socialWorkerId;
         this.status = status;
         this.requestedAt = requestedAt;
+        this.assignedAt = assignedAt;
     }
 
-    public static SocialWorkerMatchingResult requested(
-            UUID patientId
-    ) {
-        return new SocialWorkerMatchingResult(
-                UUID.randomUUID(),
-                patientId,
-                MatchingStatus.REQUESTED,
-                Instant.now()
-        );
-    }
-
-    public void assign(
+    public void setSocialWorkerId(
             UUID socialWorkerId
     ) {
-        if (this.status != MatchingStatus.REQUESTED) {
-            throw new IllegalStateException(
-                    "REQUESTED 상태의 매칭만 배정할 수 있습니다."
-            );
-        }
-
         this.socialWorkerId = socialWorkerId;
-        this.status = MatchingStatus.ACTIVE;
-        this.assignedAt = Instant.now();
     }
 
-    public void fail() {
-        if (this.status != MatchingStatus.REQUESTED) {
-            return;
-        }
-
-        this.status = MatchingStatus.FAILED;
+    public void setStatus(
+            MatchingStatus status
+    ) {
+        this.status = status;
     }
 
-    public void end() {
-        if (this.status != MatchingStatus.ACTIVE) {
-            throw new IllegalStateException(
-                    "ACTIVE 상태의 매칭만 종료할 수 있습니다."
-            );
-        }
-
-        this.status = MatchingStatus.ENDED;
+    public void setAssignedAt(
+            Instant assignedAt
+    ) {
+        this.assignedAt = assignedAt;
     }
 }
