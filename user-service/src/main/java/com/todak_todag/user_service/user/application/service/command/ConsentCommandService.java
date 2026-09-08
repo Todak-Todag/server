@@ -2,15 +2,18 @@ package com.todak_todag.user_service.user.application.service.command;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.ConsentErrorCode;
+import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.ConsentCreateCommand;
 import com.todak_todag.user_service.user.application.command.ConsentWithdrawCommand;
 import com.todak_todag.user_service.user.application.result.ConsentCreateResult;
 import com.todak_todag.user_service.user.application.result.ConsentWithdrawResult;
 import com.todak_todag.user_service.user.domain.entity.Consent;
+import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.ConsentCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentCurrentView;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentQueryRepository;
+import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +40,9 @@ public class ConsentCommandService {
 
     private final ConsentCommandRepository
             consentCommandRepository;
+
+    private final UserQueryRepository
+            userQueryRepository;
 
     @Transactional
     public ConsentCreateResult create(
@@ -76,6 +82,11 @@ public class ConsentCommandService {
                 consentCommandRepository.saveAll(
                         consents
                 );
+
+        approvePatientIfAllRequiredConsentsAgreed(
+                command.userId(),
+                now
+        );
 
         log.info(
                 "[Consent] 약관 동의 완료 userId={} consentCount={}",
@@ -205,6 +216,51 @@ public class ConsentCommandService {
             throw new BusinessException(
                     ConsentErrorCode.CONSENT_ALREADY_WITHDRAWN
             );
+        }
+    }
+
+    private void approvePatientIfAllRequiredConsentsAgreed(
+            UUID userId,
+            LocalDateTime now
+    ) {
+        User user = userQueryRepository
+                .findById(userId)
+                .orElseThrow(
+                        () -> new BusinessException(
+                                UserErrorCode.USER_NOT_FOUND
+                        )
+                );
+
+        if (!user.isPatient() || !user.isWithdrawn()) {
+            return;
+        }
+
+        List<UUID> requiredVersionIds =
+                consentDocumentQueryRepository
+                        .findAllCurrent(now)
+                        .stream()
+                        .filter(
+                                ConsentDocumentCurrentView::isRequired
+                        )
+                        .map(
+                                ConsentDocumentCurrentView
+                                        ::consentDocumentVersionId
+                        )
+                        .toList();
+
+        if (requiredVersionIds.isEmpty()) {
+            return;
+        }
+
+        long agreedCount =
+                consentQueryRepository
+                        .countAgreedConsents(
+                                userId,
+                                requiredVersionIds
+                        );
+
+        if (agreedCount == requiredVersionIds.size()) {
+            user.approveFromRequiredConsent();
         }
     }
 }
