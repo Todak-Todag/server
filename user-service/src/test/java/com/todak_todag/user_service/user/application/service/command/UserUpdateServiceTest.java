@@ -796,7 +796,7 @@ class UserUpdateServiceTest {
 		}
 
 		@Test
-		@DisplayName("탈퇴 처리되면 개인정보(username/name/phone/regionId/address)가 임의의 값으로 대체된다")
+		@DisplayName("탈퇴 처리되면 개인정보(username/name/phone/regionId/address/passwordHash)가 임의의 값으로 대체된다")
 		void userDeleteTest_success_personalDataIsAnonymized() {
 			// Given
 			User target = approvedTarget(REGION_ID);
@@ -819,6 +819,7 @@ class UserUpdateServiceTest {
 			assertThat(target.getPhone()).isEqualTo("01000000000");
 			assertThat(target.getRegionId()).isNull();
 			assertThat(target.getAddress()).isNull();
+			assertThat(target.getPasswordHash()).isEqualTo("DELETE");
 		}
 
 		@Test
@@ -927,8 +928,9 @@ class UserUpdateServiceTest {
 		void userDeleteTest_executionOrder() {
 			// Given
 			User target = approvedTarget(REGION_ID);
+			String originalPasswordHash = target.getPasswordHash();
 			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
-			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+			given(passwordEncoder.matches("currentPw123!", originalPasswordHash)).willReturn(true);
 			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
 
 			UserDeleteCommand command = deleteCommand(
@@ -941,7 +943,7 @@ class UserUpdateServiceTest {
 			// Then
 			InOrder order = inOrder(userQueryRepo, passwordEncoder, authQueryRepo, tokenStorePort);
 			order.verify(userQueryRepo).findActiveById(TARGET_ID);
-			order.verify(passwordEncoder).matches("currentPw123!", target.getPasswordHash());
+			order.verify(passwordEncoder).matches("currentPw123!", originalPasswordHash);
 			order.verify(authQueryRepo).findActiveByUserId(TARGET_ID);
 			order.verify(tokenStorePort).deleteAccessToken("access-token-value");
 		}

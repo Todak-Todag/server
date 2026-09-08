@@ -165,6 +165,7 @@ public class User extends BaseAuditableEntity {
 		this.phone = "01000000000";
 		this.regionId = null;
 		this.address = null;
+		this.passwordHash = "DELETE";
 	}
 	
 	public void changePassword(String passwordHash) {
