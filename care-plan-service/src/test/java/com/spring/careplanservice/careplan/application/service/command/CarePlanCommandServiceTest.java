@@ -4,6 +4,7 @@ import com.spring.careplanservice.careplan.application.command.CarePlanCreateCom
 import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
+import com.spring.careplanservice.careplan.application.event.CarePlanCompletionEventAppender;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
 import com.spring.careplanservice.careplan.application.event.ScheduleStatus;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
@@ -78,6 +79,9 @@ class CarePlanCommandServiceTest {
 
     @Mock
     private ScheduleResultQueryPort scheduleResultQueryPort;
+
+    @Mock
+    private CarePlanCompletionEventAppender carePlanCompletionEventAppender;
 
     @Mock
     private ServicePreferenceCommandRepository servicePreferenceCommandRepository;
