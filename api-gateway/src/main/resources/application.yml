@@ -47,7 +47,7 @@ spring:
             - id: schedule-service
               uri: lb://schedule-service
               predicates:
-                - Path=/api/v1/service-schedules/**,/api/v1/service-results/**
+                - Path=/api/v1/service-schedules/**,/api/v1/service-results/**,/api/v1/matching-attempts/**
 
             - id: provider-service
               uri: lb://provider-service
