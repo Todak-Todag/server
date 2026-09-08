@@ -108,3 +108,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_p_users_username_active
 CREATE UNIQUE INDEX IF NOT EXISTS ux_p_auths_user_active
     ON user_schema.p_auths (user_id)
     WHERE logout_at IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_p_auths_refresh_token_hash
+    ON user_schema.p_auths (refresh_token_hash)
+    WHERE logout_at IS NULL;
