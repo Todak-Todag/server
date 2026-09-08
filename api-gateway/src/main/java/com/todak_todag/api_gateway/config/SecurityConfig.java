@@ -20,7 +20,10 @@ import com.todak_todag.api_gateway.authentication.ClientAuthenticationEntryPoint
 import com.todak_todag.api_gateway.authentication.ClientAuthenticationManager;
 import com.todak_todag.api_gateway.authentication.ClientCookieConverter;
 
-@EnableConfigurationProperties(AuthenticationProperties.class)
+@EnableConfigurationProperties({
+	AuthenticationProperties.class,
+	RefreshTokenProperties.class
+})
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
