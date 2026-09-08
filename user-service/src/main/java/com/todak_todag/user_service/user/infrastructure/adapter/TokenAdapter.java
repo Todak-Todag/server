@@ -43,21 +43,32 @@ public class TokenAdapter implements TokenPort {
 			@Value("${jwt.access.expiration}") Duration accessExpiration,
 			@Value("${jwt.secret}") String secretKey
 	) {
+		if(secretKey == null || secretKey.isBlank()) {
+			log.error("[User] 서버 구동에 있어서 SecretKey 는 필수입니다.");
+			
+			throw new IllegalArgumentException("서버 구동 실패 SecretKey is null");
+		}
+		
+		byte[] secretKeyBytes = Decoders.BASE64.decode(secretKey);
+		
+		if(secretKeyBytes.length < 64) {
+			log.error("[User] 서버 구동 실패 SecretKey 길이 부족 length={}",
+					secretKeyBytes.length
+			);
+			
+			throw new IllegalArgumentException("서버 구동 실패 invalid SecretKey length");
+		}
+		
 		if(accessExpiration == null || accessExpiration.isNegative()) {
 			log.error(
 					"[User] AccessToken 만료 시간 설정 실패 expiresAt={}/s",
-					accessExpiration.getSeconds()
+					accessExpiration == null ? null : accessExpiration.getSeconds()
 			);
 			throw new IllegalArgumentException("서버 구동에 AccessToken 만료 시간이 설정되어야 합니다.");
 		}
 		
-		if(secretKey == null || secretKey.isBlank()) {
-			log.error("[User] JWT Secret Key 값이 비어있습니다.");
-			throw new IllegalArgumentException("서버 구동에 JWT Secret Key가 필요합니다.");
-		}
-		
 		this.accessExpiration = accessExpiration;
-		this.key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey));
+		this.key = Keys.hmacShaKeyFor(secretKeyBytes);
 	}
 
 	// 암호학적 안전한 랜덤 난수로 32자리수 무작위 문자열 토큰 생성 - AccessToken, RefreshToken

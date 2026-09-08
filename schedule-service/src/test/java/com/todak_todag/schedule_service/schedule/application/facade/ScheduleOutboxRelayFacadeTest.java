@@ -169,13 +169,14 @@ class ScheduleOutboxRelayFacadeTest {
         UUID outboxEventId = UUID.randomUUID();
         UUID carePlanId = UUID.randomUUID();
         UUID serviceResultId = UUID.randomUUID();
-        String payload = "{\"serviceResultId\":\"" + serviceResultId + "\",\"status\":\"COMPLETED\"}";
+        String payload = "{\"carePlanId\":\"" + carePlanId + "\","
+                + "\"serviceResultId\":\"" + serviceResultId + "\",\"status\":\"COMPLETED\"}";
 
         ScheduleOutboxEventResult pending = new ScheduleOutboxEventResult(
                 outboxEventId, CarePlanCompletedEventPort.EVENT_TYPE, carePlanId, payload
         );
         CarePlanCompletedEvent event =
-                new CarePlanCompletedEvent(serviceResultId, ScheduleStatus.COMPLETED);
+                new CarePlanCompletedEvent(carePlanId, serviceResultId, ScheduleStatus.COMPLETED);
 
         given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(pending));
         given(carePlanCompletedEventPayloadSerializer.deserialize(payload)).willReturn(event);
@@ -198,7 +199,7 @@ class ScheduleOutboxRelayFacadeTest {
                 outboxEventId, CarePlanCompletedEventPort.EVENT_TYPE, UUID.randomUUID(), "{}"
         );
         CarePlanCompletedEvent event =
-                new CarePlanCompletedEvent(UUID.randomUUID(), ScheduleStatus.CANCELED);
+                new CarePlanCompletedEvent(UUID.randomUUID(), UUID.randomUUID(), ScheduleStatus.CANCELED);
 
         given(scheduleOutboxQueryService.findPending(anyInt())).willReturn(List.of(pending));
         given(carePlanCompletedEventPayloadSerializer.deserialize("{}")).willReturn(event);

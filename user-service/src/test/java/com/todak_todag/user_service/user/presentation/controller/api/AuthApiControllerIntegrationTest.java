@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,11 +30,15 @@ import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.config.MasterAccountInitializer;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
+import com.todak_todag.user_service.user.domain.entity.ConsentDocument;
+import com.todak_todag.user_service.user.domain.entity.ConsentDocumentVersion;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaAuthRepository;
+import com.todak_todag.user_service.user.infrastructure.persistence.JpaConsentDocumentRepository;
+import com.todak_todag.user_service.user.infrastructure.persistence.JpaConsentDocumentVersionRepository;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaRegionRepository;
 import com.todak_todag.user_service.user.infrastructure.persistence.JpaUserRepository;
 import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
@@ -65,6 +70,12 @@ class AuthApiControllerIntegrationTest {
 
 	@Autowired
 	private JpaAuthRepository jpaAuthRepository;
+
+	@Autowired
+	private JpaConsentDocumentRepository jpaConsentDocumentRepository;
+
+	@Autowired
+	private JpaConsentDocumentVersionRepository jpaConsentDocumentVersionRepository;
 
 	@Autowired
 	private PasswordEncoderPort passwordEncoder;
@@ -110,6 +121,21 @@ class AuthApiControllerIntegrationTest {
 		region.updateActive(true);
 
 		return jpaRegionRepository.save(region);
+	}
+
+	// 회원가입 시 필수 동의 대상이 되는, 현재 시행 중인 약관(문서+버전)을 만들고 버전 id를 돌려준다
+	private UUID saveCurrentRequiredConsentDocumentVersion() {
+		ConsentDocument consentDocument = jpaConsentDocumentRepository.save(
+				ConsentDocument.create(ConsentDocument.ConsentType.PERSONAL_INFORMATION, "개인정보 수집 이용 동의", true)
+		);
+
+		ConsentDocumentVersion version = jpaConsentDocumentVersionRepository.save(
+				ConsentDocumentVersion.create(
+						consentDocument.getId(), "v1", "약관 내용", LocalDateTime.now().minusDays(1)
+				)
+		);
+
+		return version.getId();
 	}
 
 	private User saveApprovedUser(String username) {
@@ -162,6 +188,7 @@ class AuthApiControllerIntegrationTest {
 		@DisplayName("정상 요청이면 201과 함께 PENDING 상태로 저장된다")
 		void signupTest_success() throws Exception {
 			Region region = saveAvailableRegion();
+			UUID consentDocumentVersionId = saveCurrentRequiredConsentDocumentVersion();
 
 			UserSignupRequest request = new UserSignupRequest(
 					UserRole.HOSPITAL_STAFF,
@@ -170,7 +197,7 @@ class AuthApiControllerIntegrationTest {
 					"홍길동",
 					"01011112222",
 					region.getId(),
-					List.of(new AgreementRequest(UUID.randomUUID(), true))
+					List.of(new AgreementRequest(consentDocumentVersionId, true))
 			);
 
 			mockMvc.perform(post("/api/v1/users/signup")

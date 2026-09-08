@@ -2,6 +2,7 @@ package com.todak_todag.schedule_service.global.security;
 
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,21 +22,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-// InternalResponseInterceptor는 /internal/v1/** 전체(06/10번 API 등)에 공통 적용되므로,
-// 특정 Controller가 아닌 Interceptor 자체의 동작을 여기서 별도로 검증한다.
-// preHandle 분기(누락/공백/불일치/일치)는 MockHttpServletRequest 기반 단위 테스트로,
-// 실제 /internal/v1/** 경로 등록과 401 응답 포맷은 MockMvc 통합 테스트로 나눠 검증한다.
+// Interceptor 자체의 동작을 여기서 별도로 검증
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
-class InternalResponseInterceptorTest {
+class InternalResponseInterceptorTest extends PostgresTestSupport {
 
     private static final String URI = "/internal/v1/service-results/{serviceResultId}";
 
     @Autowired
     private MockMvc mockMvc;
 
-    // src/test/resources/application.yaml의 internal.key — 값이 바뀌어도 테스트가 따라가도록 주입받는다
+    // src/test/resources/application.yaml의 internal.key — 값이 바뀌어도 테스트가 따라가도록 주입 받음
     @Value("${internal.key}")
     private String internalKey;
 
@@ -93,7 +91,6 @@ class InternalResponseInterceptorTest {
     @Test
     void 헤더_값의_길이가_달라도_예외로_처리한다() {
         // given
-        // MessageDigest.isEqual은 길이가 다른 배열도 예외 없이 false를 반환한다 (상수 시간 비교)
         InternalResponseInterceptor interceptor = new InternalResponseInterceptor(internalKey);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addHeader(InternalHeader.INTERNAL_KEY, internalKey + "extra");
@@ -141,7 +138,6 @@ class InternalResponseInterceptorTest {
     @Test
     void 내부_API_요청의_헤더_값이_일치하면_Interceptor를_통과해_Controller까지_도달한다() throws Exception {
         // given
-        // 존재하지 않는 ID이므로 Controller 로직에 의해 404가 반환된다 — 401이 아니라는 점이 Interceptor 통과의 증거
         UUID notExistingId = UUID.randomUUID();
 
         // when & then
@@ -153,8 +149,6 @@ class InternalResponseInterceptorTest {
     @Test
     void 외부_API_경로에는_Interceptor가_적용되지_않는다() throws Exception {
         // given
-        // Interceptor는 /internal/v1/**에만 등록되므로, 외부 API는 헤더가 없어도 401이 아니어야 한다
-        // (인증 주체가 없어 UserContext가 비므로 401 외의 다른 응답으로 처리된다)
 
         // when & then
         mockMvc.perform(get("/api/v1/service-schedules/{serviceScheduleId}", UUID.randomUUID()))
