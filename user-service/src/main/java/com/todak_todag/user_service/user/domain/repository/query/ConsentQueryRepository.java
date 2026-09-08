@@ -13,4 +13,10 @@ public interface ConsentQueryRepository {
 
     // 사용자의 약관 동의 및 철회 이력 조회
     List<ConsentHistoryView> findAllByUserId(UUID userId);
+
+    // 필수 약관 몇 개 동의 했는지 조회
+    long countAgreedConsents(
+            UUID userId,
+            List<UUID> consentDocumentVersionIds
+    );
 }

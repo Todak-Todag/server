@@ -285,5 +285,13 @@ public class User extends BaseAuditableEntity {
 		
 		throw new BusinessException(UserErrorCode.USER_MODIFY_STATE);
 	}
-	
+
+	// 생성된 아이디를 통해 환자가 로그인 후
+	// 필수 약관 동의 시 승인 상태로 변경.
+	public void approveFromRequiredConsent() {
+		if (isPatient() && isWithdrawn()) {
+			this.status = UserStatus.APPROVED;
+			this.statusChangeReason = null;
+		}
+	}
 }

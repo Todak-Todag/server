@@ -7,10 +7,13 @@ import com.todak_todag.user_service.user.application.command.ConsentWithdrawComm
 import com.todak_todag.user_service.user.application.result.ConsentCreateResult;
 import com.todak_todag.user_service.user.application.result.ConsentWithdrawResult;
 import com.todak_todag.user_service.user.domain.entity.Consent;
+import com.todak_todag.user_service.user.domain.entity.user.User;
+import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.domain.repository.command.ConsentCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentCurrentView;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentQueryRepository;
+import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,12 +47,492 @@ class ConsentCommandServiceTest {
     @Mock
     private ConsentCommandRepository consentCommandRepository;
 
+    @Mock
+    private UserQueryRepository userQueryRepository;
+
     @InjectMocks
     private ConsentCommandService consentCommandService;
 
     @Nested
     @DisplayName("약관 동의")
     class CreateConsent {
+
+        @Test
+        @DisplayName("필수 약관을 모두 동의하지 않은 환자는 WITHDRAWN 상태를 유지한다")
+        void create_requiredConsentNotCompleted_patientRemainsWithdrawn() {
+            // given
+            UUID userId = UUID.randomUUID();
+
+            UUID requestedVersionId = UUID.randomUUID();
+            UUID otherRequiredVersionId = UUID.randomUUID();
+
+            UUID consentId = UUID.randomUUID();
+
+            ConsentCreateCommand command =
+                    new ConsentCreateCommand(
+                            userId,
+                            List.of(requestedVersionId)
+                    );
+
+            ConsentDocumentCurrentView requestedVersion =
+                    new ConsentDocumentCurrentView(
+                            UUID.randomUUID(),
+                            requestedVersionId,
+                            "PERSONAL_INFORMATION",
+                            "개인정보 수집 및 이용 동의",
+                            "1.0",
+                            true
+                    );
+
+            ConsentDocumentCurrentView otherRequiredVersion =
+                    new ConsentDocumentCurrentView(
+                            UUID.randomUUID(),
+                            otherRequiredVersionId,
+                            "SENSITIVE_INFORMATION",
+                            "민감정보 수집 및 이용 동의",
+                            "1.0",
+                            true
+                    );
+
+            User patient = User.createPatient(
+                    UUID.randomUUID(),
+                    "patient",
+                    "passwordHash",
+                    "환자",
+                    "010-1111-2222",
+                    "서울시 테스트 주소"
+            );
+
+            given(
+                    consentDocumentQueryRepository
+                            .findAllCurrentByVersionIds(
+                                    anyList(),
+                                    any()
+                            )
+            ).willReturn(
+                    List.of(requestedVersion)
+            );
+
+            given(
+                    consentQueryRepository.existsAgreedConsent(
+                            userId,
+                            List.of(requestedVersionId)
+                    )
+            ).willReturn(false);
+
+            Consent savedConsent =
+                    org.mockito.Mockito.mock(
+                            Consent.class
+                    );
+
+            given(savedConsent.getId())
+                    .willReturn(consentId);
+
+            given(
+                    consentCommandRepository.saveAll(
+                            anyList()
+                    )
+            ).willReturn(
+                    List.of(savedConsent)
+            );
+
+            given(
+                    userQueryRepository.findById(userId)
+            ).willReturn(
+                    Optional.of(patient)
+            );
+
+            // 현재 적용 중인 필수 약관은 총 2개
+            given(
+                    consentDocumentQueryRepository
+                            .findAllCurrent(any())
+            ).willReturn(
+                    List.of(
+                            requestedVersion,
+                            otherRequiredVersion
+                    )
+            );
+
+            // 사용자가 AGREED 상태로 가지고 있는 필수 약관은 1개
+            given(
+                    consentQueryRepository.countAgreedConsents(
+                            userId,
+                            List.of(
+                                    requestedVersionId,
+                                    otherRequiredVersionId
+                            )
+                    )
+            ).willReturn(1L);
+
+            // when
+            consentCommandService.create(command);
+
+            // then
+            assertThat(patient.getStatus())
+                    .isEqualTo(UserStatus.WITHDRAWN);
+
+            then(consentQueryRepository)
+                    .should()
+                    .countAgreedConsents(
+                            userId,
+                            List.of(
+                                    requestedVersionId,
+                                    otherRequiredVersionId
+                            )
+                    );
+        }
+
+        @Test
+        @DisplayName("현재 필수 약관을 모두 동의한 WITHDRAWN 환자는 APPROVED 상태가 된다")
+        void create_allRequiredConsentCompleted_withdrawnPatientApproved() {
+            // given
+            UUID userId = UUID.randomUUID();
+
+            UUID versionId1 = UUID.randomUUID();
+            UUID versionId2 = UUID.randomUUID();
+
+            UUID consentId = UUID.randomUUID();
+
+            // 이번 요청에서는 마지막 남은 필수 약관에 동의
+            ConsentCreateCommand command =
+                    new ConsentCreateCommand(
+                            userId,
+                            List.of(versionId2)
+                    );
+
+            ConsentDocumentCurrentView requiredVersion1 =
+                    new ConsentDocumentCurrentView(
+                            UUID.randomUUID(),
+                            versionId1,
+                            "PERSONAL_INFORMATION",
+                            "개인정보 수집 및 이용 동의",
+                            "1.0",
+                            true
+                    );
+
+            ConsentDocumentCurrentView requiredVersion2 =
+                    new ConsentDocumentCurrentView(
+                            UUID.randomUUID(),
+                            versionId2,
+                            "SENSITIVE_INFORMATION",
+                            "민감정보 수집 및 이용 동의",
+                            "1.0",
+                            true
+                    );
+
+            User patient = User.createPatient(
+                    UUID.randomUUID(),
+                    "patient",
+                    "passwordHash",
+                    "환자",
+                    "010-1111-2222",
+                    "서울시 테스트 주소"
+            );
+
+            assertThat(patient.getStatus())
+                    .isEqualTo(UserStatus.WITHDRAWN);
+
+            // 이번 요청에 포함된 versionId2가 현재 적용 버전인지 검증
+            given(
+                    consentDocumentQueryRepository
+                            .findAllCurrentByVersionIds(
+                                    anyList(),
+                                    any()
+                            )
+            ).willReturn(
+                    List.of(requiredVersion2)
+            );
+
+            given(
+                    consentQueryRepository.existsAgreedConsent(
+                            userId,
+                            List.of(versionId2)
+                    )
+            ).willReturn(false);
+
+            Consent savedConsent =
+                    org.mockito.Mockito.mock(
+                            Consent.class
+                    );
+
+            given(savedConsent.getId())
+                    .willReturn(consentId);
+
+            given(
+                    consentCommandRepository.saveAll(
+                            anyList()
+                    )
+            ).willReturn(
+                    List.of(savedConsent)
+            );
+
+            given(
+                    userQueryRepository.findById(userId)
+            ).willReturn(
+                    Optional.of(patient)
+            );
+
+            // 현재 필수 약관 전체
+            given(
+                    consentDocumentQueryRepository
+                            .findAllCurrent(any())
+            ).willReturn(
+                    List.of(
+                            requiredVersion1,
+                            requiredVersion2
+                    )
+            );
+
+            // 기존 1개 + 이번에 저장한 1개 = 모두 AGREED
+            given(
+                    consentQueryRepository.countAgreedConsents(
+                            userId,
+                            List.of(
+                                    versionId1,
+                                    versionId2
+                            )
+                    )
+            ).willReturn(2L);
+
+            // when
+            consentCommandService.create(command);
+
+            // then
+            assertThat(patient.getStatus())
+                    .isEqualTo(UserStatus.APPROVED);
+
+            then(userQueryRepository)
+                    .should()
+                    .findById(userId);
+
+            then(consentQueryRepository)
+                    .should()
+                    .countAgreedConsents(
+                            userId,
+                            List.of(
+                                    versionId1,
+                                    versionId2
+                            )
+                    );
+        }
+
+        @Test
+        @DisplayName("이미 APPROVED 상태인 환자는 필수 약관 완료 여부를 다시 검사하지 않는다")
+        void create_alreadyApprovedPatient_doesNotChangeStatus() {
+            // given
+            UUID userId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+            UUID consentId = UUID.randomUUID();
+
+            ConsentCreateCommand command =
+                    new ConsentCreateCommand(
+                            userId,
+                            List.of(versionId)
+                    );
+
+            ConsentDocumentCurrentView currentVersion =
+                    new ConsentDocumentCurrentView(
+                            UUID.randomUUID(),
+                            versionId,
+                            "MARKETING_INFORMATION",
+                            "마케팅 정보 수신 동의",
+                            "1.0",
+                            false
+                    );
+
+            given(
+                    consentDocumentQueryRepository
+                            .findAllCurrentByVersionIds(
+                                    anyList(),
+                                    any()
+                            )
+            ).willReturn(
+                    List.of(currentVersion)
+            );
+
+            given(
+                    consentQueryRepository.existsAgreedConsent(
+                            userId,
+                            List.of(versionId)
+                    )
+            ).willReturn(false);
+
+            Consent savedConsent =
+                    org.mockito.Mockito.mock(
+                            Consent.class
+                    );
+
+            given(savedConsent.getId())
+                    .willReturn(consentId);
+
+            given(
+                    consentCommandRepository.saveAll(
+                            anyList()
+                    )
+            ).willReturn(
+                    List.of(savedConsent)
+            );
+
+            User user =
+                    org.mockito.Mockito.mock(User.class);
+
+            given(user.isPatient())
+                    .willReturn(true);
+
+            given(user.isWithdrawn())
+                    .willReturn(false);
+
+            given(
+                    userQueryRepository.findById(userId)
+            ).willReturn(
+                    Optional.of(user)
+            );
+
+            // when
+            consentCommandService.create(command);
+
+            // then
+            then(consentDocumentQueryRepository)
+                    .shouldHaveNoMoreInteractions();
+
+            then(consentQueryRepository)
+                    .shouldHaveNoMoreInteractions();
+        }
+
+        @Test
+        @DisplayName("선택 약관에 동의하지 않아도 필수 약관을 모두 동의하면 APPROVED 상태가 된다")
+        void create_optionalConsentNotAgreed_requiredCompleted_patientApproved() {
+            // given
+            UUID userId = UUID.randomUUID();
+
+            UUID requiredVersionId1 = UUID.randomUUID();
+            UUID requiredVersionId2 = UUID.randomUUID();
+            UUID optionalVersionId = UUID.randomUUID();
+
+            UUID consentId = UUID.randomUUID();
+
+            ConsentCreateCommand command =
+                    new ConsentCreateCommand(
+                            userId,
+                            List.of(requiredVersionId2)
+                    );
+
+            ConsentDocumentCurrentView requiredVersion1 =
+                    new ConsentDocumentCurrentView(
+                            UUID.randomUUID(),
+                            requiredVersionId1,
+                            "PERSONAL_INFORMATION",
+                            "개인정보 수집 및 이용 동의",
+                            "1.0",
+                            true
+                    );
+
+            ConsentDocumentCurrentView requiredVersion2 =
+                    new ConsentDocumentCurrentView(
+                            UUID.randomUUID(),
+                            requiredVersionId2,
+                            "SENSITIVE_INFORMATION",
+                            "민감정보 수집 및 이용 동의",
+                            "1.0",
+                            true
+                    );
+
+            ConsentDocumentCurrentView optionalVersion =
+                    new ConsentDocumentCurrentView(
+                            UUID.randomUUID(),
+                            optionalVersionId,
+                            "MARKETING_INFORMATION",
+                            "마케팅 정보 수신 동의",
+                            "1.0",
+                            false
+                    );
+
+            User patient = User.createPatient(
+                    UUID.randomUUID(),
+                    "patient",
+                    "passwordHash",
+                    "환자",
+                    "010-1111-2222",
+                    "서울시 테스트 주소"
+            );
+
+            given(
+                    consentDocumentQueryRepository
+                            .findAllCurrentByVersionIds(
+                                    anyList(),
+                                    any()
+                            )
+            ).willReturn(
+                    List.of(requiredVersion2)
+            );
+
+            given(
+                    consentQueryRepository.existsAgreedConsent(
+                            userId,
+                            List.of(requiredVersionId2)
+                    )
+            ).willReturn(false);
+
+            Consent savedConsent =
+                    org.mockito.Mockito.mock(
+                            Consent.class
+                    );
+
+            given(savedConsent.getId())
+                    .willReturn(consentId);
+
+            given(
+                    consentCommandRepository.saveAll(anyList())
+            ).willReturn(
+                    List.of(savedConsent)
+            );
+
+            given(
+                    userQueryRepository.findById(userId)
+            ).willReturn(
+                    Optional.of(patient)
+            );
+
+            // 현재 약관에는 선택 약관도 포함되어 있음
+            given(
+                    consentDocumentQueryRepository
+                            .findAllCurrent(any())
+            ).willReturn(
+                    List.of(
+                            requiredVersion1,
+                            requiredVersion2,
+                            optionalVersion
+                    )
+            );
+
+            // count 대상은 필수 약관 두 개뿐
+            given(
+                    consentQueryRepository.countAgreedConsents(
+                            userId,
+                            List.of(
+                                    requiredVersionId1,
+                                    requiredVersionId2
+                            )
+                    )
+            ).willReturn(2L);
+
+            // when
+            consentCommandService.create(command);
+
+            // then
+            assertThat(patient.getStatus())
+                    .isEqualTo(UserStatus.APPROVED);
+
+            then(consentQueryRepository)
+                    .should()
+                    .countAgreedConsents(
+                            userId,
+                            List.of(
+                                    requiredVersionId1,
+                                    requiredVersionId2
+                            )
+                    );
+        }
 
         @Test
         @DisplayName("현재 적용 중인 여러 약관 버전에 동의한다")
@@ -141,6 +624,20 @@ class ConsentCommandServiceTest {
                             savedConsent2
                     )
             );
+
+            // 일반적인 약관 동의 성공 검증이 목적이므로
+// 환자 재활성화 로직은 진행하지 않도록 설정
+            User user =
+                    org.mockito.Mockito.mock(User.class);
+
+            given(
+                    userQueryRepository.findById(userId)
+            ).willReturn(
+                    Optional.of(user)
+            );
+
+            given(user.isPatient())
+                    .willReturn(false);
 
             // when
             ConsentCreateResult result =
