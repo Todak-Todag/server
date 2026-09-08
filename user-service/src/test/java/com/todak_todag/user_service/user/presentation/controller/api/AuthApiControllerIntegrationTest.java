@@ -273,9 +273,11 @@ class AuthApiControllerIntegrationTest {
 			for (String cookie : List.of(accessCookie, refreshCookie)) {
 				assertThat(cookie).contains("HttpOnly");
 				assertThat(cookie).contains("SameSite=Strict");
-				assertThat(cookie).contains("Max-Age=604800"); // 7일
 				assertThat(cookie).doesNotContain("Secure"); // 로컬/테스트 profile = false
 			}
+
+			assertThat(accessCookie).contains("Max-Age=1800"); // jwt.access.max-age = 30m
+			assertThat(refreshCookie).contains("Max-Age=604800"); // jwt.refresh.max-age = 7d
 		}
 
 		@Test
