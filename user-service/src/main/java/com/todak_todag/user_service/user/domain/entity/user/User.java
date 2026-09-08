@@ -158,6 +158,16 @@ public class User extends BaseAuditableEntity {
 		}
 	}
 	
+	public void delete(UUID deletedBy) {
+		this.markDeleted(deletedBy);
+		this.username = UUID.randomUUID().toString();
+		this.name = "DELETE";
+		this.phone = "01000000000";
+		this.regionId = null;
+		this.address = null;
+		this.passwordHash = "DELETE";
+	}
+	
 	public void changePassword(String passwordHash) {
 		validateApproved();
 		

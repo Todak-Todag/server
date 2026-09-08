@@ -1,12 +1,17 @@
 package com.todak_todag.user_service.user.application.service.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -17,6 +22,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -28,16 +34,20 @@ import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
+import com.todak_todag.user_service.user.application.command.UserDeleteCommand;
 import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
 import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
 import com.todak_todag.user_service.user.application.command.UserUpdateCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
+import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.application.result.UserUpdateResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
+import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
+import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -67,6 +77,12 @@ class UserUpdateServiceTest {
 
 	@Mock
 	private AddressValidator addressValidator;
+
+	@Mock
+	private TokenStorePort tokenStorePort;
+
+	@Mock
+	private AuthQueryRepository authQueryRepo;
 
 	@InjectMocks
 	private UserUpdateService userUpdateService;
@@ -165,6 +181,16 @@ class UserUpdateServiceTest {
 	) {
 		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
 		return new UserSuspendCommand(TARGET_ID, suspendReason, requester);
+	}
+
+	private static UserDeleteCommand deleteCommand(
+			String currentPassword,
+			String accessToken,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
+		return new UserDeleteCommand(currentPassword, accessToken, requester);
 	}
 
 	@Nested
@@ -718,6 +744,208 @@ class UserUpdateServiceTest {
 					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
 
 			verify(addressValidator, never()).updateAddressValidate(any());
+		}
+	}
+
+	@Nested
+	@DisplayName("회원탈퇴")
+	class UserDelete {
+
+		@Test
+		@DisplayName("요청자가 존재하지 않으면 USER_NOT_FOUND 예외가 발생하고 이후 처리를 하지 않는다")
+		void userDeleteTest_fail_requesterNotFound() {
+			// Given
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.empty());
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.userDelete(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+			verify(passwordEncoder, never()).matches(any(), any());
+			verify(tokenStorePort, never()).deleteAccessToken(any());
+		}
+
+		@Test
+		@DisplayName("현재 비밀번호가 일치하지 않으면 USER_INVALID_CURRENT_PASSWORD 예외가 발생하고 탈퇴 처리하지 않는다")
+		void userDeleteTest_fail_passwordMismatch() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			String originalUsername = target.getUsername();
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("wrongPw123!", target.getPasswordHash())).willReturn(false);
+
+			UserDeleteCommand command = deleteCommand(
+					"wrongPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.userDelete(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
+
+			assertThat(target.isDeleted()).isFalse();
+			assertThat(target.getUsername()).isEqualTo(originalUsername);
+			verify(tokenStorePort, never()).deleteAccessToken(any());
+		}
+
+		@Test
+		@DisplayName("탈퇴 처리되면 개인정보(username/name/phone/regionId/address/passwordHash)가 임의의 값으로 대체된다")
+		void userDeleteTest_success_personalDataIsAnonymized() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			String originalUsername = target.getUsername();
+			ReflectionTestUtils.setField(target, "address", "전라남도 고흥군 도양읍");
+
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(target.getUsername()).isNotEqualTo(originalUsername);
+			assertThat(target.getName()).isEqualTo("DELETE");
+			assertThat(target.getPhone()).isEqualTo("01000000000");
+			assertThat(target.getRegionId()).isNull();
+			assertThat(target.getAddress()).isNull();
+			assertThat(target.getPasswordHash()).isEqualTo("DELETE");
+		}
+
+		@Test
+		@DisplayName("현재 비밀번호가 일치하면 탈퇴 처리되고 저장된 액세스 토큰이 삭제된다")
+		void userDeleteTest_success() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(target.isDeleted()).isTrue();
+			verify(tokenStorePort, times(1)).deleteAccessToken("access-token-value");
+		}
+
+		@Test
+		@DisplayName("탈퇴 처리 시 deletedBy 에는 요청자 본인의 식별자가 기록된다")
+		void userDeleteTest_success_deletedByIsRequester() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(target.getDeletedBy()).isEqualTo(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("accessToken이 없어도(null) 예외 없이 탈퇴 처리되고, 삭제 포트에는 넘어온 값 그대로 전달된다")
+		void userDeleteTest_success_accessTokenNullIsPassedThrough() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", null, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(target.isDeleted()).isTrue();
+			verify(tokenStorePort, times(1)).deleteAccessToken(isNull());
+		}
+
+		@Test
+		@DisplayName("탈퇴 시 활성 로그인 세션이 있으면 로그아웃(만료) 처리된다")
+		void userDeleteTest_success_expiresActiveLoginSession() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+
+			Auth activeSession = Auth.login(
+					TARGET_ID, "refresh-token-hash", LocalDateTime.now().plusDays(7), LocalDateTime.now()
+			);
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.of(activeSession));
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(activeSession.getLogoutAt()).isNotNull();
+		}
+
+		@Test
+		@DisplayName("탈퇴 시 활성 로그인 세션이 없어도 예외 없이 탈퇴 처리된다")
+		void userDeleteTest_success_noActiveLoginSession() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatCode(() -> userUpdateService.userDelete(command)).doesNotThrowAnyException();
+			assertThat(target.isDeleted()).isTrue();
+		}
+
+		@Test
+		@DisplayName("정상 흐름은 요청자 조회 - 비밀번호 검증 - 로그인 세션 조회 - 액세스 토큰 삭제 순서로 수행된다")
+		void userDeleteTest_executionOrder() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			String originalPasswordHash = target.getPasswordHash();
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(passwordEncoder.matches("currentPw123!", originalPasswordHash)).willReturn(true);
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", "access-token-value", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			InOrder order = inOrder(userQueryRepo, passwordEncoder, authQueryRepo, tokenStorePort);
+			order.verify(userQueryRepo).findActiveById(TARGET_ID);
+			order.verify(passwordEncoder).matches("currentPw123!", originalPasswordHash);
+			order.verify(authQueryRepo).findActiveByUserId(TARGET_ID);
+			order.verify(tokenStorePort).deleteAccessToken("access-token-value");
 		}
 	}
 }
