@@ -19,6 +19,8 @@ import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 public class CarePlanOutboxCommandServiceTest {
+    UUID outboxEventId = UUID.randomUUID();
+
     @Mock
     private CarePlanOutboxEventCommandRepository carePlanOutboxEventCommandRepository;
 
@@ -34,8 +36,6 @@ public class CarePlanOutboxCommandServiceTest {
     @Test
     @DisplayName("RabbitMQ 발행 성공 시 Outbox 이벤트를 SENT 상태로 변경")
     void markSent_success() {
-        UUID outboxEventId = UUID.randomUUID();
-
         CarePlanOutboxEvent event = CarePlanOutboxEvent.create(
                 UUID.randomUUID(),
                 "{}"
@@ -47,6 +47,28 @@ public class CarePlanOutboxCommandServiceTest {
 
         assertThat(event.getStatus()).isEqualTo(CarePlanOutboxEventStatus.SENT);
         assertThat(event.getPublishedAt()).isNotNull();
+
+        verify(carePlanOutboxEventCommandRepository).save(event);
+    }
+
+    @Test
+    @DisplayName("RabbitMQ 발행 실패 시 retryCount를 증가시키고 PENDING 상태를 유지")
+    void recordFailure_retry() {
+        CarePlanOutboxEvent event = CarePlanOutboxEvent.create(
+                UUID.randomUUID(),
+                "{}"
+        );
+
+        given(carePlanOutboxEventCommandRepository.findById(outboxEventId)).willReturn(Optional.of(event));
+
+        carePlanOutboxCommandService.recordFailure(
+                outboxEventId,
+                "RabbitMQ connection failed"
+        );
+
+        assertThat(event.getRetryCount()).isEqualTo(1);
+        assertThat(event.getStatus()).isEqualTo(CarePlanOutboxEventStatus.PENDING);
+        assertThat(event.getLastErrorMessage()).isEqualTo("RabbitMQ connection failed");
 
         verify(carePlanOutboxEventCommandRepository).save(event);
     }
