@@ -1,34 +1,22 @@
 server:
-  port: 19003
+  port: ${SERVER_PORT:19003}
 
 spring:
   application:
     name: provider-service
 
+  # datasource / jpa / rabbitmq 접속 정보, ddl-auto, tracing 등 환경별로 달라지는 값은
+  # config-repo가 내려주며 여기 있는 값보다 우선한다
+  # 이 파일에는 config-repo에 없는 애플리케이션 고유 설정만 둔다
   config:
     import:
       - "optional:file:.env[.properties]"
       - "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
 
-  datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
-    username: ${POSTGRES_USERNAME:postgres}
-    password: ${POSTGRES_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
-
   jpa:
     open-in-view: false
-    properties:
-      hibernate:
-        default_schema: provider_schema
-        default_batch_fetch_size: 100
 
   rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
-
     # 수신 재시도 3회, DLQ 미운용
     # 재시도를 소진하면 메시지를 폐기한다 (재큐잉하면 무한 반복)
     listener:
@@ -58,29 +46,14 @@ management:
     health:
       show-details: never
 
-  tracing:
-    sampling:
-      probability: 1.0
-
-    export:
-      zipkin:
-        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
-
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: alpha
 
-internal:
-  key: ${INTERNAL_API_KEY}
-
 logging:
   level:
     com.todak_todag.provider_service: info
-
-eureka:
-  instance:
-    hostname: localhost
 
 ---
 spring:
@@ -88,37 +61,12 @@ spring:
     activate:
       on-profile: local
 
-  jpa:
-    show-sql: true
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        format_sql: true
-        hbm2ddl:
-          create_namespaces: true
-
 logging:
   level:
     com.todak_todag.provider_service: debug
 
----
-spring:
-  config:
-    activate:
-      on-profile: prod
-
-  jpa:
-    show-sql: false
-    hibernate:
-      ddl-auto: validate
-
-    # TODO: Flyway/Liquibase 도입 후 제거
-    properties:
-      hibernate:
-        hbm2ddl:
-          create_namespaces: true
-
-logging:
-  level:
-    com.todak_todag.provider_service: info
+# 호스트명이나 WSL 어댑터 IP로 등록되면 게이트웨이가 접근하지 못한다
+# 운영에서는 실제 호스트로 등록되어야 하므로 local에만 둔다
+eureka:
+  instance:
+    hostname: localhost
