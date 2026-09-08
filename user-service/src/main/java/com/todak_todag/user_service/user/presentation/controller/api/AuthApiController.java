@@ -14,6 +14,7 @@ import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.AuthLogoutCommand;
 import com.todak_todag.user_service.user.application.result.AuthLoginResult;
+import com.todak_todag.user_service.user.application.result.AuthReissueResult;
 import com.todak_todag.user_service.user.application.service.command.AuthCommandService;
 import com.todak_todag.user_service.user.presentation.cookie.CookieProvider;
 import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
@@ -155,11 +156,14 @@ public class AuthApiController implements AuthApiSpec {
 			HttpServletRequest httpServletRequest
 	) {
 		
-		String refreshToken = cookieProvider.getCookieValue(refreshTokenCookieName, httpServletRequest);
+		String refreshTokenFromCookie = cookieProvider.getCookieValue(refreshTokenCookieName, httpServletRequest);
 		
+		AuthReissueResult result = authCommandService.reissue(refreshTokenFromCookie);
 		
+		cookieProvider.addCookie(accessTokenCookieName, accessMaxAge, result.newAccessToken(), httpServletResponse);
+		cookieProvider.addCookie(refreshTokenCookieName, refreshMaxAge, result.newRefershToken(), httpServletResponse);
 		
-		return null;
+		return ResponseEntity.noContent().build();
 	}
 	
 	

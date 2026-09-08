@@ -466,4 +466,168 @@ class AuthApiControllerIntegrationTest {
 					.andExpect(status().isForbidden());
 		}
 	}
+
+	@Nested
+	@DisplayName("토큰 재발급")
+	class Reissue {
+
+		private MvcResult login(String username) throws Exception {
+			return mockMvc.perform(post("/api/v1/auth/login")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(new UserLoginRequest(username, RAW_PASSWORD))))
+					.andExpect(status().isNoContent())
+					.andReturn();
+		}
+
+		private Auth findSessionOf(User user) {
+			return jpaAuthRepository.findAll().stream()
+					.filter(auth -> auth.getUserId().equals(user.getId()))
+					.findFirst()
+					.orElseThrow();
+		}
+
+		@Test
+		@DisplayName("성공하면 204와 함께 새 AccessToken/RefreshToken 쿠키가 올바른 속성으로 내려온다")
+		void reissueTest_success_setsCookiesWithExpectedAttributes() throws Exception {
+			String username = "reissuetest1";
+			saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String refreshToken = extractCookieValue(loginResult, "RefreshToken");
+
+			MvcResult result = mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", refreshToken)))
+					.andExpect(status().isNoContent())
+					.andReturn();
+
+			String accessCookie = extractSetCookieHeader(result, "AccessToken");
+			String refreshCookie = extractSetCookieHeader(result, "RefreshToken");
+
+			for (String cookie : List.of(accessCookie, refreshCookie)) {
+				assertThat(cookie).contains("HttpOnly");
+				assertThat(cookie).contains("SameSite=Strict");
+				assertThat(cookie).doesNotContain("Secure"); // 로컬/테스트 profile = false
+			}
+
+			assertThat(accessCookie).contains("Max-Age=1800"); // jwt.access.max-age = 30m
+			assertThat(refreshCookie).contains("Max-Age=604800"); // jwt.refresh.max-age = 7d
+		}
+
+		@Test
+		@DisplayName("성공하면 새로 발급된 AccessToken/RefreshToken은 기존 값과 다르다")
+		void reissueTest_success_issuesDifferentTokens() throws Exception {
+			String username = "reissuetest2";
+			saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String oldAccessToken = extractCookieValue(loginResult, "AccessToken");
+			String oldRefreshToken = extractCookieValue(loginResult, "RefreshToken");
+
+			MvcResult reissueResult = mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", oldRefreshToken)))
+					.andExpect(status().isNoContent())
+					.andReturn();
+
+			String newAccessToken = extractCookieValue(reissueResult, "AccessToken");
+			String newRefreshToken = extractCookieValue(reissueResult, "RefreshToken");
+
+			assertThat(newAccessToken).isNotEqualTo(oldAccessToken);
+			assertThat(newRefreshToken).isNotEqualTo(oldRefreshToken);
+		}
+
+		@Test
+		@DisplayName("성공하면 DB 세션의 RefreshToken 해시가 새 값으로 회전된다")
+		void reissueTest_success_rotatesStoredRefreshTokenHash() throws Exception {
+			String username = "reissuetest3";
+			User user = saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String oldRefreshToken = extractCookieValue(loginResult, "RefreshToken");
+			String hashBefore = findSessionOf(user).getRefreshTokenHash();
+
+			mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", oldRefreshToken)))
+					.andExpect(status().isNoContent());
+
+			assertThat(findSessionOf(user).getRefreshTokenHash()).isNotEqualTo(hashBefore);
+		}
+
+		@Test
+		@DisplayName("성공하면 새 AccessToken이 Redis에 저장된다")
+		void reissueTest_success_storesNewAccessTokenInRedis() throws Exception {
+			String username = "reissuetest4";
+			saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String oldRefreshToken = extractCookieValue(loginResult, "RefreshToken");
+
+			MvcResult reissueResult = mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", oldRefreshToken)))
+					.andExpect(status().isNoContent())
+					.andReturn();
+
+			String newAccessToken = extractCookieValue(reissueResult, "AccessToken");
+			String redisKey = accessKeyPrefix + tokenPort.hashToken(newAccessToken);
+
+			String storedJwt = redisTemplate.opsForValue().get(redisKey);
+
+			assertThat(storedJwt).isNotBlank();
+			assertThat(storedJwt.split("\\.")).hasSize(3); // JWT header.payload.signature
+		}
+
+		@Test
+		@DisplayName("회전 이후 예전 RefreshToken으로 재시도하면 401 AUTH_REFRESH_TOKEN_INVALID를 반환한다")
+		void reissueTest_reusedOldRefreshToken_returnsInvalid() throws Exception {
+			String username = "reissuetest5";
+			saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String oldRefreshToken = extractCookieValue(loginResult, "RefreshToken");
+
+			mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", oldRefreshToken)))
+					.andExpect(status().isNoContent());
+
+			mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", oldRefreshToken)))
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.error.errorCode").value("AUTH_REFRESH_TOKEN_INVALID"));
+		}
+
+		@Test
+		@DisplayName("RefreshToken 쿠키 없이 요청하면 401 AUTH_REFRESH_TOKEN_INVALID를 반환한다")
+		void reissueTest_withoutRefreshTokenCookie_returnsInvalid() throws Exception {
+			mockMvc.perform(post("/api/v1/auth/reissue"))
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.error.errorCode").value("AUTH_REFRESH_TOKEN_INVALID"));
+		}
+
+		@Test
+		@DisplayName("RefreshToken 형식이 올바르지 않으면 401 AUTH_REFRESH_TOKEN_INVALID를 반환한다")
+		void reissueTest_malformedRefreshToken_returnsInvalid() throws Exception {
+			mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", "too-short-token")))
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.error.errorCode").value("AUTH_REFRESH_TOKEN_INVALID"));
+		}
+
+		@Test
+		@DisplayName("만료된 세션의 RefreshToken이면 401 AUTH_REFRESH_TOKEN_EXPIRED를 반환한다")
+		void reissueTest_expiredSession_returnsExpired() throws Exception {
+			String username = "reissuetest6";
+			User user = saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String refreshToken = extractCookieValue(loginResult, "RefreshToken");
+
+			Auth session = findSessionOf(user);
+			session.renew(session.getRefreshTokenHash(), LocalDateTime.now().minusMinutes(1));
+			jpaAuthRepository.save(session);
+
+			mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", refreshToken)))
+					.andExpect(status().isUnauthorized())
+					.andExpect(jsonPath("$.error.errorCode").value("AUTH_REFRESH_TOKEN_EXPIRED"));
+		}
+	}
 }

@@ -17,6 +17,7 @@ import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.AuthLoginResult;
+import com.todak_todag.user_service.user.application.result.AuthReissueResult;
 import com.todak_todag.user_service.user.application.support.TokenValidator;
 import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
@@ -79,7 +80,7 @@ public class AuthCommandService {
 		this.userQueryRepo = userQueryRepo;
 	}
 	
-	public void reissue(String refreshToken) {
+	public AuthReissueResult reissue(String refreshToken) {
 		// 1. 리프레시 토큰 검증
 		tokenValidator.validateRefreshTokenCookie(refreshToken);
 		
@@ -96,7 +97,7 @@ public class AuthCommandService {
 		loginSession.validateExpiration(now);
 		
 		// 5. 세션 소유자 조회 -> 계정 상태 조회.. 조회 되면 Approved 상태이며 삭제되지 않은 것
-		User user = userQueryRepo.findActiveById(loginSession.getId())
+		User user = userQueryRepo.findActiveById(loginSession.getUserId())
 				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 		
 		// 6. 새로운 토큰 발급
@@ -111,6 +112,8 @@ public class AuthCommandService {
 		
 		// 8. Redis 저장
 		tokenStorePort.storeAccessToken(newAccessToken, newJwtAccessToken);
+		
+		return new AuthReissueResult(newAccessToken, newRefreshToken);
 	}
 	
 	public void logout(AuthLogoutCommand command) {
