@@ -15,13 +15,13 @@ spring:
   application:
     name: schedule-service
 
+  # 접속 정보(url/username/password)는 PostgresTestSupport가 Testcontainers 컨테이너 기준으로 주입
   datasource:
-    url: jdbc:postgresql://localhost:5432/todaktodag_db
-    username: postgres
-    password: postgres
     driver-class-name: org.postgresql.Driver
     hikari:
-      initialization-fail-timeout: -1
+      # 컨텍스트마다 풀이 하나씩 생겨 기본값(10)이면 11개 x 10 = 110 > max_connections 100으로 고갈
+      maximum-pool-size: 5
+      minimum-idle: 1
 
   # 운영(config-repo)과 동일한 수신 재시도 설정 — 3회, DLQ 미운용
   rabbitmq:
@@ -71,7 +71,8 @@ management:
       enabled: false
 
   tracing:
-    enabled: false
+    export:
+      enabled: false
 
 
 logging:

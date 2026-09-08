@@ -1,7 +1,9 @@
 package com.todak_todag.discharge_service.discharge.presentation.controller.api;
 
+import com.todak_todag.discharge_service.discharge.application.query.DischargeSearchQuery;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeFindResult;
+import com.todak_todag.discharge_service.discharge.application.result.DischargeSearchResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeUpdateResult;
 import com.todak_todag.discharge_service.discharge.application.service.command.DischargeCommandService;
 import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;
@@ -12,6 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,6 +24,7 @@ import com.todak_todag.discharge_service.discharge.application.result.DischargeC
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -149,6 +155,7 @@ class DischargeApiControllerTest {
     void 퇴원건_수정에_성공한다() throws Exception {
         UUID dischargeId = UUID.randomUUID();
         UUID hospitalStaffId = UUID.randomUUID();
+
         LocalDate scheduledDate =
                 LocalDate.now().plusDays(7);
 
@@ -262,6 +269,161 @@ class DischargeApiControllerTest {
                                 .content(requestBody)
                 )
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void 병원_담당자가_퇴원건_목록_조회에_성공한다() throws Exception {
+        UUID hospitalStaffId = UUID.randomUUID();
+        UUID dischargeId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+
+        LocalDate scheduledDate =
+                LocalDate.of(2026, 9, 1);
+
+        DischargeSearchResult searchResult =
+                new DischargeSearchResult(
+                        dischargeId,
+                        patientId,
+                        "한샘병원",
+                        DischargeStatus.SCHEDULED,
+                        scheduledDate,
+                        null
+                );
+
+        Page<DischargeSearchResult> page =
+                new PageImpl<>(
+                        List.of(searchResult),
+                        PageRequest.of(0, 10),
+                        1
+                );
+
+        when(
+                dischargeQueryService.searchDischarges(
+                        any(DischargeSearchQuery.class)
+                )
+        ).thenReturn(page);
+
+        mockMvc.perform(
+                        get("/api/v1/discharges")
+                                .header(
+                                        "X-User-Id",
+                                        hospitalStaffId.toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "HOSPITAL_STAFF"
+                                )
+                                .param("page", "0")
+                                .param("size", "10")
+                                .param("sort", "createdAt,DESC")
+                                .param("status", "SCHEDULED")
+                                .param(
+                                        "scheduledDate",
+                                        scheduledDate.toString()
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.message")
+                        .value("퇴원건 목록 조회 성공"))
+                .andExpect(jsonPath("$.data.content[0].dischargeId")
+                        .value(dischargeId.toString()))
+                .andExpect(jsonPath("$.data.content[0].patientId")
+                        .value(patientId.toString()))
+                .andExpect(jsonPath("$.data.content[0].hospitalName")
+                        .value("한샘병원"))
+                .andExpect(jsonPath("$.data.content[0].status")
+                        .value("SCHEDULED"))
+                .andExpect(jsonPath("$.data.content[0].scheduledDate")
+                        .value(scheduledDate.toString()))
+                .andExpect(jsonPath("$.data.content[0].actualDate")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.data.pageInfo.paginationType")
+                        .value("OFFSET"))
+                .andExpect(jsonPath("$.data.pageInfo.page")
+                        .value(0))
+                .andExpect(jsonPath("$.data.pageInfo.size")
+                        .value(10))
+                .andExpect(jsonPath("$.data.pageInfo.totalElements")
+                        .value(1))
+                .andExpect(jsonPath("$.data.pageInfo.totalPages")
+                        .value(1));
+    }
+
+    @Test
+    void 퇴원건_목록_조회_결과가_없으면_빈_배열을_반환한다() throws Exception {
+        UUID hospitalStaffId = UUID.randomUUID();
+
+        Page<DischargeSearchResult> page =
+                new PageImpl<>(
+                        List.of(),
+                        PageRequest.of(0, 10),
+                        0
+                );
+
+        when(
+                dischargeQueryService.searchDischarges(
+                        any(DischargeSearchQuery.class)
+                )
+        ).thenReturn(page);
+
+        mockMvc.perform(
+                        get("/api/v1/discharges")
+                                .header(
+                                        "X-User-Id",
+                                        hospitalStaffId.toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "HOSPITAL_STAFF"
+                                )
+                )
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.content").isEmpty())
+                .andExpect(jsonPath("$.data.pageInfo.totalElements")
+                        .value(0));
+    }
+
+    @Test
+    void 병원_담당자가_아니면_퇴원건_목록을_조회할_수_없다() throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/discharges")
+                                .header(
+                                        "X-User-Id",
+                                        UUID.randomUUID().toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "PATIENT"
+                                )
+                )
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void 잘못된_퇴원_상태로_목록을_조회하면_400을_반환한다() throws Exception {
+        mockMvc.perform(
+                        get("/api/v1/discharges")
+                                .header(
+                                        "X-User-Id",
+                                        UUID.randomUUID().toString()
+                                )
+                                .header(
+                                        "X-User-Role",
+                                        "HOSPITAL_STAFF"
+                                )
+                                .param(
+                                        "status",
+                                        "INVALID_STATUS"
+                                )
+                )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code")
+                        .value("COMMON_INVALID_REQUEST"));
     }
 
     @Test

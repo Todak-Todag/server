@@ -84,7 +84,8 @@ class CarePlanCompletionEventAppenderTest {
 
         // then
         assertThat(capturePayload(carePlanId)).isEqualTo(
-                "{\"serviceResultId\":\"" + lastResult.getServiceResultId() + "\",\"status\":\"COMPLETED\"}"
+                "{\"carePlanId\":\"" + carePlanId + "\","
+                        + "\"serviceResultId\":\"" + lastResult.getServiceResultId() + "\",\"status\":\"COMPLETED\"}"
         );
     }
 
@@ -105,7 +106,8 @@ class CarePlanCompletionEventAppenderTest {
 
         // then
         assertThat(capturePayload(carePlanId)).isEqualTo(
-                "{\"serviceResultId\":\"" + lastResult.getServiceResultId() + "\",\"status\":\"NO_SHOW\"}"
+                "{\"carePlanId\":\"" + carePlanId + "\","
+                        + "\"serviceResultId\":\"" + lastResult.getServiceResultId() + "\",\"status\":\"NO_SHOW\"}"
         );
     }
 
@@ -124,8 +126,9 @@ class CarePlanCompletionEventAppenderTest {
         carePlanCompletionEventAppender.appendIfCarePlanCompleted(canceledLastSchedule);
 
         // then
-        assertThat(capturePayload(carePlanId))
-                .isEqualTo("{\"serviceResultId\":null,\"status\":\"CANCELED\"}");
+        assertThat(capturePayload(carePlanId)).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\",\"serviceResultId\":null,\"status\":\"CANCELED\"}"
+        );
     }
 
     @Test
@@ -205,8 +208,9 @@ class CarePlanCompletionEventAppenderTest {
         carePlanCompletionEventAppender.appendIfCarePlanCompleted(earlierA);
 
         // then
-        assertThat(capturePayload(carePlanId))
-                .isEqualTo("{\"serviceResultId\":null,\"status\":\"CANCELED\"}");
+        assertThat(capturePayload(carePlanId)).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\",\"serviceResultId\":null,\"status\":\"CANCELED\"}"
+        );
     }
 
     // 끝나지 않은 일정이 0건이고(진행 중 0건 + 결과 미등록 0건), 아직 적재된 적이 없는 상황

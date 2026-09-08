@@ -24,6 +24,11 @@ public class ServiceMatchingAttemptCommandRepositoryImpl implements ServiceMatch
     }
 
     @Override
+    public Optional<ServiceMatchingAttempt> findById(UUID matchingAttemptId) {
+        return springDataServiceMatchingAttemptRepository.findByIdAndDeletedAtIsNull(matchingAttemptId);
+    }
+
+    @Override
     public boolean existsMatched(
             UUID servicePreferenceId,
             UUID serviceOfferingId,
