@@ -81,8 +81,7 @@ class CarePlanCompletedEventConsumeIntegrationTest extends IntegrationTestSuppor
         given(scheduleResultQueryPort.findById(serviceResultId))
                 .willReturn(
                         new ScheduleResultFindResult(
-                                serviceResultId,
-                                carePlanId
+                                serviceResultId
                         )
                 );
 
