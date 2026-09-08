@@ -1,5 +1,19 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.Duration;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
@@ -11,6 +25,7 @@ import org.springframework.boot.autoconfigure.aop.AopAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -23,19 +38,12 @@ import com.todak_todag.user_service.user.application.service.command.UserCreateS
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
 import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
-
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.never;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.todak_todag.user_service.user.presentation.cookie.CookieProvider;
 
 @WebMvcTest(UserApiController.class)
 @ImportAutoConfiguration(AopAutoConfiguration.class)
 @Import(SecurityConfig.class)
+@ActiveProfiles("test")
 class UserApiControllerTest {
 
 	private static final String URI = "/api/v1/users/me";
@@ -53,6 +61,9 @@ class UserApiControllerTest {
 
 	@MockitoBean
 	private UserUpdateService userUpdateService;
+	
+	@MockitoBean
+	private CookieProvider cookieProvider;
 
 	@Nested
 	@DisplayName("내 정보 조회")
@@ -265,6 +276,114 @@ class UserApiControllerTest {
 					.andExpect(status().isConflict())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.error.errorCode").value("USER_INVALID_CURRENT_PASSWORD"));
+		}
+	}
+
+	@Nested
+	@DisplayName("회원탈퇴")
+	class UserDelete {
+
+		@Test
+		@DisplayName("정상 요청이면 204를 반환하고 AccessToken/RefreshToken 쿠키를 즉시 만료시킨다")
+		void userDeleteTest_success() throws Exception {
+			// given
+			willDoNothing().given(userUpdateService).userDelete(any());
+
+			// when & then
+			mockMvc.perform(delete(URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!"
+									}
+									"""))
+					.andExpect(status().isNoContent());
+
+			then(userUpdateService).should().userDelete(any());
+			then(cookieProvider).should().addCookie(eq("AccessToken"), eq(Duration.ZERO), eq(""), any());
+			then(cookieProvider).should().addCookie(eq("RefreshToken"), eq(Duration.ZERO), eq(""), any());
+		}
+
+		@Test
+		@DisplayName("현재 비밀번호가 비어있으면 400을 반환하고 서비스를 호출하지 않는다")
+		void userDeleteTest_fail_blankCurrentPassword() throws Exception {
+			// when & then
+			mockMvc.perform(delete(URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": ""
+									}
+									"""))
+					.andExpect(status().isBadRequest());
+
+			then(userUpdateService).should(never()).userDelete(any());
+		}
+
+		@Test
+		@DisplayName("인증 헤더 없이 요청하면 인증에 실패하고 서비스를 호출하지 않는다")
+		void userDeleteTest_fail_unauthenticated() throws Exception {
+			// when & then
+			mockMvc.perform(delete(URI)
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!"
+									}
+									"""))
+					.andExpect(status().is4xxClientError());
+
+			then(userUpdateService).should(never()).userDelete(any());
+		}
+
+		@Test
+		@DisplayName("현재 비밀번호가 일치하지 않으면 409 에러 응답을 반환하고 쿠키를 만료시키지 않는다")
+		void userDeleteTest_fail_passwordMismatch() throws Exception {
+			// given
+			willThrow(new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD))
+					.given(userUpdateService).userDelete(any());
+
+			// when & then
+			mockMvc.perform(delete(URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "wrongPw123!"
+									}
+									"""))
+					.andExpect(status().isConflict())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.error.errorCode").value("USER_INVALID_CURRENT_PASSWORD"));
+
+			then(cookieProvider).should(never()).addCookie(any(), any(), any(), any());
+		}
+
+		@Test
+		@DisplayName("요청자가 존재하지 않으면 404 에러 응답을 반환한다")
+		void userDeleteTest_fail_userNotFound() throws Exception {
+			// given
+			willThrow(new BusinessException(UserErrorCode.USER_NOT_FOUND))
+					.given(userUpdateService).userDelete(any());
+
+			// when & then
+			mockMvc.perform(delete(URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!"
+									}
+									"""))
+					.andExpect(status().isNotFound())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.error.errorCode").value("USER_NOT_FOUND"));
 		}
 	}
 }

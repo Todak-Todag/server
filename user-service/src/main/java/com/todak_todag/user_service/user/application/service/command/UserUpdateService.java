@@ -11,14 +11,18 @@ import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
+import com.todak_todag.user_service.user.application.command.UserDeleteCommand;
 import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
 import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
 import com.todak_todag.user_service.user.application.command.UserUpdateCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
+import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.application.result.UserUpdateResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
+import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
+import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -28,11 +32,40 @@ import lombok.RequiredArgsConstructor;
 @Transactional(rollbackFor = Exception.class)
 public class UserUpdateService {
 
+	private final TokenStorePort tokenStorePort;
+	
 	private final AddressValidator addressValidator;
 	
 	private final PasswordEncoderPort passwordEncoder;
 	
 	private final UserQueryRepository userQueryRepo;
+	
+	private final AuthQueryRepository authQueryRepo;
+	
+	public void userDelete(UserDeleteCommand command) {
+		// 1. 요청자 조회
+		User user = userQueryRepo.findActiveById(command.requesterId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
+		// 2. 현재 비밀번호 검증
+		if(!passwordEncoder.matches(command.currentPassword(), user.getPasswordHash())) {
+			throw new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
+		}
+		
+		// 3. 회원탈퇴 진행
+		user.delete(command.requesterId());
+		
+		// 4. 로그인 세션 만료
+		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.orElse(null);
+		
+		if(loginSession != null) {
+			loginSession.logout();
+		}
+		
+		// 5. 저장된 액세스 토큰 삭제
+		tokenStorePort.deleteAccessToken(command.accessToken());
+	}
 	
 	public UserUpdateResult userUpdate(UserUpdateCommand command) {
 		// 1. 요청자 조회

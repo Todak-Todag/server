@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 
 import com.todak_todag.api_gateway.config.AuthenticationProperties;
+import com.todak_todag.api_gateway.config.RefreshTokenProperties;
 import com.todak_todag.api_gateway.exception.TokenErrorCode;
 import com.todak_todag.api_gateway.exception.TokenException;
 
@@ -20,6 +21,8 @@ import reactor.core.publisher.Mono;
 public class ClientCookieConverter implements ServerAuthenticationConverter {
 
 	private final AuthenticationProperties authenticationProperties;
+	
+	private final RefreshTokenProperties refreshTokenProperties;
 
 	@Override
 	public Mono<Authentication> convert(ServerWebExchange exchange) {
@@ -30,7 +33,9 @@ public class ClientCookieConverter implements ServerAuthenticationConverter {
 				.get(cookieName);
 		
 		if(cookies == null || cookies.isEmpty()) {
-			return Mono.empty();
+			return hasRefreshTokenCookie(exchange)
+					? Mono.error(new TokenException(TokenErrorCode.EXPIRED_ACCESS_TOKEN))
+					: Mono.empty();
 		}
 		
 		if(cookies.size() != 1) {
@@ -46,6 +51,15 @@ public class ClientCookieConverter implements ServerAuthenticationConverter {
 		Authentication authentication = ClientAuthenticationToken.unauthenticated(accessToken);
 		
 		return Mono.just(authentication);
+	}
+
+	private boolean hasRefreshTokenCookie(ServerWebExchange exchange) {
+		List<HttpCookie> refreshCookies = exchange.getRequest()
+				.getCookies()
+				.get(refreshTokenProperties.cookieName());
+		
+		return refreshCookies != null
+				&& refreshCookies.stream().anyMatch(cookie -> !cookie.getValue().isBlank());
 	}
 	
 	

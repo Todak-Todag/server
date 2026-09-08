@@ -1,6 +1,7 @@
 package com.todak_todag.user_service.user.infrastructure.persistence.query;
 
 import com.querydsl.core.types.Projections;
+import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.entity.Consent.ConsentStatus;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentHistoryView;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentQueryRepository;
@@ -73,5 +74,19 @@ public class ConsentQueryRepositoryImpl
                 )
                 .orderBy(consent.agreedAt.desc())
                 .fetch();
+    }
+
+    //
+    @Override
+    public long countAgreedConsents(
+            UUID userId,
+            List<UUID> consentDocumentVersionIds
+    ) {
+        return jpaRepository
+                .countByUserIdAndConsentDocumentVersionIdInAndStatus(
+                        userId,
+                        consentDocumentVersionIds,
+                        Consent.ConsentStatus.AGREED
+                );
     }
 }
