@@ -148,7 +148,31 @@ public class AuthCommandService {
 		if(!passwordEncoder.matches(loginCommand.password(), loginUser.getPasswordHash())) {
 			throw new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
 		}
+		
+		// 4. 로그인은 가능한데 WITHDRAWN 상태인가? - 치명적인 버그 발견
+		if(loginUser.isWithdrawn()) {
 
+			// WITHDRAWN 이면서 PATIENT 이면 - 첫 로그인 시점일 가능성이 있다.
+			if(loginUser.isPatient()) {
+			
+				// 동의했던 내역이 존재하면 첫 로그인 시점이 아닌 퇴원 예정자가 동의를 철회한 것이다.
+				if(consentQueryRepo.findAllByUserId(loginUser.getId()).isEmpty()) {
+					log.info("[User] 퇴원 예정자가 첫 로그인을 시작하였습니다. userId={}", loginUser.getId());
+					String accessToken = tokenPort.createToken();
+					
+					String jwtAccessToken = tokenPort.createJwtAccessToken(loginUser.getId(), loginUser.getRole());
+					
+					String refreshToken = tokenPort.createToken();
+					
+					// 3분짜리 임시 토큰 발급
+					tokenStorePort.storeAccessTokenTemp(accessToken, jwtAccessToken, Duration.ofMinutes(3));
+					
+					return new AuthLoginResult(loginUser.getId(), accessToken, refreshToken);
+				}
+			}
+			throw new BusinessException(UserErrorCode.USER_LOGIN_WITHDRAWN);
+		}
+		
 		// 5. 랜덤 액세스 토큰 발급
 		String accessToken = tokenPort.createToken();
 		
@@ -157,26 +181,6 @@ public class AuthCommandService {
 		
 		// 7. 리프레시 토큰 발급
 		String refreshToken = tokenPort.createToken();
-		
-		
-		// 4. 로그인은 가능한데 WITHDRAWN 상태인가? - 치명적인 버그 발견
-		if(loginUser.isWithdrawn()) {
-
-			// 4-1. WITHDRAWN 이면서 PATIENT 이면 - 첫 로그인 시점일 가능성이 있다.
-			if(loginUser.isPatient()) {
-			
-				// 4-2. 동의했던 내역이 존재하면 첫 로그인 시점이 아닌 퇴원 예정자가 동의를 철회한 것이다.
-				if(consentQueryRepo.findAllByUserId(loginUser.getId()).isEmpty()) {
-					log.info("[User] 퇴원 예정자가 첫 로그인을 시작하였습니다. userId={}", loginUser.getId());
-					
-					// 4-3. 3분짜리 임시 토큰 발급
-					tokenStorePort.storeAccessTokenTemp(accessToken, jwtAccessToken, Duration.ofMinutes(3));
-					
-					return new AuthLoginResult(loginUser.getId(), accessToken, refreshToken);
-				}
-			}
-			throw new BusinessException(UserErrorCode.USER_LOGIN_WITHDRAWN);
-		}
 		
 		// 8. 현재 시간 구하기
 		LocalDateTime now = LocalDateTime.now();
