@@ -22,6 +22,12 @@ spring:
         hbm2ddl:
           create_namespaces: true
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+
 management:
   endpoints:
     web:
@@ -44,6 +50,11 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: alpha
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_SERVER_HOST}:8761/eureka/
 
 logging:
   level:

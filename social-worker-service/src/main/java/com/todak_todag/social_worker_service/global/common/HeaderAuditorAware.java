@@ -9,11 +9,8 @@ import org.springframework.stereotype.Component;
 import java.util.Optional;
 import java.util.UUID;
 
-@Component
+@Component("springSecurityAuditorAware")
 public class HeaderAuditorAware implements AuditorAware<UUID> {
-
-    private static final UUID SYSTEM_ID =
-            UUID.fromString("00000000-0000-0000-0000-000000000000");
 
     @Override
     public Optional<UUID> getCurrentAuditor() {
@@ -24,10 +21,10 @@ public class HeaderAuditorAware implements AuditorAware<UUID> {
         if (authentication == null
                 || !authentication.isAuthenticated()
                 || !(authentication.getPrincipal() instanceof UserContext user)) {
-            return Optional.of(SYSTEM_ID);
+            return Optional.of(SystemId.SYSTEM_USER_ID);
         }
 
         return Optional.ofNullable(user.getUserId())
-                .or(() -> Optional.of(SYSTEM_ID));
+                .or(() -> Optional.of(SystemId.SYSTEM_USER_ID));
     }
 }
