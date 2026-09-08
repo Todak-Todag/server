@@ -25,4 +25,20 @@ public class CarePlanCompletionEventPayloadSerializer {
             );
         }
     }
+
+    public CarePlanCompletionEvent deserialize(
+            String payload
+    ) {
+        try {
+            return objectMapper.readValue(
+                    payload,
+                    CarePlanCompletionEvent.class
+            );
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(
+                    "[CarePlan] CarePlanCompleted 이벤트 payload 역직렬화 실패",
+                    e
+            );
+        }
+    }
 }
