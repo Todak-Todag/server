@@ -13,6 +13,7 @@ import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataCarePlanServiceResultRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataScheduleOutboxEventRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceScheduleRepository;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,7 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
-class CarePlanCompletedEventPublishIntegrationTest {
+class CarePlanCompletedEventPublishIntegrationTest extends PostgresTestSupport {
 
     @Container
     static final RabbitMQContainer RABBIT_MQ = new RabbitMQContainer("rabbitmq:4-alpine");
@@ -102,7 +103,8 @@ class CarePlanCompletedEventPublishIntegrationTest {
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
         assertThat(received.getFirst()).isEqualTo(
-                "{\"serviceResultId\":\"" + lastResult.serviceResultId() + "\",\"status\":\"COMPLETED\"}"
+                "{\"carePlanId\":\"" + carePlanId + "\","
+                        + "\"serviceResultId\":\"" + lastResult.serviceResultId() + "\",\"status\":\"COMPLETED\"}"
         );
     }
 
@@ -142,7 +144,9 @@ class CarePlanCompletedEventPublishIntegrationTest {
         // then
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
-        assertThat(received.getFirst()).isEqualTo("{\"serviceResultId\":null,\"status\":\"CANCELED\"}");
+        assertThat(received.getFirst()).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\",\"serviceResultId\":null,\"status\":\"CANCELED\"}"
+        );
     }
 
     @Test
@@ -170,7 +174,9 @@ class CarePlanCompletedEventPublishIntegrationTest {
         // then
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
-        assertThat(received.getFirst()).isEqualTo("{\"serviceResultId\":null,\"status\":\"CANCELED\"}");
+        assertThat(received.getFirst()).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\",\"serviceResultId\":null,\"status\":\"CANCELED\"}"
+        );
     }
 
     @Test
@@ -195,6 +201,7 @@ class CarePlanCompletedEventPublishIntegrationTest {
         // then
         List<String> received = receiveAll();
         assertThat(received).hasSize(1);
+        assertThat(received.getFirst()).contains("\"carePlanId\":\"" + carePlanId + "\"");
         assertThat(received.getFirst()).contains("\"status\":\"COMPLETED\"");
         assertThat(received.getFirst()).doesNotContain("\"serviceResultId\":null");
     }

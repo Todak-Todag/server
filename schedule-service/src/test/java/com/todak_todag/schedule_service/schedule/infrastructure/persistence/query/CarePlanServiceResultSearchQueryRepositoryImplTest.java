@@ -6,6 +6,7 @@ import com.todak_todag.schedule_service.global.config.QueryDslConfig;
 import com.todak_todag.schedule_service.schedule.domain.entity.CarePlanServiceResult;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.query.CarePlanServiceResultQueryRepository;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +32,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @ActiveProfiles("test")
 @Import({JpaConfig.class, QueryDslConfig.class, CarePlanServiceResultQueryRepositoryImpl.class})
 @DisplayName("서비스 수행 결과 목록 조회 - Repository (p_service_schedules 조인)")
-class CarePlanServiceResultSearchQueryRepositoryImplTest {
+class CarePlanServiceResultSearchQueryRepositoryImplTest extends PostgresTestSupport {
 
     @Autowired
     private CarePlanServiceResultQueryRepository carePlanServiceResultQueryRepository;
@@ -90,7 +91,7 @@ class CarePlanServiceResultSearchQueryRepositoryImplTest {
     @Test
     @DisplayName("Internal API가 반환한 ID 목록에 없는 다른 사용자의 결과는 포함되지 않는다 (소유권 필터링 검증)")
     void search_excludesResultsOfOtherOwners() {
-        // given — 내 것 1건, 남의 것 2건
+        // given
         UUID myOfferingId = UUID.randomUUID();
 
         CarePlanServiceResult mine = persistResult(persistSchedule(UUID.randomUUID(), myOfferingId));

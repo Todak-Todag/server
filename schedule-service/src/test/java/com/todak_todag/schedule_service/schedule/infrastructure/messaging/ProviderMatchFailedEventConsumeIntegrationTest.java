@@ -8,6 +8,7 @@ import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAt
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceMatchingAttemptRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceScheduleRepository;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @ActiveProfiles("test")
 @Testcontainers
-class ProviderMatchFailedEventConsumeIntegrationTest {
+class ProviderMatchFailedEventConsumeIntegrationTest extends PostgresTestSupport {
 
     private static final String FAILURE_REASON = "해당 지역에 가능한 서비스 제공자가 없습니다.";
 

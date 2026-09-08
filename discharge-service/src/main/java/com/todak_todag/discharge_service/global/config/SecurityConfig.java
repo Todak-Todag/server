@@ -40,8 +40,17 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(
-                        auth ->
-                                auth.anyRequest().authenticated()
+                        auth -> auth
+                                .requestMatchers(
+                                        "/internal/v1/**",
+                                        "/actuator/**",
+                                        "/swagger-ui/**",
+                                        "/swagger-ui.html",
+                                        "/v3/api-docs/**"
+                                )
+                                .permitAll()
+                                .anyRequest()
+                                .authenticated()
                 );
 
         return http.build();

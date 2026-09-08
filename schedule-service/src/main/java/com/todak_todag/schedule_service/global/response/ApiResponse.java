@@ -19,4 +19,9 @@ public record ApiResponse<T>(
     public static <T> ApiResponse<T> created(String message, T data) {
         return of(201, message, data);
     }
+
+    // 접수만 하고 결과는 비동기로 확정되는 요청
+    public static <T> ApiResponse<T> accepted(String message, T data) {
+        return of(202, message, data);
+    }
 }

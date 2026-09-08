@@ -2,6 +2,7 @@ package com.todak_todag.schedule_service.schedule.infrastructure.persistence;
 
 import com.todak_todag.schedule_service.global.common.SystemId;
 import com.todak_todag.schedule_service.global.config.JpaConfig;
+import com.todak_todag.schedule_service.global.config.QueryDslConfig;
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
@@ -9,6 +10,7 @@ import com.todak_todag.schedule_service.schedule.domain.repository.command.Servi
 import com.todak_todag.schedule_service.schedule.domain.repository.query.ServiceMatchingAttemptQueryRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.command.ServiceMatchingAttemptCommandRepositoryImpl;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.query.ServiceMatchingAttemptQueryRepositoryImpl;
+import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -29,10 +31,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @Import({
         JpaConfig.class,
+        QueryDslConfig.class,
         ServiceMatchingAttemptCommandRepositoryImpl.class,
         ServiceMatchingAttemptQueryRepositoryImpl.class
 })
-class ServiceMatchingAttemptRepositoryTest {
+class ServiceMatchingAttemptRepositoryTest extends PostgresTestSupport {
 
     @Autowired
     private ServiceMatchingAttemptCommandRepository serviceMatchingAttemptCommandRepository;
