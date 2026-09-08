@@ -6,10 +6,18 @@ import com.spring.careplanservice.careplan.infrastructure.persistence.repository
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+import java.util.UUID;
+
 @Repository
 @RequiredArgsConstructor
 public class CarePlanOutboxEventCommandRepositoryImpl implements CarePlanOutboxEventCommandRepository {
     private final SpringDataCarePlanOutboxEventRepository repository;
+
+    @Override
+    public Optional<CarePlanOutboxEvent> findById(UUID outboxEventId) {
+        return repository.findById(outboxEventId);
+    }
 
     @Override
     public CarePlanOutboxEvent save(

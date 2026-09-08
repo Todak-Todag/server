@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.Instant;
 import java.util.UUID;
 
 
@@ -49,7 +50,7 @@ public class CarePlanOutboxEvent extends BaseAuditEntity {
     private String lastErrorMessage;
 
     @Column(name = "published_at")
-    private java.time.Instant publishedAt;
+    private Instant publishedAt;
 
     private CarePlanOutboxEvent(
             UUID aggregateId,
@@ -69,5 +70,23 @@ public class CarePlanOutboxEvent extends BaseAuditEntity {
                 aggregateId,
                 payload
         );
+    }
+
+    // RabbitMQ 발행 성공 시 호출
+    public void markSent() {
+        this.status = CarePlanOutboxEventStatus.SENT;
+        this.publishedAt = Instant.now();
+    }
+
+    // RabbitMQ 발행 실패 시 호출
+    // 실패 횟수가 3회에 도달하면 FAILED로 전환하고,
+    // 그 전까지는 PENDING을 유지하여 다음 폴링에서 재시도
+    public void recordFailure(String errorMessage) {
+        this.retryCount++;
+        this.lastErrorMessage = errorMessage;
+
+        if (this.retryCount >= MAX_RETRY_COUNT) {
+            this.status = CarePlanOutboxEventStatus.FAILED;
+        }
     }
 }
