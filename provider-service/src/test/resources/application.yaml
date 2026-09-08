@@ -69,3 +69,9 @@ management:
 logging:
   level:
     com.todak_todag.provider_service: debug
+
+# 테스트에는 DB·브로커가 없으므로 아웃박스 릴레이를 돌리지 않는다
+provider:
+  outbox:
+    relay:
+      enabled: false

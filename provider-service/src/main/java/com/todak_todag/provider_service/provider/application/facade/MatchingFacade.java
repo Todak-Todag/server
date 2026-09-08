@@ -139,9 +139,9 @@ public class MatchingFacade {
             try {
                 matchingEventPort.publishMatchFailed(failedEvent);
             } catch (Exception e) {
-                // 발행이 실패하면 Schedule은 매칭 실패 사실을 알지 못한 채 RESCHEDULING에 머문다
-                // 운영자가 수동으로 확인할 수 있도록 페이로드 전체를 남긴다
-                log.error("[Provider] 매칭 실패 이벤트 발행 실패 event={}", failedEvent, e);
+                // 아웃박스 적재가 실패하면 Schedule은 매칭 실패 사실을 알지 못한 채 RESCHEDULING에 머문다
+                // 릴레이가 집어갈 레코드조차 없으므로 페이로드 전체를 남긴다
+                log.error("[Provider] 매칭 실패 이벤트 적재 실패 event={}", failedEvent, e);
 
                 throw e;
             }
@@ -159,14 +159,14 @@ public class MatchingFacade {
         try {
             matchingEventPort.publishMatched(matchedEvent);
         } catch (Exception e) {
-            // 발행이 실패하면 이 배정은 어디에도 남지 않는다
-            // 운영자가 수동으로 복구할 수 있도록 페이로드 전체를 남긴다
-            log.error("[Provider] 매칭 결과 발행 실패 event={}", matchedEvent, e);
+            // 아웃박스 적재가 실패하면 이 배정은 어디에도 남지 않는다
+            // 릴레이가 집어갈 레코드조차 없으므로 페이로드 전체를 남긴다
+            log.error("[Provider] 매칭 결과 적재 실패 event={}", matchedEvent, e);
 
             throw e;
         }
 
-        // 발행에 성공한 뒤에야 메모리에 반영한다
+        // 적재에 성공한 뒤에야 메모리에 반영한다
         // 실패한 배정을 미리 넣으면 뒤따르는 희망 일정이 존재하지 않는 일정을 피해 배정된다
         occupied.add(new ScheduleSlot(
                 match.serviceOfferingId(), date, match.startedAt(), match.finishedAt()
