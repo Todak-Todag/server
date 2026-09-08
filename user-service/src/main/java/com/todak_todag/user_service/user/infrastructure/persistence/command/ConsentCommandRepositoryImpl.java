@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 @RequiredArgsConstructor
@@ -20,5 +22,12 @@ public class ConsentCommandRepositoryImpl
             List<Consent> consents
     ) {
         return jpaRepository.saveAll(consents);
+    }
+
+    @Override
+    public Optional<Consent> findById(
+            UUID consentId
+    ) {
+        return jpaRepository.findById(consentId);
     }
 }

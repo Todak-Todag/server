@@ -3,7 +3,9 @@ package com.todak_todag.user_service.user.application.service.command;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.ConsentErrorCode;
 import com.todak_todag.user_service.user.application.command.ConsentCreateCommand;
+import com.todak_todag.user_service.user.application.command.ConsentWithdrawCommand;
 import com.todak_todag.user_service.user.application.result.ConsentCreateResult;
+import com.todak_todag.user_service.user.application.result.ConsentWithdrawResult;
 import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.repository.command.ConsentCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentCurrentView;
@@ -19,6 +21,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+
+import static com.todak_todag.user_service.user.domain.entity.Consent.ConsentStatus.WITHDRAWN;
 
 @Slf4j
 @Service
@@ -141,6 +145,65 @@ public class ConsentCommandService {
             throw new BusinessException(
                     ConsentErrorCode
                             .CONSENT_ALREADY_AGREED
+            );
+        }
+    }
+
+    @Transactional
+    public ConsentWithdrawResult withdraw(
+            ConsentWithdrawCommand command
+    ) {
+        Consent consent =
+                consentCommandRepository
+                        .findById(command.consentId())
+                        .orElseThrow(
+                                () -> new BusinessException(
+                                        ConsentErrorCode.CONSENT_NOT_FOUND
+                                )
+                        );
+
+        validateConsentOwner(
+                consent,
+                command.userId()
+        );
+
+        validateNotWithdrawn(consent);
+
+        LocalDateTime now =
+                LocalDateTime.now();
+
+        consent.withdraw(now);
+
+        log.info(
+                "[Consent] 약관 동의 철회 완료 userId={} consentId={}",
+                command.userId(),
+                command.consentId()
+        );
+
+        return new ConsentWithdrawResult(
+                command.consentId(),
+                consent.getStatus(),
+                consent.getWithdrawnAt()
+        );
+    }
+
+    private void validateConsentOwner(
+            Consent consent,
+            UUID userId
+    ) {
+        if (!consent.getUserId().equals(userId)) {
+            throw new BusinessException(
+                    ConsentErrorCode.CONSENT_ACCESS_DENIED
+            );
+        }
+    }
+
+    private void validateNotWithdrawn(
+            Consent consent
+    ) {
+        if (consent.getStatus() == WITHDRAWN) {
+            throw new BusinessException(
+                    ConsentErrorCode.CONSENT_ALREADY_WITHDRAWN
             );
         }
     }

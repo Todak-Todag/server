@@ -3,7 +3,9 @@ package com.todak_todag.user_service.user.application.service.command;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.ConsentErrorCode;
 import com.todak_todag.user_service.user.application.command.ConsentCreateCommand;
+import com.todak_todag.user_service.user.application.command.ConsentWithdrawCommand;
 import com.todak_todag.user_service.user.application.result.ConsentCreateResult;
+import com.todak_todag.user_service.user.application.result.ConsentWithdrawResult;
 import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.repository.command.ConsentCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentDocumentCurrentView;
@@ -17,7 +19,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -351,6 +355,258 @@ class ConsentCommandServiceTest {
 
             then(consentCommandRepository)
                     .shouldHaveNoInteractions();
+        }
+    }
+
+    @Nested
+    @DisplayName("약관 동의 철회")
+    class WithdrawConsent {
+
+        @Test
+        @DisplayName("본인의 동의 내역을 철회한다")
+        void withdraw_success() {
+            // given
+            UUID userId = UUID.randomUUID();
+            UUID consentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+
+            ConsentWithdrawCommand command =
+                    new ConsentWithdrawCommand(
+                            userId,
+                            consentId
+                    );
+
+            Consent consent =
+                    Consent.agree(
+                            userId,
+                            versionId,
+                            LocalDateTime.of(
+                                    2026,
+                                    9,
+                                    1,
+                                    10,
+                                    30
+                            )
+                    );
+
+            given(
+                    consentCommandRepository.findById(
+                            consentId
+                    )
+            ).willReturn(
+                    Optional.of(consent)
+            );
+
+            // when
+            ConsentWithdrawResult result =
+                    consentCommandService.withdraw(
+                            command
+                    );
+
+            // then
+            assertThat(result.consentId())
+                    .isEqualTo(consentId);
+
+            assertThat(result.status())
+                    .isEqualTo(
+                            Consent.ConsentStatus.WITHDRAWN
+                    );
+
+            assertThat(result.withdrawnAt())
+                    .isNotNull();
+
+            assertThat(consent.getStatus())
+                    .isEqualTo(
+                            Consent.ConsentStatus.WITHDRAWN
+                    );
+
+            assertThat(consent.getWithdrawnAt())
+                    .isNotNull();
+
+            then(consentCommandRepository)
+                    .should()
+                    .findById(consentId);
+        }
+
+        @Test
+        @DisplayName("동의 내역이 존재하지 않으면 예외가 발생한다")
+        void withdraw_notFound() {
+            // given
+            UUID userId = UUID.randomUUID();
+            UUID consentId = UUID.randomUUID();
+
+            ConsentWithdrawCommand command =
+                    new ConsentWithdrawCommand(
+                            userId,
+                            consentId
+                    );
+
+            given(
+                    consentCommandRepository.findById(
+                            consentId
+                    )
+            ).willReturn(
+                    Optional.empty()
+            );
+
+            // when & then
+            assertThatThrownBy(
+                    () -> consentCommandService.withdraw(
+                            command
+                    )
+            )
+                    .isInstanceOf(
+                            BusinessException.class
+                    )
+                    .satisfies(exception -> {
+                        BusinessException businessException =
+                                (BusinessException) exception;
+
+                        assertThat(
+                                businessException.getErrorCode()
+                        ).isEqualTo(
+                                ConsentErrorCode
+                                        .CONSENT_NOT_FOUND
+                        );
+                    });
+
+            then(consentCommandRepository)
+                    .should()
+                    .findById(consentId);
+        }
+
+        @Test
+        @DisplayName("다른 사용자의 동의 내역은 철회할 수 없다")
+        void withdraw_accessDenied() {
+            // given
+            UUID userId = UUID.randomUUID();
+            UUID otherUserId = UUID.randomUUID();
+            UUID consentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+
+            ConsentWithdrawCommand command =
+                    new ConsentWithdrawCommand(
+                            userId,
+                            consentId
+                    );
+
+            Consent consent =
+                    Consent.agree(
+                            otherUserId,
+                            versionId,
+                            LocalDateTime.of(
+                                    2026,
+                                    9,
+                                    1,
+                                    10,
+                                    30
+                            )
+                    );
+
+            given(
+                    consentCommandRepository.findById(
+                            consentId
+                    )
+            ).willReturn(
+                    Optional.of(consent)
+            );
+
+            // when & then
+            assertThatThrownBy(
+                    () -> consentCommandService.withdraw(
+                            command
+                    )
+            )
+                    .isInstanceOf(
+                            BusinessException.class
+                    )
+                    .satisfies(exception -> {
+                        BusinessException businessException =
+                                (BusinessException) exception;
+
+                        assertThat(
+                                businessException.getErrorCode()
+                        ).isEqualTo(
+                                ConsentErrorCode
+                                        .CONSENT_ACCESS_DENIED
+                        );
+                    });
+
+            // 권한이 없는 사용자의 요청이므로 상태는 변경되지 않는다.
+            assertThat(consent.getStatus())
+                    .isEqualTo(
+                            Consent.ConsentStatus.AGREED
+                    );
+
+            assertThat(consent.getWithdrawnAt())
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("이미 철회된 동의 내역은 다시 철회할 수 없다")
+        void withdraw_alreadyWithdrawn() {
+            // given
+            UUID userId = UUID.randomUUID();
+            UUID consentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+
+            ConsentWithdrawCommand command =
+                    new ConsentWithdrawCommand(
+                            userId,
+                            consentId
+                    );
+
+            Consent consent =
+                    Consent.agree(
+                            userId,
+                            versionId,
+                            LocalDateTime.of(
+                                    2026,
+                                    9,
+                                    1,
+                                    10,
+                                    30
+                            )
+                    );
+
+            consent.withdraw(
+                    LocalDateTime.of(
+                            2026,
+                            9,
+                            2,
+                            10,
+                            30
+                    )
+            );
+
+            given(
+                    consentCommandRepository.findById(
+                            consentId
+                    )
+            ).willReturn(
+                    Optional.of(consent)
+            );
+
+            // when & then
+            assertThatThrownBy(
+                    () -> consentCommandService.withdraw(
+                            command
+                    )
+            )
+                    .isInstanceOf(
+                            BusinessException.class
+                    )
+                    .satisfies(exception -> {
+                        BusinessException businessException =
+                                (BusinessException) exception;
+
+                        assertThat(
+                                businessException.getErrorCode()
+                        ).isEqualTo(
+                                ConsentErrorCode
+                                        .CONSENT_ALREADY_WITHDRAWN
+                        );
+                    });
         }
     }
 }
