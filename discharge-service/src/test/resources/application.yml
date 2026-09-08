@@ -30,3 +30,6 @@ eureka:
     enabled: false
     register-with-eureka: false
     fetch-registry: false
+
+internal:
+  key: test-internal-api-key
