@@ -27,6 +27,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 class CarePlanCompletedEventConsumeIntegrationTest extends IntegrationTestSupport {
     /*
@@ -174,5 +175,6 @@ class CarePlanCompletedEventConsumeIntegrationTest extends IntegrationTestSuppor
         CarePlan completedCarePlan = waitUntilCompleted(savedCarePlanId);
 
         assertThat(completedCarePlan.getStatus()).isEqualTo(CarePlanStatus.COMPLETED);
+        verifyNoInteractions(scheduleResultQueryPort);
     }
 }
