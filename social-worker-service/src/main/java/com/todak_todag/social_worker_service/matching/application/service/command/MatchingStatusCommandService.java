@@ -6,7 +6,7 @@ import com.todak_todag.social_worker_service.matching.application.command.Matchi
 import com.todak_todag.social_worker_service.matching.application.result.MatchingStatusChangeResult;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
 import com.todak_todag.social_worker_service.matching.domain.entity.SocialWorkerMatchingResult;
-import com.todak_todag.social_worker_service.matching.domain.repository.SocialWorkerMatchingRepository;
+import com.todak_todag.social_worker_service.matching.domain.repository.command.SocialWorkerMatchingCommandRepository;
 import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,7 +18,7 @@ public class MatchingStatusCommandService {
 
     private static final String END_STATUS = "ENDED";
 
-    private final SocialWorkerMatchingRepository matchingRepository;
+    private final SocialWorkerMatchingCommandRepository matchingCommandRepository;
 
     @Transactional
     public MatchingStatusChangeResult changeStatus(
@@ -30,9 +30,13 @@ public class MatchingStatusCommandService {
         );
 
         SocialWorkerMatchingResult matchingResult =
-                matchingRepository
-                        .findById(command.matchingResultId())
-                        .filter(result -> !result.isDeleted())
+                matchingCommandRepository
+                        .findById(
+                                command.matchingResultId()
+                        )
+                        .filter(
+                                result -> !result.isDeleted()
+                        )
                         .orElseThrow(
                                 () -> new BusinessException(
                                         MatchingErrorCode.MATCHING_NOT_FOUND,
@@ -62,7 +66,6 @@ public class MatchingStatusCommandService {
     ) {
 
         if (!END_STATUS.equals(requestedStatus)) {
-
             throw new BusinessException(
                     MatchingErrorCode.INVALID_MATCHING_STATUS,
                     "사회복지사 매칭 상태 변경 실패"
@@ -98,8 +101,8 @@ public class MatchingStatusCommandService {
 
         if (role == UserRole.SOCIAL_WORKER
                 && command.requesterId().equals(
-                        matchingResult.getSocialWorkerId()
-                )) {
+                matchingResult.getSocialWorkerId()
+        )) {
             return;
         }
 

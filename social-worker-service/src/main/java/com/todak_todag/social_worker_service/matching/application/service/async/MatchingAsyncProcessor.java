@@ -2,7 +2,7 @@ package com.todak_todag.social_worker_service.matching.application.service.async
 
 import com.todak_todag.social_worker_service.global.response.ApiResponse;
 import com.todak_todag.social_worker_service.matching.application.service.command.MatchingResultCommandService;
-import com.todak_todag.social_worker_service.matching.application.service.query.MatchingSelectionService;
+import com.todak_todag.social_worker_service.matching.application.service.query.MatchingQueryService;
 import com.todak_todag.social_worker_service.matching.infrastructure.client.UserMatchableSocialWorkersResponse;
 import com.todak_todag.social_worker_service.matching.infrastructure.client.UserServiceClient;
 import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTask;
@@ -25,7 +25,7 @@ public class MatchingAsyncProcessor {
     private static final int MAX_ATTEMPTS = 2;
 
     private final UserServiceClient userServiceClient;
-    private final MatchingSelectionService matchingSelectionService;
+    private final MatchingQueryService matchingQueryService;
     private final MatchingResultCommandService matchingResultCommandService;
     private final MatchingTaskStore matchingTaskStore;
 
@@ -71,7 +71,7 @@ public class MatchingAsyncProcessor {
             }
 
             UUID selectedSocialWorkerId =
-                    matchingSelectionService.select(
+                    matchingQueryService.select(
                             candidateIds
                     );
 

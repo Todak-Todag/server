@@ -2,7 +2,7 @@ package com.todak_todag.social_worker_service.matching.application.service.query
 
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
 import com.todak_todag.social_worker_service.matching.domain.repository.SocialWorkerLoadProjection;
-import com.todak_todag.social_worker_service.matching.domain.repository.SocialWorkerMatchingRepository;
+import com.todak_todag.social_worker_service.matching.domain.repository.query.SocialWorkerMatchingQueryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,18 +15,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-class MatchingSelectionServiceTest {
+class MatchingQueryServiceTest {
 
-    private SocialWorkerMatchingRepository matchingRepository;
-    private MatchingSelectionService matchingSelectionService;
+    private SocialWorkerMatchingQueryRepository matchingRepository;
+    private MatchingQueryService matchingQueryService;
 
     @BeforeEach
     void setUp() {
-        matchingRepository =
-                mock(SocialWorkerMatchingRepository.class);
 
-        matchingSelectionService =
-                new MatchingSelectionService(
+        matchingRepository =
+                mock(SocialWorkerMatchingQueryRepository.class);
+
+        matchingQueryService =
+                new MatchingQueryService(
                         matchingRepository
                 );
     }
@@ -99,7 +100,7 @@ class MatchingSelectionServiceTest {
         );
 
         UUID selected =
-                matchingSelectionService
+                matchingQueryService
                         .select(candidates);
 
         assertEquals(
@@ -160,7 +161,7 @@ class MatchingSelectionServiceTest {
         );
 
         UUID selected =
-                matchingSelectionService
+                matchingQueryService
                         .select(candidates);
 
         assertEquals(
@@ -209,7 +210,7 @@ class MatchingSelectionServiceTest {
         );
 
         UUID selected =
-                matchingSelectionService
+                matchingQueryService
                         .select(candidates);
 
         assertEquals(

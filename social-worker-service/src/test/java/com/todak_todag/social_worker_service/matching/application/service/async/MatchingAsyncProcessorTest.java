@@ -2,7 +2,7 @@ package com.todak_todag.social_worker_service.matching.application.service.async
 
 import com.todak_todag.social_worker_service.global.response.ApiResponse;
 import com.todak_todag.social_worker_service.matching.application.service.command.MatchingResultCommandService;
-import com.todak_todag.social_worker_service.matching.application.service.query.MatchingSelectionService;
+import com.todak_todag.social_worker_service.matching.application.service.query.MatchingQueryService;
 import com.todak_todag.social_worker_service.matching.infrastructure.client.UserMatchableSocialWorkersResponse;
 import com.todak_todag.social_worker_service.matching.infrastructure.client.UserServiceClient;
 import com.todak_todag.social_worker_service.matching.infrastructure.task.InMemoryMatchingTaskStore;
@@ -22,7 +22,7 @@ import static org.mockito.Mockito.*;
 class MatchingAsyncProcessorTest {
 
     private UserServiceClient userServiceClient;
-    private MatchingSelectionService matchingSelectionService;
+    private MatchingQueryService matchingQueryService;
     private MatchingResultCommandService matchingResultCommandService;
 
     private InMemoryMatchingTaskStore matchingTaskStore;
@@ -34,8 +34,8 @@ class MatchingAsyncProcessorTest {
         userServiceClient =
                 mock(UserServiceClient.class);
 
-        matchingSelectionService =
-                mock(MatchingSelectionService.class);
+        matchingQueryService =
+                mock(MatchingQueryService.class);
 
         matchingResultCommandService =
                 mock(MatchingResultCommandService.class);
@@ -46,7 +46,7 @@ class MatchingAsyncProcessorTest {
         processor =
                 new MatchingAsyncProcessor(
                         userServiceClient,
-                        matchingSelectionService,
+                        matchingQueryService,
                         matchingResultCommandService,
                         matchingTaskStore
                 );
@@ -93,7 +93,7 @@ class MatchingAsyncProcessorTest {
         ).fail(resultId);
 
         verifyNoInteractions(
-                matchingSelectionService
+                matchingQueryService
         );
 
         MatchingTask task =
@@ -196,7 +196,7 @@ class MatchingAsyncProcessorTest {
                 );
 
         when(
-                matchingSelectionService
+                matchingQueryService
                         .select(Set.of(workerId))
         ).thenReturn(workerId);
 
@@ -339,7 +339,7 @@ class MatchingAsyncProcessorTest {
         );
 
         when(
-                matchingSelectionService
+                matchingQueryService
                         .select(candidates)
         ).thenReturn(workerA);
 
@@ -350,7 +350,7 @@ class MatchingAsyncProcessorTest {
         );
 
         verify(
-                matchingSelectionService,
+                matchingQueryService,
                 times(1)
         ).select(candidates);
 

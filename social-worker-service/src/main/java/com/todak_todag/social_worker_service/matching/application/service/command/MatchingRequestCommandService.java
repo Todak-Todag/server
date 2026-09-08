@@ -4,7 +4,7 @@ import com.todak_todag.social_worker_service.global.exception.BusinessException;
 import com.todak_todag.social_worker_service.matching.application.service.async.MatchingAsyncProcessor;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
 import com.todak_todag.social_worker_service.matching.domain.entity.SocialWorkerMatchingResult;
-import com.todak_todag.social_worker_service.matching.domain.repository.SocialWorkerMatchingRepository;
+import com.todak_todag.social_worker_service.matching.domain.repository.command.SocialWorkerMatchingCommandRepository;
 import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
 import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTask;
 import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTaskStore;
@@ -27,7 +27,7 @@ public class MatchingRequestCommandService {
                     MatchingStatus.ACTIVE
             );
 
-    private final SocialWorkerMatchingRepository matchingRepository;
+    private final SocialWorkerMatchingCommandRepository matchingCommandRepository;
     private final MatchingTaskStore matchingTaskStore;
     private final MatchingAsyncProcessor matchingAsyncProcessor;
 
@@ -37,7 +37,7 @@ public class MatchingRequestCommandService {
     ) {
 
         boolean alreadyExists =
-                matchingRepository
+                matchingCommandRepository
                         .existsByPatientIdAndStatusIn(
                                 patientId,
                                 BLOCKING_STATUSES
@@ -56,7 +56,7 @@ public class MatchingRequestCommandService {
                                 patientId
                         );
 
-        matchingRepository.save(
+        matchingCommandRepository.save(
                 matchingResult
         );
 

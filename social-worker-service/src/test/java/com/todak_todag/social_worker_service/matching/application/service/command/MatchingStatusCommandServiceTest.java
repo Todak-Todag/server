@@ -6,7 +6,7 @@ import com.todak_todag.social_worker_service.matching.application.command.Matchi
 import com.todak_todag.social_worker_service.matching.application.result.MatchingStatusChangeResult;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
 import com.todak_todag.social_worker_service.matching.domain.entity.SocialWorkerMatchingResult;
-import com.todak_todag.social_worker_service.matching.domain.repository.SocialWorkerMatchingRepository;
+import com.todak_todag.social_worker_service.matching.domain.repository.command.SocialWorkerMatchingCommandRepository;
 import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -21,14 +21,14 @@ import static org.mockito.Mockito.*;
 
 class MatchingStatusCommandServiceTest {
 
-    private SocialWorkerMatchingRepository matchingRepository;
+    private SocialWorkerMatchingCommandRepository matchingRepository;
     private MatchingStatusCommandService service;
 
     @BeforeEach
     void setUp() {
 
         matchingRepository =
-                mock(SocialWorkerMatchingRepository.class);
+                mock(SocialWorkerMatchingCommandRepository.class);
 
         service =
                 new MatchingStatusCommandService(

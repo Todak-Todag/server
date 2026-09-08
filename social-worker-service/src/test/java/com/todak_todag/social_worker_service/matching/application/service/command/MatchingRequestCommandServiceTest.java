@@ -3,7 +3,7 @@ package com.todak_todag.social_worker_service.matching.application.service.comma
 import com.todak_todag.social_worker_service.global.exception.BusinessException;
 import com.todak_todag.social_worker_service.matching.application.service.async.MatchingAsyncProcessor;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
-import com.todak_todag.social_worker_service.matching.domain.repository.SocialWorkerMatchingRepository;
+import com.todak_todag.social_worker_service.matching.domain.repository.command.SocialWorkerMatchingCommandRepository;
 import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
 import com.todak_todag.social_worker_service.matching.infrastructure.task.InMemoryMatchingTaskStore;
 import com.todak_todag.social_worker_service.matching.infrastructure.task.MatchingTaskStatus;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.*;
 
 class MatchingRequestCommandServiceTest {
 
-    private SocialWorkerMatchingRepository matchingRepository;
+    private SocialWorkerMatchingCommandRepository matchingRepository;
     private MatchingAsyncProcessor matchingAsyncProcessor;
     private InMemoryMatchingTaskStore matchingTaskStore;
 
@@ -35,7 +35,7 @@ class MatchingRequestCommandServiceTest {
     void setUp() {
 
         matchingRepository =
-                mock(SocialWorkerMatchingRepository.class);
+                mock(SocialWorkerMatchingCommandRepository.class);
 
         matchingAsyncProcessor =
                 mock(MatchingAsyncProcessor.class);
