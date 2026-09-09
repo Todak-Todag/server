@@ -5,13 +5,12 @@ spring:
   application:
     name: provider-service
 
-  # datasource / jpa / rabbitmq 접속 정보, ddl-auto, tracing 등 환경별로 달라지는 값은
-  # config-repo가 내려주며 여기 있는 값보다 우선한다
-  # 이 파일에는 config-repo에 없는 애플리케이션 고유 설정만 둔다
+  # config-repo가 내려주는 값이 이 파일보다 우선한다
   config:
     import:
-      - "optional:file:.env[.properties]"
-      - "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+      # 저장소 루트의 .env 를 읽는다 (작업 디렉터리는 provider-service 기준)
+      - "optional:file:../.env[.properties]"
+      - "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
 
   jpa:
     open-in-view: false
@@ -64,3 +63,5 @@ spring:
 logging:
   level:
     com.todak_todag.provider_service: debug
+
+
