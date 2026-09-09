@@ -4,15 +4,18 @@ import java.util.UUID;
 
 public record MatchingTask(
         UUID taskId,
+        UUID patientId,
         MatchingTaskStatus status,
         UUID matchingResultId
 ) {
 
     public static MatchingTask pending(
-            UUID taskId
+            UUID taskId,
+            UUID patientId
     ) {
         return new MatchingTask(
                 taskId,
+                patientId,
                 MatchingTaskStatus.PENDING,
                 null
         );
@@ -21,8 +24,9 @@ public record MatchingTask(
     public MatchingTask processing() {
         return new MatchingTask(
                 taskId,
+                patientId,
                 MatchingTaskStatus.PROCESSING,
-                matchingResultId
+                null
         );
     }
 
@@ -31,18 +35,18 @@ public record MatchingTask(
     ) {
         return new MatchingTask(
                 taskId,
+                patientId,
                 MatchingTaskStatus.COMPLETED,
                 matchingResultId
         );
     }
 
-    public MatchingTask failed(
-            UUID matchingResultId
-    ) {
+    public MatchingTask failed() {
         return new MatchingTask(
                 taskId,
+                patientId,
                 MatchingTaskStatus.FAILED,
-                matchingResultId
+                null
         );
     }
 }

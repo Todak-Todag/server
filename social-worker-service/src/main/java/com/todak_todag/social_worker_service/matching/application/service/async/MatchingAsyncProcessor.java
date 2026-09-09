@@ -35,7 +35,8 @@ public class MatchingAsyncProcessor {
                         .findByTaskId(taskId)
                         .orElseGet(
                                 () -> MatchingTask.pending(
-                                        taskId
+                                        taskId,
+                                        patientId
                                 )
                         );
 
@@ -54,13 +55,17 @@ public class MatchingAsyncProcessor {
                     || candidateIds.isEmpty()) {
 
                 log.info(
-                        "[SocialWorkerMatching] 매칭 가능한 사회복지사 없음 patientId={}",
+                        "[SocialWorkerMatching] 매칭 가능한 사회복지사 없음 "
+                                + "taskId={}, matchingResultId={}, patientId={}",
+                        taskId,
+                        matchingResultId,
                         patientId
                 );
 
-                failMatching(
+                completeWithMatchingFailure(
                         taskId,
-                        matchingResultId
+                        matchingResultId,
+                        patientId
                 );
 
                 return;
@@ -76,14 +81,16 @@ public class MatchingAsyncProcessor {
                     selectedSocialWorkerId
             );
 
-            matchingTaskStore.save(
-                    task.completed(
-                            matchingResultId
-                    )
+            completeTask(
+                    taskId,
+                    matchingResultId,
+                    patientId
             );
 
             log.info(
-                    "[SocialWorkerMatching] 자동 매칭 성공 taskId={}, matchingResultId={}, patientId={}, socialWorkerId={}",
+                    "[SocialWorkerMatching] 자동 매칭 성공 "
+                            + "taskId={}, matchingResultId={}, "
+                            + "patientId={}, socialWorkerId={}",
                     taskId,
                     matchingResultId,
                     patientId,
@@ -93,29 +100,84 @@ public class MatchingAsyncProcessor {
         } catch (Exception e) {
 
             log.error(
-                    "[SocialWorkerMatching] 자동 매칭 실패 taskId={}, matchingResultId={}, patientId={}",
+                    "[SocialWorkerMatching] 비동기 매칭 처리 실패 "
+                            + "taskId={}, matchingResultId={}, patientId={}",
                     taskId,
                     matchingResultId,
                     patientId,
                     e
             );
 
-            failMatching(
+            failTask(
                     taskId,
-                    matchingResultId
+                    matchingResultId,
+                    patientId
             );
         }
     }
 
-    private void failMatching(
+    private void completeWithMatchingFailure(
             UUID taskId,
-            UUID matchingResultId
+            UUID matchingResultId,
+            UUID patientId
+    ) {
+
+        matchingResultCommandService.fail(
+                matchingResultId
+        );
+
+        completeTask(
+                taskId,
+                matchingResultId,
+                patientId
+        );
+    }
+
+    private void completeTask(
+            UUID taskId,
+            UUID matchingResultId,
+            UUID patientId
+    ) {
+
+        MatchingTask task =
+                matchingTaskStore
+                        .findByTaskId(taskId)
+                        .orElseGet(
+                                () -> MatchingTask.pending(
+                                        taskId,
+                                        patientId
+                                )
+                        );
+
+        matchingTaskStore.save(
+                task.completed(
+                        matchingResultId
+                )
+        );
+    }
+
+    private void failTask(
+            UUID taskId,
+            UUID matchingResultId,
+            UUID patientId
     ) {
 
         try {
             matchingResultCommandService.fail(
                     matchingResultId
             );
+
+        } catch (Exception failException) {
+
+            log.error(
+                    "[SocialWorkerMatching] 매칭 결과 FAILED 변경 실패 "
+                            + "taskId={}, matchingResultId={}, patientId={}",
+                    taskId,
+                    matchingResultId,
+                    patientId,
+                    failException
+            );
+
         } finally {
 
             MatchingTask task =
@@ -123,14 +185,13 @@ public class MatchingAsyncProcessor {
                             .findByTaskId(taskId)
                             .orElseGet(
                                     () -> MatchingTask.pending(
-                                            taskId
+                                            taskId,
+                                            patientId
                                     )
                             );
 
             matchingTaskStore.save(
-                    task.failed(
-                            matchingResultId
-                    )
+                    task.failed()
             );
         }
     }

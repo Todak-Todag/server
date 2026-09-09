@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.*;
 
 class MatchingAsyncProcessorTest {
@@ -50,15 +51,18 @@ class MatchingAsyncProcessorTest {
     }
 
     @Test
-    @DisplayName("사회복지사 후보가 없으면 FAILED 처리한다")
-    void emptyCandidatesFail() {
+    @DisplayName("사회복지사 후보가 없으면 매칭 결과는 FAILED, Task는 COMPLETED 처리한다")
+    void emptyCandidatesCompleteTaskWithFailedMatchingResult() {
 
         UUID taskId = UUID.randomUUID();
         UUID resultId = UUID.randomUUID();
         UUID patientId = UUID.randomUUID();
 
         matchingTaskStore.save(
-                MatchingTask.pending(taskId)
+                MatchingTask.pending(
+                        taskId,
+                        patientId
+                )
         );
 
         when(
@@ -98,7 +102,7 @@ class MatchingAsyncProcessorTest {
                         .orElseThrow();
 
         assertEquals(
-                MatchingTaskStatus.FAILED,
+                MatchingTaskStatus.COMPLETED,
                 task.status()
         );
 
@@ -106,18 +110,26 @@ class MatchingAsyncProcessorTest {
                 resultId,
                 task.matchingResultId()
         );
+
+        assertEquals(
+                patientId,
+                task.patientId()
+        );
     }
 
     @Test
-    @DisplayName("사회복지사 후보 조회 중 예외가 발생하면 FAILED 처리한다")
-    void candidateLookupFailureFailsMatching() {
+    @DisplayName("사회복지사 후보 조회 중 예외가 발생하면 Task 자체를 FAILED 처리한다")
+    void candidateLookupFailureFailsTask() {
 
         UUID taskId = UUID.randomUUID();
         UUID resultId = UUID.randomUUID();
         UUID patientId = UUID.randomUUID();
 
         matchingTaskStore.save(
-                MatchingTask.pending(taskId)
+                MatchingTask.pending(
+                        taskId,
+                        patientId
+                )
         );
 
         when(
@@ -155,10 +167,19 @@ class MatchingAsyncProcessorTest {
                 MatchingTaskStatus.FAILED,
                 task.status()
         );
+
+        assertNull(
+                task.matchingResultId()
+        );
+
+        assertEquals(
+                patientId,
+                task.patientId()
+        );
     }
 
     @Test
-    @DisplayName("정상 후보가 존재하면 선택된 사회복지사로 ACTIVE 처리한다")
+    @DisplayName("정상 후보가 존재하면 선택된 사회복지사로 ACTIVE 처리하고 Task를 COMPLETED 처리한다")
     void successfulMatchingActivatesResult() {
 
         UUID taskId = UUID.randomUUID();
@@ -182,7 +203,10 @@ class MatchingAsyncProcessorTest {
                 );
 
         matchingTaskStore.save(
-                MatchingTask.pending(taskId)
+                MatchingTask.pending(
+                        taskId,
+                        patientId
+                )
         );
 
         when(
@@ -236,6 +260,11 @@ class MatchingAsyncProcessorTest {
         assertEquals(
                 resultId,
                 task.matchingResultId()
+        );
+
+        assertEquals(
+                patientId,
+                task.patientId()
         );
     }
 }

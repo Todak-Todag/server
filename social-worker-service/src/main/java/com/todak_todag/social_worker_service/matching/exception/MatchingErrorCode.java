@@ -49,6 +49,18 @@ public enum MatchingErrorCode implements ErrorCode {
             "SOCIAL_WORKER_MATCHING_STATUS_CHANGE_FORBIDDEN",
             HttpStatus.FORBIDDEN,
             "사회복지사 매칭 상태 변경 권한이 없습니다."
+    ),
+
+    MATCHING_TASK_NOT_FOUND(
+            "TASK_NOT_FOUND",
+            HttpStatus.NOT_FOUND,
+            "존재하지 않는 taskId 입니다."
+    ),
+
+    MATCHING_TASK_FORBIDDEN(
+            "SOCIAL_WORKER_MATCHING_TASK_FORBIDDEN",
+            HttpStatus.FORBIDDEN,
+            "사회복지사 매칭 처리 현황 조회 권한이 없습니다."
     );
 
     private final String code;

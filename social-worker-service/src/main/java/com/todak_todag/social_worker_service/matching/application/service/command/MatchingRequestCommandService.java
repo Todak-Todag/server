@@ -2,12 +2,12 @@ package com.todak_todag.social_worker_service.matching.application.service.comma
 
 import com.todak_todag.social_worker_service.global.exception.BusinessException;
 import com.todak_todag.social_worker_service.matching.application.service.async.MatchingAsyncProcessor;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTask;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTaskStore;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
 import com.todak_todag.social_worker_service.matching.domain.entity.SocialWorkerMatchingResult;
 import com.todak_todag.social_worker_service.matching.domain.repository.command.SocialWorkerMatchingCommandRepository;
 import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
-import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTask;
-import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTaskStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,8 +69,7 @@ public class MatchingRequestCommandService {
                 UUID.randomUUID();
 
         UUID matchingResultId =
-                matchingResult
-                        .getMatchingResultId();
+                matchingResult.getMatchingResultId();
 
         TransactionSynchronizationManager
                 .registerSynchronization(
@@ -81,7 +80,8 @@ public class MatchingRequestCommandService {
 
                                 matchingTaskStore.save(
                                         MatchingTask.pending(
-                                                taskId
+                                                taskId,
+                                                patientId
                                         )
                                 );
 
