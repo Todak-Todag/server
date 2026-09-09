@@ -33,7 +33,7 @@ spring:
       simple:
         retry:
           enabled: true
-          max-attempts: 3
+          max-retries: 3
           initial-interval: 1000ms
 
 management:
