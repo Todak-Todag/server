@@ -42,6 +42,7 @@ import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.AuthCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
+import com.todak_todag.user_service.user.domain.repository.query.ConsentQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -89,6 +90,9 @@ class AuthCommandServiceTest {
 
 	@Mock
 	private User loginUser;
+	
+	@Mock
+	private ConsentQueryRepository consentQueryRepo;
 
 	private AuthCommandService authCommandService;
 
@@ -102,7 +106,8 @@ class AuthCommandServiceTest {
 				passwordEncoder,
 				authCommandRepo,
 				authQueryRepo,
-				userQueryRepo
+				userQueryRepo,
+				consentQueryRepo
 		);
 	}
 

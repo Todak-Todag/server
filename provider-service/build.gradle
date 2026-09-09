@@ -48,6 +48,10 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-zipkin-test'
+	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
+	testImplementation 'org.testcontainers:testcontainers-postgresql'
+	testImplementation 'org.testcontainers:testcontainers-rabbitmq'
+	testImplementation 'org.awaitility:awaitility'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
@@ -65,4 +69,12 @@ tasks.named('jar') {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// 통합 테스트가 운영과 같은 초기화 스크립트로 스키마를 만들도록 복사한다
+// 두 벌로 관리하면 어긋나므로 원본 하나만 두고 빌드 시점에 가져온다
+tasks.named('processTestResources') {
+	from('../docker/postgres/provider-service.sql') {
+		into 'db'
+	}
 }

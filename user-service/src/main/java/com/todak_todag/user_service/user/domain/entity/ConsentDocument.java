@@ -23,7 +23,6 @@ public class ConsentDocument extends BaseAuditableEntity {
 
     // 개인정보, 민감정보 등 약관의 종류
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "consent_type", nullable = false)
     private ConsentType consentType;
 

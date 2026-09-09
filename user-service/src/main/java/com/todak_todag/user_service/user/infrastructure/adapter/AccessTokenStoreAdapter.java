@@ -72,4 +72,13 @@ public class AccessTokenStoreAdapter implements TokenStorePort {
 		redisTemplate.delete(key);
 	}
 
+	@Override
+	public void storeAccessTokenTemp(String accessToken, String jwtAccessToken, Duration ttl) {
+		redisTemplate.opsForValue().set(
+				accessKeyPrefix + tokenPort.hashToken(accessToken),
+				jwtAccessToken,
+				ttl
+		);
+	}
+
 }
