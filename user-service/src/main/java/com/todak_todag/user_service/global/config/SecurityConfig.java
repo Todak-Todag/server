@@ -17,48 +17,49 @@ import com.todak_todag.user_service.global.security.HeaderAuthenticationFilter;
 @Configuration
 public class SecurityConfig {
 
-	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		
-		http
-				.csrf(AbstractHttpConfigurer::disable)
-				
-				.httpBasic(AbstractHttpConfigurer::disable)
-				
-				.formLogin(AbstractHttpConfigurer::disable)
-				
-				.logout(AbstractHttpConfigurer::disable)
-				
-				.sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-				
-				// Gateway Header -> UserContext 로 파싱
-				// Controller 에서는 @AuthenticationPrincipal UserContext user 로 사용가능합니다.
-				// ROLE 접두사가 붙습니다.
-				// @PreAuthorize("hasRole('MASTER')") 로 Controller 에서 사용할 수 있습니다.
-				// 여러가지의 경우 @PreAuthorize("hasAnyRole('MASTER', 'ADMIN')") 으로 사용할 수 있습니다.
-				.addFilterBefore(new HeaderAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
-				
-				.authorizeHttpRequests(auth -> auth
-						// 내부 서비스 간 호출 인가는 InternalApiIntercepter 담당
-						.requestMatchers("/internal/**")
-						.permitAll()
-						
-						// 공개 API
-						.requestMatchers(
-								"/actuator/health",
-								"/v3/api-docs/**",
-				        "/swagger-ui/**",
-				        "/swagger-ui.html",
-								"/api/v1/auth/login",
-								"/api/v1/users/signup",
-								"/api/v1/auth/reissue",
-								"/api/v1/regions/**"
-						).permitAll()
-						
-						.anyRequest().authenticated()
-				)
-				;
-		
-		return http.build();
-	}
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
+        http
+                .csrf(AbstractHttpConfigurer::disable)
+
+                .httpBasic(AbstractHttpConfigurer::disable)
+
+                .formLogin(AbstractHttpConfigurer::disable)
+
+                .logout(AbstractHttpConfigurer::disable)
+
+                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // Gateway Header -> UserContext 로 파싱
+                // Controller 에서는 @AuthenticationPrincipal UserContext user 로 사용가능합니다.
+                // ROLE 접두사가 붙습니다.
+                // @PreAuthorize("hasRole('MASTER')") 로 Controller 에서 사용할 수 있습니다.
+                // 여러가지의 경우 @PreAuthorize("hasAnyRole('MASTER', 'ADMIN')") 으로 사용할 수 있습니다.
+                .addFilterBefore(new HeaderAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+
+                .authorizeHttpRequests(auth -> auth
+                        // 내부 서비스 간 호출 인가는 InternalApiIntercepter 담당
+                        .requestMatchers("/internal/**")
+                        .permitAll()
+
+                        // 공개 API
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/api/v1/auth/login",
+                                "/api/v1/users/signup",
+                                "/api/v1/auth/reissue",
+                                "/api/v1/regions/**",
+                                "/api/v1/consent-documents/**"
+                        ).permitAll()
+
+                        .anyRequest().authenticated()
+                )
+        ;
+
+        return http.build();
+    }
 }
