@@ -300,6 +300,8 @@ class DischargeQueryRepositoryImplTest {
                     LocalDate.of(2026, 9, 11)
             );
 
+            entityManager.flush();
+
             setCreatedAt(
                     first,
                     Instant.parse("2026-09-01T01:00:00Z")
@@ -310,7 +312,6 @@ class DischargeQueryRepositoryImplTest {
                     Instant.parse("2026-09-02T01:00:00Z")
             );
 
-            entityManager.flush();
             entityManager.clear();
 
             Pageable pageable =
@@ -439,21 +440,15 @@ class DischargeQueryRepositoryImplTest {
             Discharge discharge,
             Instant createdAt
     ) {
-        try {
-            Field field =
-                    discharge.getClass()
-                            .getSuperclass()
-                            .getSuperclass()
-                            .getDeclaredField("createdAt");
-
-            field.setAccessible(true);
-            field.set(
-                    discharge,
-                    createdAt
-            );
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
+        entityManager.getEntityManager()
+                .createNativeQuery("""
+                    UPDATE discharge_schema.p_discharges
+                    SET created_at = :createdAt
+                    WHERE id = :id
+                    """)
+                .setParameter("createdAt", createdAt)
+                .setParameter("id", discharge.getId())
+                .executeUpdate();
     }
 
     @TestConfiguration

@@ -130,7 +130,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: local
 
-      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+      CONFIG_SERVER_URL: http://config-server:8888
 
       EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
 

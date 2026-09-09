@@ -76,7 +76,6 @@ public class ConsentQueryRepositoryImpl
                 .fetch();
     }
 
-    //
     @Override
     public long countAgreedConsents(
             UUID userId,
