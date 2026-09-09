@@ -1,14 +1,18 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
-import com.todak_todag.user_service.global.exception.BusinessException;
-import com.todak_todag.user_service.global.exception.RegionErrorCode;
-import com.todak_todag.user_service.user.application.command.RegionUpdateCommand;
-import com.todak_todag.user_service.user.application.query.RegionFindAdminQuery;
-import com.todak_todag.user_service.user.application.result.*;
-import com.todak_todag.user_service.user.application.service.command.RegionCommandService;
-import com.todak_todag.user_service.user.application.service.query.RegionQueryService;
-import com.todak_todag.user_service.user.presentation.request.RegionCreateRequest;
-import com.todak_todag.user_service.user.presentation.request.RegionUpdateActiveRequest;
+import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
+import java.util.UUID;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,23 +24,30 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.RegionErrorCode;
+import com.todak_todag.user_service.user.application.command.RegionUpdateCommand;
+import com.todak_todag.user_service.user.application.query.RegionFindAdminQuery;
+import com.todak_todag.user_service.user.application.result.RegionCreateResult;
+import com.todak_todag.user_service.user.application.result.RegionFindAdminResult;
+import com.todak_todag.user_service.user.application.result.RegionFindAvailableResult;
+import com.todak_todag.user_service.user.application.result.RegionFindDetailResult;
+import com.todak_todag.user_service.user.application.result.RegionUpdateActiveResult;
+import com.todak_todag.user_service.user.application.result.RegionUpdateResult;
+import com.todak_todag.user_service.user.application.service.command.RegionCommandService;
+import com.todak_todag.user_service.user.application.service.query.RegionQueryService;
+import com.todak_todag.user_service.user.presentation.request.RegionCreateRequest;
+import com.todak_todag.user_service.user.presentation.request.RegionUpdateActiveRequest;
+
 import tools.jackson.databind.ObjectMapper;
-
-import java.util.List;
-import java.util.UUID;
-
-import static org.hamcrest.Matchers.hasSize;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.then;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(RegionController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@ActiveProfiles("test")
 class RegionControllerTest {
 
     private static final String URI = "/api/v1/regions";

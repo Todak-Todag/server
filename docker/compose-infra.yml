@@ -258,6 +258,9 @@ services:
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
       JWT_SECRET: ${JWT_SECRET}
       ACCESS_KEY_PREFIX: ${ACCESS_KEY_PREFIX}
+      
+      ACCESS_COOKIE_NAME: ${ACCESS_COOKIE_NAME}
+      REFRESH_COOKIE_NAME: ${REFRESH_COOKIE_NAME}
 
       # Docker 내부 Config Server 주소 지정.
       SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
