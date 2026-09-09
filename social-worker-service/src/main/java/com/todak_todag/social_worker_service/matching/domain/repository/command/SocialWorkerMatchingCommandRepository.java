@@ -17,6 +17,11 @@ public interface SocialWorkerMatchingCommandRepository {
             UUID matchingResultId
     );
 
+    Optional<SocialWorkerMatchingResult> findByPatientIdAndStatus(
+            UUID patientId,
+            MatchingStatus status
+    );
+
     boolean existsByPatientIdAndStatusIn(
             UUID patientId,
             Collection<MatchingStatus> statuses
