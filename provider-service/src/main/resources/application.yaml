@@ -64,9 +64,3 @@ spring:
 logging:
   level:
     com.todak_todag.provider_service: debug
-
-# 호스트명이나 WSL 어댑터 IP로 등록되면 게이트웨이가 접근하지 못한다
-# 운영에서는 실제 호스트로 등록되어야 하므로 local에만 둔다
-eureka:
-  instance:
-    hostname: localhost
