@@ -218,17 +218,55 @@ class MatchingFacadeTest {
     }
 
     @Test
-    @DisplayName("Schedule-Service 호출이 실패해도 예외를 밖으로 던지지 않는다")
-    void match_isolatesException() {
-        given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId))
-                .willReturn(List.of(offering(offeringIdA)));
-        given(provideWorkQueryRepository.findAllByServiceOfferingIdIn(anyList()))
-                .willReturn(List.of(work(offeringIdA, "09:00", "13:00")));
+    @DisplayName("Schedule-Service 호출이 실패하면 아무것도 발행하지 않고 예외를 그대로 던진다")
+    void match_externalFailure_rethrows() {
+        givenMatchableCandidate();
         given(schedulePort.findSchedules(anyList(), any()))
                 .willThrow(new BusinessException(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE));
 
-        // 예외가 밖으로 나가면 RabbitMQ 재시도로 이미 발행한 결과가 중복 발행된다
-        matchingFacade.match(event(preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING)));
+        // 조회 단계에서 실패하므로 아직 적재된 것이 없다
+        // 적재가 0건이어야 재전송되어도 중복 발행이 생기지 않는다
+        assertThatThrownBy(() -> matchingFacade.match(
+                event(preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING))
+        )).isInstanceOf(BusinessException.class);
+
+        verify(matchingEventPort, never()).publishMatched(any());
+        verify(matchingEventPort, never()).publishMatchFailed(any());
+    }
+
+    @Test
+    @DisplayName("매칭 중 외부 서비스 연결이 끊기면 리스너 재시도를 받도록 예외를 그대로 던진다")
+    void match_connectionFailure_rethrows() {
+        // 상대 서비스가 죽으면 Feign이 status -1로 예외를 던진다
+        givenMatchableCandidate();
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willThrow(new RetryableException(
+                        -1, "Connection refused", Request.HttpMethod.GET, (Long) null, feignRequest()
+                ));
+
+        assertThatThrownBy(() -> matchingFacade.match(
+                event(preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING))
+        )).isInstanceOf(RetryableException.class);
+
+        verify(matchingEventPort, never()).publishMatched(any());
+        verify(matchingEventPort, never()).publishMatchFailed(any());
+    }
+
+    @Test
+    @DisplayName("매칭 중 4xx 응답은 다시 보내도 같은 결과라 재시도하지 않는다")
+    void match_clientError_doesNotThrow() {
+        givenMatchableCandidate();
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willThrow(FeignException.errorStatus("ScheduleClient#findSchedules", Response.builder()
+                        .status(400)
+                        .reason("Bad Request")
+                        .request(feignRequest())
+                        .headers(Map.of())
+                        .build()));
+
+        assertThatCode(() -> matchingFacade.match(
+                event(preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING))
+        )).doesNotThrowAnyException();
 
         verify(matchingEventPort, never()).publishMatched(any());
         verify(matchingEventPort, never()).publishMatchFailed(any());
@@ -303,7 +341,7 @@ class MatchingFacadeTest {
     @DisplayName("재매칭 중 외부 서비스 연결이 끊기면 리스너 재시도를 받도록 예외를 그대로 던진다")
     void rematch_connectionFailure_rethrows() {
         // 상대 서비스가 죽으면 Feign이 status -1로 예외를 던진다
-        givenRematchableCandidate();
+        givenMatchableCandidate();
         given(schedulePort.findSchedules(anyList(), any()))
                 .willThrow(new RetryableException(
                         -1, "Connection refused", Request.HttpMethod.GET, (Long) null, feignRequest()
@@ -320,7 +358,7 @@ class MatchingFacadeTest {
     @Test
     @DisplayName("재매칭 중 4xx 응답은 다시 보내도 같은 결과라 재시도하지 않는다")
     void rematch_clientError_doesNotThrow() {
-        givenRematchableCandidate();
+        givenMatchableCandidate();
         given(schedulePort.findSchedules(anyList(), any()))
                 .willThrow(FeignException.errorStatus("ScheduleClient#findSchedules", Response.builder()
                         .status(400)
@@ -334,7 +372,8 @@ class MatchingFacadeTest {
         ))).doesNotThrowAnyException();
     }
 
-    private void givenRematchableCandidate() {
+    // 후보 제공자 1명 + 목요일 09:00~13:00 근무표
+    private void givenMatchableCandidate() {
         given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId))
                 .willReturn(List.of(offering(offeringIdA)));
         given(provideWorkQueryRepository.findAllByServiceOfferingIdIn(anyList()))
