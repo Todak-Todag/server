@@ -35,7 +35,8 @@ public class MatchingAsyncProcessor {
                         .findByTaskId(taskId)
                         .orElseGet(
                                 () -> MatchingTask.pending(
-                                        taskId
+                                        taskId,
+                                        patientId
                                 )
                         );
 
@@ -60,7 +61,8 @@ public class MatchingAsyncProcessor {
 
                 failMatching(
                         taskId,
-                        matchingResultId
+                        matchingResultId,
+                        patientId
                 );
 
                 return;
@@ -102,14 +104,16 @@ public class MatchingAsyncProcessor {
 
             failMatching(
                     taskId,
-                    matchingResultId
+                    matchingResultId,
+                    patientId
             );
         }
     }
 
     private void failMatching(
             UUID taskId,
-            UUID matchingResultId
+            UUID matchingResultId,
+            UUID patientId
     ) {
 
         try {
@@ -123,7 +127,8 @@ public class MatchingAsyncProcessor {
                             .findByTaskId(taskId)
                             .orElseGet(
                                     () -> MatchingTask.pending(
-                                            taskId
+                                            taskId,
+                                            patientId
                                     )
                             );
 

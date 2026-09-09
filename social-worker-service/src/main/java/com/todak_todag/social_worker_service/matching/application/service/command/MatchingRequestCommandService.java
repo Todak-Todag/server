@@ -81,7 +81,8 @@ public class MatchingRequestCommandService {
 
                                 matchingTaskStore.save(
                                         MatchingTask.pending(
-                                                taskId
+                                                taskId,
+                                                patientId
                                         )
                                 );
 
