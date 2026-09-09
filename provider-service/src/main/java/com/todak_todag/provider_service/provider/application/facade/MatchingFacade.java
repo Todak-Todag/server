@@ -35,14 +35,35 @@ public class MatchingFacade {
     private final MatchingEventPort matchingEventPort;
 
     public void match(CarePlanConfirmedEvent event) {
-        for (CarePlanConfirmedEvent.Service service : event.services()) {
-            // 서비스 하나가 실패해 메서드 전체가 죽으면 RabbitMQ가 이벤트를 재전송하고,
-            // 앞 서비스에서 이미 발행한 매칭 결과가 다시 발행되어 일정이 중복 생성될 수도 있음
+        // 외부 조회를 모두 끝낸 뒤에 적재를 시작한다
+        // 조회 중 실패하면 아직 아무것도 적재되지 않은 상태라, 이벤트를 다시 던져
+        // 리스너 재시도에 맡겨도 앞 서비스의 결과가 중복 발행되지 않는다
+        List<MatchingTarget> targets;
+
+        try {
+            targets = prepare(event);
+        } catch (RuntimeException e) {
+            // 외부 서비스 장애는 잠시 뒤 성공할 수 있어 리스너 재시도에 맡긴다
+            // (재시도를 소진하면 default-requeue-rejected: false 설정에 따라 폐기된다)
+            if (isRetryable(e)) {
+                log.warn("[Provider] 외부 서비스 장애로 매칭 재시도 carePlanId={}", event.carePlanId());
+
+                throw e;
+            }
+
+            log.error("[Provider] 매칭 준비 실패 carePlanId={}", event.carePlanId(), e);
+
+            return;
+        }
+
+        for (MatchingTarget target : targets) {
+            // 이 단계에는 외부 호출이 없어 재시도해도 결과가 같다
+            // 예외가 리스너 밖으로 나가면 이미 적재한 결과가 중복 발행되므로 여기서 가둔다
             try {
-                matchService(event.carePlanId(), event.regionId(), service);
+                apply(event.carePlanId(), event.regionId(), target);
             } catch (Exception e) {
                 log.error("[Provider] 서비스 매칭 처리 실패 carePlanId={} provideServiceId={}",
-                        event.carePlanId(), service.provideServiceId(), e);
+                        event.carePlanId(), target.service().provideServiceId(), e);
             }
         }
     }
@@ -76,35 +97,59 @@ public class MatchingFacade {
         }
     }
 
-    private void matchService(UUID carePlanId, UUID regionId, CarePlanConfirmedEvent.Service service) {
+    // 매칭 판정에 필요한 조회 결과를 서비스 단위로 모아둔다
+    private record MatchingTarget(
+            CarePlanConfirmedEvent.Service service,
+            List<ServiceOffering> candidates,
+            Map<UUID, List<ProvideWork>> works,
+            List<ScheduleSlot> occupied
+    ) {
+    }
 
-        // 희망 일정이 없으면 판정할 대상이 없어 조회도 하지 않는다
-        if (service.preferences().isEmpty()) {
-            return;
+    // 외부 조회 단계
+    // 여기서 실패하면 아직 적재된 것이 없으므로 호출자가 안전하게 예외를 다시 던질 수 있다
+    private List<MatchingTarget> prepare(CarePlanConfirmedEvent event) {
+        List<MatchingTarget> targets = new ArrayList<>();
+
+        for (CarePlanConfirmedEvent.Service service : event.services()) {
+            // 희망 일정이 없으면 판정할 대상이 없어 조회도 하지 않는다
+            if (service.preferences().isEmpty()) {
+                continue;
+            }
+
+            List<ServiceOffering> candidates = serviceOfferingQueryRepository
+                    .findAllByRegionIdAndProvideServiceId(event.regionId(), service.provideServiceId());
+
+            Map<UUID, List<ProvideWork>> works = loadWorks(candidates);
+
+            LocalDate startDate = service.preferences().stream()
+                    .map(CarePlanConfirmedEvent.Preference::preferredDate)
+                    .min(Comparator.naturalOrder())
+                    .orElseThrow();
+
+            // 방금 배정한 건은 아직 Schedule에 저장되지 않으므로 메모리에서 누적한다
+            targets.add(new MatchingTarget(
+                    service,
+                    candidates,
+                    works,
+                    new ArrayList<>(loadSchedules(candidates, startDate))
+            ));
         }
 
-        List<ServiceOffering> candidates = serviceOfferingQueryRepository
-                .findAllByRegionIdAndProvideServiceId(regionId, service.provideServiceId());
+        return targets;
+    }
 
-        Map<UUID, List<ProvideWork>> works = loadWorks(candidates);
-
-        LocalDate startDate = service.preferences().stream()
-                .map(CarePlanConfirmedEvent.Preference::preferredDate)
-                .min(Comparator.naturalOrder())
-                .orElseThrow();
-
-        // 방금 배정한 건은 아직 Schedule에 저장되지 않으므로 메모리에서 누적한다
-        List<ScheduleSlot> occupied = new ArrayList<>(loadSchedules(candidates, startDate));
-
-        for (CarePlanConfirmedEvent.Preference preference : service.preferences()) {
+    // 적재 단계
+    // 외부 호출 없이 판정하고 아웃박스에 쌓는다
+    private void apply(UUID carePlanId, UUID regionId, MatchingTarget target) {
+        for (CarePlanConfirmedEvent.Preference preference : target.service().preferences()) {
             // 희망 일정 1건은 서로 독립적. 한 건이 실패해도 나머지는 계속 처리해야한다
-            // 여기서 예외를 가두지 않으면 위와 같은 이유로 중복 발행이 발생할 가능성 있음
             try {
                 matchOne(
-                        carePlanId, regionId, service.provideServiceId(),
+                        carePlanId, regionId, target.service().provideServiceId(),
                         preference.servicePreferenceId(), preference.preferredDate(),
                         preference.preferredTimeSlot(),
-                        candidates, works, occupied
+                        target.candidates(), target.works(), target.occupied()
                 );
             } catch (Exception e) {
                 log.error("[Provider] 매칭 처리 실패 servicePreferenceId={}",
