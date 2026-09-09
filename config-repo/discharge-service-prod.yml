@@ -57,4 +57,3 @@ logging:
 
 internal:
   key: ${INTERNAL_API_KEY}
-
