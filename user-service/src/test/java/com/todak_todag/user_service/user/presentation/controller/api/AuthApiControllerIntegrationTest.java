@@ -44,6 +44,7 @@ import com.todak_todag.user_service.user.infrastructure.persistence.JpaUserRepos
 import com.todak_todag.user_service.user.presentation.request.UserLoginRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
 import com.todak_todag.user_service.user.presentation.request.UserSignupRequest.AgreementRequest;
+import com.todak_todag.user_service.support.PostgresRedisTestSupport;
 
 import jakarta.servlet.http.Cookie;
 
@@ -52,7 +53,7 @@ import jakarta.servlet.http.Cookie;
 @Transactional
 @ActiveProfiles("test")
 @DisplayName("Auth/User API 웹 단 통합테스트")
-class AuthApiControllerIntegrationTest {
+class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 
 	private static final String RAW_PASSWORD = "Test1234!";
 
