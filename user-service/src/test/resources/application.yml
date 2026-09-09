@@ -1,8 +1,5 @@
 spring:
   config:
-    activate:
-      on-profile: test
-
     import:
       - optional:file:.env[.properties]
       - optional:file:../.env[.properties]
