@@ -38,6 +38,18 @@ public class SocialWorkerMatchingCommandRepositoryImpl
     }
 
     @Override
+    public Optional<SocialWorkerMatchingResult> findByPatientIdAndStatus(
+            UUID patientId,
+            MatchingStatus status
+    ) {
+        return springSocialWorkerMatchingRepository
+                .findByPatientIdAndStatusAndDeletedAtIsNull(
+                        patientId,
+                        status
+                );
+    }
+
+    @Override
     public boolean existsByPatientIdAndStatusIn(
             UUID patientId,
             Collection<MatchingStatus> statuses

@@ -26,6 +26,12 @@ public interface SpringSocialWorkerMatchingRepository
             UUID matchingResultId
     );
 
+    Optional<SocialWorkerMatchingResult>
+    findByPatientIdAndStatusAndDeletedAtIsNull(
+            UUID patientId,
+            MatchingStatus status
+    );
+
     @Query("""
             select
                 m.socialWorkerId as socialWorkerId,
