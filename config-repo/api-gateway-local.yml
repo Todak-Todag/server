@@ -13,6 +13,11 @@ jwt:
 authentication:
   access-token:
     redis-key-prefix: ${ACCESS_KEY_PREFIX}
+    cookie-name: ${ACCESS_COOKIE_NAME}
+    user-id-claim: sub
+    role-claim: role
+  refresh-token:
+    cookie-name: ${REFRESH_COOKIE_NAME}
 
 eureka:
   client:
