@@ -8,6 +8,12 @@ spring:
     password: ${POSTGRES_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
   jpa:
     open-in-view: false
     show-sql: true
@@ -57,3 +63,4 @@ logging:
 
 internal:
   key: ${INTERNAL_API_KEY}
+
