@@ -21,6 +21,12 @@ public enum MatchingErrorCode implements ErrorCode {
             "사회복지사 매칭 결과 조회 권한이 없습니다."
     ),
 
+    MATCHING_RESULT_NOT_FOUND(
+            "MATCHING_RESULT_NOT_FOUND",
+            HttpStatus.NOT_FOUND,
+            "매칭 결과를 찾을 수 없습니다."
+    ),
+
     MATCHING_ALREADY_IN_PROGRESS(
             "SOCIAL_WORKER_MATCHING_ALREADY_IN_PROGRESS",
             HttpStatus.CONFLICT,

@@ -35,13 +35,13 @@ public class SocialWorkerMatchingQueryRepositoryImpl
     }
 
     @Override
-    public Optional<SocialWorkerMatchingResult> findLatestByPatientId(
-            UUID patientId
+    public Optional<SocialWorkerMatchingResult> findById(
+            UUID matchingResultId
     ) {
 
         return springSocialWorkerMatchingRepository
-                .findFirstByPatientIdAndDeletedAtIsNullOrderByRequestedAtDesc(
-                        patientId
+                .findByMatchingResultIdAndDeletedAtIsNull(
+                        matchingResultId
                 );
     }
 }

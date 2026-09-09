@@ -1,6 +1,8 @@
 package com.todak_todag.social_worker_service.matching.application.service.query;
 
+import com.todak_todag.social_worker_service.global.common.UserRole;
 import com.todak_todag.social_worker_service.global.exception.BusinessException;
+import com.todak_todag.social_worker_service.matching.application.query.MatchingResultQuery;
 import com.todak_todag.social_worker_service.matching.application.result.MatchingResultQueryResult;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
 import com.todak_todag.social_worker_service.matching.domain.entity.SocialWorkerMatchingResult;
@@ -18,7 +20,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -228,8 +229,8 @@ class MatchingQueryServiceTest {
     }
 
     @Test
-    @DisplayName("환자의 최신 사회복지사 매칭 결과를 조회한다")
-    void getLatestMatchingResult() {
+    @DisplayName("PATIENT는 자신의 매칭 결과를 조회할 수 있다")
+    void patientCanGetOwnMatchingResult() {
 
         UUID matchingResultId = UUID.randomUUID();
         UUID patientId = UUID.randomUUID();
@@ -257,8 +258,8 @@ class MatchingQueryServiceTest {
 
         when(
                 matchingRepository
-                        .findLatestByPatientId(
-                                patientId
+                        .findById(
+                                matchingResultId
                         )
         ).thenReturn(
                 Optional.of(
@@ -268,8 +269,12 @@ class MatchingQueryServiceTest {
 
         MatchingResultQueryResult result =
                 matchingQueryService
-                        .getLatestResult(
-                                patientId
+                        .getResult(
+                                new MatchingResultQuery(
+                                        matchingResultId,
+                                        patientId,
+                                        UserRole.PATIENT
+                                )
                         );
 
         assertEquals(
@@ -304,16 +309,203 @@ class MatchingQueryServiceTest {
     }
 
     @Test
-    @DisplayName("사회복지사 매칭 결과가 없으면 예외가 발생한다")
+    @DisplayName("다른 환자의 매칭 결과는 조회할 수 없다")
+    void patientCannotGetOtherPatientMatchingResult() {
+
+        UUID matchingResultId = UUID.randomUUID();
+        UUID ownerPatientId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+
+        SocialWorkerMatchingResult matchingResult =
+                new SocialWorkerMatchingResult(
+                        matchingResultId,
+                        ownerPatientId,
+                        null,
+                        MatchingStatus.REQUESTED,
+                        Instant.now(),
+                        null
+                );
+
+        when(
+                matchingRepository
+                        .findById(
+                                matchingResultId
+                        )
+        ).thenReturn(
+                Optional.of(
+                        matchingResult
+                )
+        );
+
+        BusinessException exception =
+                assertThrows(
+                        BusinessException.class,
+                        () ->
+                                matchingQueryService
+                                        .getResult(
+                                                new MatchingResultQuery(
+                                                        matchingResultId,
+                                                        requesterId,
+                                                        UserRole.PATIENT
+                                                )
+                                        )
+                );
+
+        assertEquals(
+                MatchingErrorCode.MATCHING_QUERY_FORBIDDEN,
+                exception.getErrorCode()
+        );
+    }
+
+    @Test
+    @DisplayName("배정된 SOCIAL_WORKER는 자신의 매칭 결과를 조회할 수 있다")
+    void assignedSocialWorkerCanGetMatchingResult() {
+
+        UUID matchingResultId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        UUID socialWorkerId = UUID.randomUUID();
+
+        SocialWorkerMatchingResult matchingResult =
+                new SocialWorkerMatchingResult(
+                        matchingResultId,
+                        patientId,
+                        socialWorkerId,
+                        MatchingStatus.ACTIVE,
+                        Instant.now(),
+                        Instant.now()
+                );
+
+        when(
+                matchingRepository
+                        .findById(
+                                matchingResultId
+                        )
+        ).thenReturn(
+                Optional.of(
+                        matchingResult
+                )
+        );
+
+        MatchingResultQueryResult result =
+                matchingQueryService
+                        .getResult(
+                                new MatchingResultQuery(
+                                        matchingResultId,
+                                        socialWorkerId,
+                                        UserRole.SOCIAL_WORKER
+                                )
+                        );
+
+        assertEquals(
+                matchingResultId,
+                result.matchingResultId()
+        );
+    }
+
+    @Test
+    @DisplayName("배정되지 않은 SOCIAL_WORKER는 매칭 결과를 조회할 수 없다")
+    void otherSocialWorkerCannotGetMatchingResult() {
+
+        UUID matchingResultId = UUID.randomUUID();
+        UUID patientId = UUID.randomUUID();
+        UUID assignedSocialWorkerId = UUID.randomUUID();
+        UUID requesterId = UUID.randomUUID();
+
+        SocialWorkerMatchingResult matchingResult =
+                new SocialWorkerMatchingResult(
+                        matchingResultId,
+                        patientId,
+                        assignedSocialWorkerId,
+                        MatchingStatus.ACTIVE,
+                        Instant.now(),
+                        Instant.now()
+                );
+
+        when(
+                matchingRepository
+                        .findById(
+                                matchingResultId
+                        )
+        ).thenReturn(
+                Optional.of(
+                        matchingResult
+                )
+        );
+
+        BusinessException exception =
+                assertThrows(
+                        BusinessException.class,
+                        () ->
+                                matchingQueryService
+                                        .getResult(
+                                                new MatchingResultQuery(
+                                                        matchingResultId,
+                                                        requesterId,
+                                                        UserRole.SOCIAL_WORKER
+                                                )
+                                        )
+                );
+
+        assertEquals(
+                MatchingErrorCode.MATCHING_QUERY_FORBIDDEN,
+                exception.getErrorCode()
+        );
+    }
+
+    @Test
+    @DisplayName("ADMIN은 매칭 결과를 조회할 수 있다")
+    void adminCanGetMatchingResult() {
+
+        UUID matchingResultId = UUID.randomUUID();
+
+        SocialWorkerMatchingResult matchingResult =
+                new SocialWorkerMatchingResult(
+                        matchingResultId,
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        MatchingStatus.ACTIVE,
+                        Instant.now(),
+                        Instant.now()
+                );
+
+        when(
+                matchingRepository
+                        .findById(
+                                matchingResultId
+                        )
+        ).thenReturn(
+                Optional.of(
+                        matchingResult
+                )
+        );
+
+        MatchingResultQueryResult result =
+                matchingQueryService
+                        .getResult(
+                                new MatchingResultQuery(
+                                        matchingResultId,
+                                        UUID.randomUUID(),
+                                        UserRole.ADMIN
+                                )
+                        );
+
+        assertEquals(
+                matchingResultId,
+                result.matchingResultId()
+        );
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 매칭 결과를 조회하면 예외가 발생한다")
     void matchingResultNotFound() {
 
-        UUID patientId =
+        UUID matchingResultId =
                 UUID.randomUUID();
 
         when(
                 matchingRepository
-                        .findLatestByPatientId(
-                                patientId
+                        .findById(
+                                matchingResultId
                         )
         ).thenReturn(
                 Optional.empty()
@@ -324,13 +516,17 @@ class MatchingQueryServiceTest {
                         BusinessException.class,
                         () ->
                                 matchingQueryService
-                                        .getLatestResult(
-                                                patientId
+                                        .getResult(
+                                                new MatchingResultQuery(
+                                                        matchingResultId,
+                                                        UUID.randomUUID(),
+                                                        UserRole.PATIENT
+                                                )
                                         )
                 );
 
         assertEquals(
-                MatchingErrorCode.MATCHING_NOT_FOUND,
+                MatchingErrorCode.MATCHING_RESULT_NOT_FOUND,
                 exception.getErrorCode()
         );
     }

@@ -1,8 +1,10 @@
 package com.todak_todag.social_worker_service.matching.presentation.controller.api;
 
+import com.todak_todag.social_worker_service.global.common.UserRole;
 import com.todak_todag.social_worker_service.global.exception.BusinessException;
 import com.todak_todag.social_worker_service.global.response.ApiResponse;
 import com.todak_todag.social_worker_service.global.security.UserContext;
+import com.todak_todag.social_worker_service.matching.application.query.MatchingResultQuery;
 import com.todak_todag.social_worker_service.matching.application.result.MatchingResultQueryResult;
 import com.todak_todag.social_worker_service.matching.application.service.query.MatchingQueryService;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
@@ -21,8 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -45,8 +47,8 @@ class SocialWorkerMatchingQueryApiControllerTest {
     }
 
     @Test
-    @DisplayName("PATIENT는 자신의 사회복지사 매칭 결과를 조회할 수 있다")
-    void patientCanGetMatchingResult() {
+    @DisplayName("인증된 사용자는 matchingResultId로 매칭 결과를 조회한다")
+    void authenticatedUserCanGetMatchingResult() {
 
         UUID matchingResultId = UUID.randomUUID();
         UUID patientId = UUID.randomUUID();
@@ -80,8 +82,8 @@ class SocialWorkerMatchingQueryApiControllerTest {
 
         when(
                 matchingQueryService
-                        .getLatestResult(
-                                patientId
+                        .getResult(
+                                any(MatchingResultQuery.class)
                         )
         ).thenReturn(
                 result
@@ -89,6 +91,7 @@ class SocialWorkerMatchingQueryApiControllerTest {
 
         ResponseEntity<ApiResponse<MatchingResultResponse>> response =
                 controller.getMatchingResult(
+                        matchingResultId,
                         userContext
                 );
 
@@ -153,43 +156,13 @@ class SocialWorkerMatchingQueryApiControllerTest {
         );
 
         verify(
-                matchingQueryService,
-                times(1)
-        ).getLatestResult(
-                patientId
-        );
-    }
-
-    @Test
-    @DisplayName("PATIENT가 아닌 사용자는 매칭 결과를 조회할 수 없다")
-    void nonPatientCannotGetMatchingResult() {
-
-        UUID userId =
-                UUID.randomUUID();
-
-        UserContext userContext =
-                UserContext.from(
-                        userId.toString(),
-                        "ADMIN"
-                );
-
-        BusinessException exception =
-                assertThrows(
-                        BusinessException.class,
-                        () ->
-                                controller
-                                        .getMatchingResult(
-                                                userContext
-                                        )
-                );
-
-        assertEquals(
-                MatchingErrorCode.MATCHING_QUERY_FORBIDDEN,
-                exception.getErrorCode()
-        );
-
-        verifyNoInteractions(
                 matchingQueryService
+        ).getResult(
+                new MatchingResultQuery(
+                        matchingResultId,
+                        patientId,
+                        UserRole.PATIENT
+                )
         );
     }
 
@@ -197,12 +170,16 @@ class SocialWorkerMatchingQueryApiControllerTest {
     @DisplayName("인증 정보가 없으면 매칭 결과 조회를 거부한다")
     void nullUserContextIsForbidden() {
 
+        UUID matchingResultId =
+                UUID.randomUUID();
+
         BusinessException exception =
                 assertThrows(
                         BusinessException.class,
                         () ->
                                 controller
                                         .getMatchingResult(
+                                                matchingResultId,
                                                 null
                                         )
                 );

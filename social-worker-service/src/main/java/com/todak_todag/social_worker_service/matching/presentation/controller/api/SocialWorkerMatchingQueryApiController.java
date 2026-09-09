@@ -1,9 +1,9 @@
 package com.todak_todag.social_worker_service.matching.presentation.controller.api;
 
-import com.todak_todag.social_worker_service.global.common.UserRole;
 import com.todak_todag.social_worker_service.global.exception.BusinessException;
 import com.todak_todag.social_worker_service.global.response.ApiResponse;
 import com.todak_todag.social_worker_service.global.security.UserContext;
+import com.todak_todag.social_worker_service.matching.application.query.MatchingResultQuery;
 import com.todak_todag.social_worker_service.matching.application.result.MatchingResultQueryResult;
 import com.todak_todag.social_worker_service.matching.application.service.query.MatchingQueryService;
 import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
@@ -12,8 +12,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -22,20 +25,25 @@ public class SocialWorkerMatchingQueryApiController {
 
     private final MatchingQueryService matchingQueryService;
 
-    @GetMapping
+    @GetMapping("/{matchingResultId}")
     public ResponseEntity<ApiResponse<MatchingResultResponse>>
     getMatchingResult(
+            @PathVariable UUID matchingResultId,
             @AuthenticationPrincipal UserContext userContext
     ) {
 
-        validatePatient(
+        validateAuthentication(
                 userContext
         );
 
         MatchingResultQueryResult result =
                 matchingQueryService
-                        .getLatestResult(
-                                userContext.getUserId()
+                        .getResult(
+                                new MatchingResultQuery(
+                                        matchingResultId,
+                                        userContext.getUserId(),
+                                        userContext.getRole()
+                                )
                         );
 
         return ResponseEntity.ok(
@@ -48,12 +56,11 @@ public class SocialWorkerMatchingQueryApiController {
         );
     }
 
-    private void validatePatient(
+    private void validateAuthentication(
             UserContext userContext
     ) {
 
-        if (userContext == null
-                || userContext.getRole() != UserRole.PATIENT) {
+        if (userContext == null) {
 
             throw new BusinessException(
                     MatchingErrorCode.MATCHING_QUERY_FORBIDDEN,

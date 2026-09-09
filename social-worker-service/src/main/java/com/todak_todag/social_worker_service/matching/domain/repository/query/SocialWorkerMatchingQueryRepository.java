@@ -16,7 +16,7 @@ public interface SocialWorkerMatchingQueryRepository {
             MatchingStatus status
     );
 
-    Optional<SocialWorkerMatchingResult> findLatestByPatientId(
-            UUID patientId
+    Optional<SocialWorkerMatchingResult> findById(
+            UUID matchingResultId
     );
 }

@@ -22,8 +22,8 @@ public interface SpringSocialWorkerMatchingRepository
     );
 
     Optional<SocialWorkerMatchingResult>
-    findFirstByPatientIdAndDeletedAtIsNullOrderByRequestedAtDesc(
-            UUID patientId
+    findByMatchingResultIdAndDeletedAtIsNull(
+            UUID matchingResultId
     );
 
     @Query("""
