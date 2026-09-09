@@ -1,8 +1,14 @@
 package com.todak_todag.social_worker_service.matching.application.service.query;
 
+import com.todak_todag.social_worker_service.global.common.UserRole;
+import com.todak_todag.social_worker_service.global.exception.BusinessException;
+import com.todak_todag.social_worker_service.matching.application.query.MatchingResultQuery;
+import com.todak_todag.social_worker_service.matching.application.result.MatchingResultQueryResult;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
+import com.todak_todag.social_worker_service.matching.domain.entity.SocialWorkerMatchingResult;
 import com.todak_todag.social_worker_service.matching.domain.repository.SocialWorkerLoadProjection;
 import com.todak_todag.social_worker_service.matching.domain.repository.query.SocialWorkerMatchingQueryRepository;
+import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +50,7 @@ public class MatchingQueryService {
                 new HashMap<>();
 
         for (SocialWorkerLoadProjection load : loads) {
+
             loadMap.put(
                     load.getSocialWorkerId(),
                     load.getActiveCount()
@@ -65,5 +72,63 @@ public class MatchingQueryService {
                                 )
                 )
                 .orElseThrow();
+    }
+
+    public MatchingResultQueryResult getResult(
+            MatchingResultQuery query
+    ) {
+
+        SocialWorkerMatchingResult matchingResult =
+                matchingQueryRepository
+                        .findById(
+                                query.matchingResultId()
+                        )
+                        .orElseThrow(
+                                () -> new BusinessException(
+                                        MatchingErrorCode.MATCHING_RESULT_NOT_FOUND,
+                                        "사회복지사 매칭 결과 조회 실패"
+                                )
+                        );
+
+        validatePermission(
+                matchingResult,
+                query
+        );
+
+        return MatchingResultQueryResult.from(
+                matchingResult
+        );
+    }
+
+    private void validatePermission(
+            SocialWorkerMatchingResult matchingResult,
+            MatchingResultQuery query
+    ) {
+
+        UserRole requesterRole =
+                query.requesterRole();
+
+        if (requesterRole == UserRole.ADMIN) {
+            return;
+        }
+
+        if (requesterRole == UserRole.PATIENT
+                && query.requesterId().equals(
+                matchingResult.getPatientId()
+        )) {
+            return;
+        }
+
+        if (requesterRole == UserRole.SOCIAL_WORKER
+                && query.requesterId().equals(
+                matchingResult.getSocialWorkerId()
+        )) {
+            return;
+        }
+
+        throw new BusinessException(
+                MatchingErrorCode.MATCHING_QUERY_FORBIDDEN,
+                "사회복지사 매칭 결과 조회 실패"
+        );
     }
 }
