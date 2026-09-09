@@ -2,11 +2,11 @@ package com.todak_todag.social_worker_service.matching.application.service.comma
 
 import com.todak_todag.social_worker_service.global.exception.BusinessException;
 import com.todak_todag.social_worker_service.matching.application.service.async.MatchingAsyncProcessor;
+import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTaskStatus;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
 import com.todak_todag.social_worker_service.matching.domain.repository.command.SocialWorkerMatchingCommandRepository;
 import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
 import com.todak_todag.social_worker_service.matching.infrastructure.task.InMemoryMatchingTaskStore;
-import com.todak_todag.social_worker_service.matching.application.support.task.MatchingTaskStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -154,7 +154,7 @@ class MatchingRequestCommandServiceTest {
     }
 
     @Test
-    @DisplayName("트랜잭션 커밋 이후 Task를 생성하고 비동기 매칭을 시작한다")
+    @DisplayName("트랜잭션 커밋 이후 환자 정보를 포함한 Task를 생성하고 비동기 매칭을 시작한다")
     void startsAsyncMatchingAfterCommit() {
 
         UUID patientId = UUID.randomUUID();
@@ -195,6 +195,15 @@ class MatchingRequestCommandServiceTest {
         assertEquals(
                 MatchingTaskStatus.PENDING,
                 task.status()
+        );
+
+        assertEquals(
+                patientId,
+                task.patientId()
+        );
+
+        assertNull(
+                task.matchingResultId()
         );
 
         verify(

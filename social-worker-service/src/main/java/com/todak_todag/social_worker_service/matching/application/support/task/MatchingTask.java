@@ -26,7 +26,7 @@ public record MatchingTask(
                 taskId,
                 patientId,
                 MatchingTaskStatus.PROCESSING,
-                matchingResultId
+                null
         );
     }
 
@@ -41,14 +41,12 @@ public record MatchingTask(
         );
     }
 
-    public MatchingTask failed(
-            UUID matchingResultId
-    ) {
+    public MatchingTask failed() {
         return new MatchingTask(
                 taskId,
                 patientId,
                 MatchingTaskStatus.FAILED,
-                matchingResultId
+                null
         );
     }
 }
