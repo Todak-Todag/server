@@ -19,12 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.security.InternalHeader;
+import com.todak_todag.user_service.support.PostgresTestSupport;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @DisplayName("Internal API 통합테스트")
-public class InternalApiSecurityIntegrationTest {
+public class InternalApiSecurityIntegrationTest extends PostgresTestSupport {
 
 	private static final String INTERNAL_API_KEY = "01234567890123456789012345678901";
 	
