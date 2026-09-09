@@ -4,19 +4,14 @@ package com.spring.careplanservice.careplan.application.service.command;
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
-import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
-import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
-import com.spring.careplanservice.careplan.application.event.ScheduleStatus;
+import com.spring.careplanservice.careplan.application.event.*;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.application.result.UserFindResult;
-import com.spring.careplanservice.careplan.domain.entity.CarePlan;
-import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
-import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
-import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
+import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
@@ -30,6 +25,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +46,7 @@ public class CarePlanCommandService {
     private final ApplicationEventPublisher applicationEventPublisher;
     private final UserQueryPort userQueryPort;
     private final ScheduleResultQueryPort scheduleResultQueryPort;
+    private final CarePlanCompletionEventAppender carePlanCompletionEventAppender;
 
     @Transactional
     public CarePlanCreateResult createCarePlan(
@@ -172,14 +169,17 @@ public class CarePlanCommandService {
     public void completeCarePlan(
             CarePlanCompletedEvent carePlanCompletedEvent
     ) {
+        // Schedule-Service 에서 수신한 완료 이벤트의 payload 유효성 검증
         validateCompletedEvent(carePlanCompletedEvent);
 
+        // serviceResultId가 존재하는 경우 실제 Schedule 수행 결과인지 내부 API로 검증
         if (carePlanCompletedEvent.serviceResultId() != null) {
             scheduleResultQueryPort.findById(
                     carePlanCompletedEvent.serviceResultId()
             );
         }
 
+        // 완료 대상 Care Plan 조회
         CarePlan carePlan = carePlanCommandRepository
                 .findById(carePlanCompletedEvent.carePlanId())
                 .orElseThrow(() ->
@@ -188,7 +188,15 @@ public class CarePlanCommandService {
                         )
                 );
 
-        carePlan.complete();
+        // IN_PROGRESS 상태인 경우에만 COMPLETED로 전이
+        // 이미 완료되었거나 완료 대상이 아닌 경우 중복 Outbox 이벤트 생성을 방지
+        boolean completed = carePlan.complete();
+
+        if (!completed) {
+            return;
+        }
+
+        carePlanCompletionEventAppender.append(carePlan);
     }
 
     // 동일한 퇴원 건에 이미 Care Plan이 존재하는지 검사

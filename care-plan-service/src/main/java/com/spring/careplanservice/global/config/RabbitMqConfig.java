@@ -21,6 +21,9 @@ public class RabbitMqConfig {
     public static final String CARE_PLAN_CONFIRMED_EXCHANGE = "care-plan.exchange";
     public static final String CARE_PLAN_CONFIRMED_ROUTING_KEY = "care-plan.confirmed.key";
 
+    public static final String CARE_PLAN_COMPLETED_EXCHANGE = "care-plan.exchange";
+    public static final String CARE_PLAN_COMPLETED_ROUTING_KEY = "care-plan.completed.key";
+
     @Bean
     public MessageConverter messageConverter() {
         JacksonJsonMessageConverter converter = new JacksonJsonMessageConverter();
