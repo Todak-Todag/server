@@ -1,8 +1,12 @@
 package com.todak_todag.social_worker_service.matching.application.service.query;
 
+import com.todak_todag.social_worker_service.global.exception.BusinessException;
+import com.todak_todag.social_worker_service.matching.application.result.MatchingResultQueryResult;
 import com.todak_todag.social_worker_service.matching.domain.entity.MatchingStatus;
+import com.todak_todag.social_worker_service.matching.domain.entity.SocialWorkerMatchingResult;
 import com.todak_todag.social_worker_service.matching.domain.repository.SocialWorkerLoadProjection;
 import com.todak_todag.social_worker_service.matching.domain.repository.query.SocialWorkerMatchingQueryRepository;
+import com.todak_todag.social_worker_service.matching.exception.MatchingErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,6 +48,7 @@ public class MatchingQueryService {
                 new HashMap<>();
 
         for (SocialWorkerLoadProjection load : loads) {
+
             loadMap.put(
                     load.getSocialWorkerId(),
                     load.getActiveCount()
@@ -65,5 +70,26 @@ public class MatchingQueryService {
                                 )
                 )
                 .orElseThrow();
+    }
+
+    public MatchingResultQueryResult getLatestResult(
+            UUID patientId
+    ) {
+
+        SocialWorkerMatchingResult matchingResult =
+                matchingQueryRepository
+                        .findLatestByPatientId(
+                                patientId
+                        )
+                        .orElseThrow(
+                                () -> new BusinessException(
+                                        MatchingErrorCode.MATCHING_NOT_FOUND,
+                                        "사회복지사 매칭 결과 조회 실패"
+                                )
+                        );
+
+        return MatchingResultQueryResult.from(
+                matchingResult
+        );
     }
 }
