@@ -1,0 +1,29 @@
+apiVersion: 1
+
+datasources:
+  - name: Todak-Todag-Prometheus
+    uid: todak-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+
+  - name: Todak-Todag-Loki
+    uid: todak-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherRegex: 'traceId=([a-fA-F0-9]{32})'
+          datasourceUid: todak-zipkin
+          url: '$${__value.raw}'
+          urlDisplayLabel: 'View Trace'
+
+  - name: Todak-Todag-Zipkin
+    uid: todak-zipkin
+    type: zipkin
+    access: proxy
+    url: http://zipkin:9411

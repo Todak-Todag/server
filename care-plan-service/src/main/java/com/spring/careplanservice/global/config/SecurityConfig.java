@@ -41,10 +41,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/internal/**",
-                                "/actuator/health/**",
                                 "/v3/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                "/actuator/health/**",
+                                "/actuator/info",
+                                "/actuator/prometheus"
                         ).permitAll()
                         .anyRequest().authenticated()
                 );

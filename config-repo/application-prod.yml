@@ -1,0 +1,25 @@
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+          - prometheus
+
+  endpoint:
+    health:
+      show-details: never
+
+  tracing:
+    sampling:
+      probability: 0.1
+
+    export:
+      zipkin:
+        endpoint: http://${ZIPKIN_HOST}:9411/api/v2/spans
+
+logging:
+  pattern:
+    correlation: "[service=${spring.application.name:},traceId=%X{traceId:-},spanId=%X{spanId:-}] "
+  include-application-name: false

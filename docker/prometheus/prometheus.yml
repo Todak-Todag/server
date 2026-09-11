@@ -1,0 +1,46 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: api-gateway
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - api-gateway:8080
+
+  - job_name: user-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - user-service:19000
+
+  - job_name: discharge-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - discharge-service:19001
+
+  - job_name: social-worker-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - social-worker-service:19002
+
+  - job_name: provider-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - provider-service:19003
+
+  - job_name: schedule-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - schedule-service:19004
+
+  - job_name: care-plan-service
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets:
+          - care-plan-service:19005

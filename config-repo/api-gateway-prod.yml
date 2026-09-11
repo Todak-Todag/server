@@ -26,14 +26,6 @@ eureka:
   instance:
     prefer-ip-address: true
 
-management:
-  tracing:
-    sampling:
-      probability: 1.0
-    export:
-      zipkin:
-        endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
-
 logging:
   level:
     com.todak_todag.api_gateway: info

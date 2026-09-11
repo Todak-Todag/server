@@ -57,6 +57,7 @@ dependencies {
     // Observability
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-zipkin'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 
     // Lombok
     compileOnly 'org.projectlombok:lombok'
