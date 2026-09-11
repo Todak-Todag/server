@@ -31,9 +31,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-zipkin'
     implementation 'io.micrometer:micrometer-tracing-bridge-brave'
     implementation 'org.springframework.cloud:spring-cloud-starter-config'
-    implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
-    implementation 'org.springframework.boot:spring-boot-starter-zipkin'
 
     implementation 'io.jsonwebtoken:jjwt-api:0.13.0'
 
