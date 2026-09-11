@@ -4,19 +4,25 @@
   "metadata": {
     "name": "ad8pj74",
     "namespace": "default",
-    "uid": "6e8d4172-2854-4564-9bb4-137275a7419a",
-    "resourceVersion": "1789114472323988",
-    "generation": 20,
-    "creationTimestamp": "2026-09-11T03:31:58Z",
+    "uid": "f1cb2d3d-1994-4616-a348-0b751548938d",
+    "resourceVersion": "1789142612016016",
+    "generation": 4,
+    "creationTimestamp": "2026-09-11T08:30:49Z",
     "labels": {
-      "grafana.app/deprecatedInternalID": "4079348660482048"
+      "grafana.app/deprecatedInternalID": "4154568011784192"
     },
     "annotations": {
-      "grafana.app/createdBy": "user:bfxw4wx9ay5tsd",
-      "grafana.app/folder": "",
-      "grafana.app/saved-from-ui": "Grafana v13.0.1+security-01 (9bbe672d)",
-      "grafana.app/updatedBy": "user:bfxw4wx9ay5tsd",
-      "grafana.app/updatedTimestamp": "2026-09-11T08:14:32Z"
+      "grafana.app/createdBy": "access-policy:service",
+      "grafana.app/folder": "dfxwzc35zs8aod",
+      "grafana.app/managedBy": "classic-file-provisioning",
+      "grafana.app/managerId": "Todak-Todag",
+      "grafana.app/sourceChecksum": "28f6c87979275218ad452de8b072232a",
+      "grafana.app/sourcePath": "/var/lib/grafana/dashboards/todak-observability.json",
+      "grafana.app/sourceTimestamp": "1789142572000",
+      "grafana.app/updatedBy": "access-policy:service",
+      "grafana.app/updatedTimestamp": "2026-09-11T16:03:32Z",
+      "grafana.app/folderTitle": "Todak-Todag",
+      "grafana.app/folderUrl": "/dashboards/f/dfxwzc35zs8aod/todak-todag"
     }
   },
   "spec": {
@@ -24,20 +30,20 @@
       {
         "kind": "AnnotationQuery",
         "spec": {
-          "query": {
-            "kind": "DataQuery",
-            "group": "grafana",
-            "version": "v0",
-            "datasource": {
-              "name": "-- Grafana --"
-            },
-            "spec": {}
-          },
+          "builtIn": true,
           "enable": true,
           "hide": true,
           "iconColor": "rgba(0, 211, 255, 1)",
           "name": "Annotations & Alerts",
-          "builtIn": true
+          "query": {
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "group": "grafana",
+            "kind": "DataQuery",
+            "spec": {},
+            "version": "v0"
+          }
         }
       }
     ],
@@ -47,10 +53,6 @@
       "panel-1": {
         "kind": "Panel",
         "spec": {
-          "id": 1,
-          "title": "[Todak-Todag]Service Status",
-          "description": "",
-          "links": [],
           "data": {
             "kind": "QueryGroup",
             "spec": {
@@ -58,13 +60,13 @@
                 {
                   "kind": "PanelQuery",
                   "spec": {
+                    "hidden": false,
                     "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
                       "datasource": {
                         "name": "todak-prometheus"
                       },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
                         "expr": "up",
@@ -72,22 +74,61 @@
                         "interval": "",
                         "legendFormat": "{{job}}",
                         "range": true
-                      }
+                      },
+                      "version": "v0"
                     },
-                    "refId": "A",
-                    "hidden": false
+                    "refId": "A"
                   }
                 }
               ],
-              "transformations": [],
-              "queryOptions": {}
+              "queryOptions": {},
+              "transformations": []
             }
           },
+          "description": "",
+          "id": 1,
+          "links": [],
+          "title": "[Todak-Todag]Service Status",
           "vizConfig": {
-            "kind": "VizConfig",
             "group": "stat",
-            "version": "13.0.1+security-01",
+            "kind": "VizConfig",
             "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "mappings": [
+                    {
+                      "options": {
+                        "0": {
+                          "index": 1,
+                          "text": "DOWN"
+                        },
+                        "1": {
+                          "index": 0,
+                          "text": "UP"
+                        }
+                      },
+                      "type": "value"
+                    }
+                  ],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "dark-red",
+                        "value": 0
+                      },
+                      {
+                        "color": "dark-green",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                "overrides": []
+              },
               "options": {
                 "colorMode": "value",
                 "graphMode": "area",
@@ -108,54 +149,15 @@
                 },
                 "textMode": "auto",
                 "wideLayout": true
-              },
-              "fieldConfig": {
-                "defaults": {
-                  "mappings": [
-                    {
-                      "type": "value",
-                      "options": {
-                        "0": {
-                          "text": "DOWN",
-                          "index": 1
-                        },
-                        "1": {
-                          "text": "UP",
-                          "index": 0
-                        }
-                      }
-                    }
-                  ],
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "dark-red"
-                      },
-                      {
-                        "value": 1,
-                        "color": "dark-green"
-                      }
-                    ]
-                  },
-                  "color": {
-                    "mode": "thresholds"
-                  }
-                },
-                "overrides": []
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       },
       "panel-2": {
         "kind": "Panel",
         "spec": {
-          "id": 2,
-          "title": "[Todak-Todag] HTTP Response Time",
-          "description": "",
-          "links": [],
           "data": {
             "kind": "QueryGroup",
             "spec": {
@@ -163,67 +165,39 @@
                 {
                   "kind": "PanelQuery",
                   "spec": {
+                    "hidden": false,
                     "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
                       "datasource": {
                         "name": "todak-prometheus"
                       },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
                         "expr": "(\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_sum[5m])\r\n  )\r\n  /\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n) * 1000",
                         "legendFormat": "__auto",
                         "range": true
-                      }
+                      },
+                      "version": "v0"
                     },
-                    "refId": "A",
-                    "hidden": false
+                    "refId": "A"
                   }
                 }
               ],
-              "transformations": [],
-              "queryOptions": {}
+              "queryOptions": {},
+              "transformations": []
             }
           },
+          "description": "",
+          "id": 2,
+          "links": [],
+          "title": "[Todak-Todag] HTTP Response Time",
           "vizConfig": {
-            "kind": "VizConfig",
             "group": "timeseries",
-            "version": "13.0.1+security-01",
+            "kind": "VizConfig",
             "spec": {
-              "options": {
-                "annotations": {
-                  "clustering": -1,
-                  "multiLane": false
-                },
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "hideZeros": false,
-                  "mode": "single",
-                  "sort": "none"
-                }
-              },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "ms",
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "green"
-                      },
-                      {
-                        "value": 80,
-                        "color": "red"
-                      }
-                    ]
-                  },
                   "color": {
                     "mode": "palette-classic"
                   },
@@ -260,57 +234,24 @@
                     "thresholdsStyle": {
                       "mode": "off"
                     }
-                  }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "ms"
                 },
                 "overrides": []
-              }
-            }
-          }
-        }
-      },
-      "panel-3": {
-        "kind": "Panel",
-        "spec": {
-          "id": 3,
-          "title": "[Todak-Todag] HTTP 5xx Error Rate",
-          "description": "",
-          "links": [],
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
-                      "datasource": {
-                        "name": "todak-prometheus"
-                      },
-                      "spec": {
-                        "editorMode": "code",
-                        "expr": "(\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])\r\n  )\r\n  /\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n) * 100\r\nor\r\n(\r\n  0 * sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n)",
-                        "interval": "",
-                        "legendFormat": "{{job}}",
-                        "range": true
-                      }
-                    },
-                    "refId": "A",
-                    "hidden": false
-                  }
-                }
-              ],
-              "transformations": [],
-              "queryOptions": {}
-            }
-          },
-          "vizConfig": {
-            "kind": "VizConfig",
-            "group": "timeseries",
-            "version": "13.0.1+security-01",
-            "spec": {
+              },
               "options": {
                 "annotations": {
                   "clustering": -1,
@@ -327,23 +268,56 @@
                   "mode": "single",
                   "sort": "none"
                 }
-              },
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-3": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "(\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])\r\n  )\r\n  /\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n) * 100\r\nor\r\n(\r\n  0 * sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n)",
+                        "interval": "",
+                        "legendFormat": "{{job}}",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 3,
+          "links": [],
+          "title": "[Todak-Todag] HTTP 5xx Error Rate",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
               "fieldConfig": {
                 "defaults": {
-                  "unit": "percent",
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "green"
-                      },
-                      {
-                        "value": 80,
-                        "color": "red"
-                      }
-                    ]
-                  },
                   "color": {
                     "mode": "palette-classic"
                   },
@@ -380,21 +354,49 @@
                     "thresholdsStyle": {
                       "mode": "off"
                     }
-                  }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "percent"
                 },
                 "overrides": []
+              },
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       },
       "panel-4": {
         "kind": "Panel",
         "spec": {
-          "id": 4,
-          "title": "[Todak-Todag] Service Logs",
-          "description": "드롭다운으로 서비스를 선택할 수 있습니다.",
-          "links": [],
           "data": {
             "kind": "QueryGroup",
             "spec": {
@@ -402,34 +404,41 @@
                 {
                   "kind": "PanelQuery",
                   "spec": {
+                    "hidden": false,
                     "query": {
-                      "kind": "DataQuery",
-                      "group": "loki",
-                      "version": "v0",
                       "datasource": {
                         "name": "todak-loki"
                       },
+                      "group": "loki",
+                      "kind": "DataQuery",
                       "spec": {
                         "direction": "backward",
                         "editorMode": "code",
-                        "expr": "{service=\"$service\"}",
+                        "expr": "{service=~\"$service\"}",
                         "queryType": "range"
-                      }
+                      },
+                      "version": "v0"
                     },
-                    "refId": "A",
-                    "hidden": false
+                    "refId": "A"
                   }
                 }
               ],
-              "transformations": [],
-              "queryOptions": {}
+              "queryOptions": {},
+              "transformations": []
             }
           },
+          "description": "드롭다운으로 서비스를 선택할 수 있습니다.",
+          "id": 4,
+          "links": [],
+          "title": "[Todak-Todag] Service Logs",
           "vizConfig": {
-            "kind": "VizConfig",
             "group": "logs",
-            "version": "13.0.1+security-01",
+            "kind": "VizConfig",
             "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
               "options": {
                 "dedupStrategy": "none",
                 "enableInfiniteScrolling": false,
@@ -443,22 +452,15 @@
                 "timestampResolution": "ms",
                 "unwrappedColumns": false,
                 "wrapLogMessage": false
-              },
-              "fieldConfig": {
-                "defaults": {},
-                "overrides": []
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       },
       "panel-5": {
         "kind": "Panel",
         "spec": {
-          "id": 5,
-          "title": "[Todak-Todag] Zipkin Trace",
-          "description": "",
-          "links": [],
           "data": {
             "kind": "QueryGroup",
             "spec": {
@@ -466,54 +468,134 @@
                 {
                   "kind": "PanelQuery",
                   "spec": {
+                    "hidden": false,
                     "query": {
-                      "kind": "DataQuery",
-                      "group": "zipkin",
-                      "version": "v0",
                       "datasource": {
-                        "name": "todak-zipkin"
+                        "name": "todak-loki"
                       },
+                      "group": "loki",
+                      "kind": "DataQuery",
                       "spec": {
-                        "query": "6aa3b6b034e2fc60b582d24cd5a584bf",
-                        "queryType": "traceID"
-                      }
+                        "direction": "backward",
+                        "editorMode": "code",
+                        "expr": "{service=~\"${service:regex}\"}\r\n|= \"ERROR\"\r\n| regexp \"traceId=(?P<traceId>[^,\\\\]]+).*\\\\s:\\\\s(?P<errorMessage>.*)$\"\r\n| traceId != \"\"\r\n| line_format \"{{.errorMessage}}\"",
+                        "queryType": "range"
+                      },
+                      "version": "v0"
                     },
-                    "refId": "A",
-                    "hidden": false
+                    "refId": "A"
                   }
                 }
               ],
-              "transformations": [],
-              "queryOptions": {}
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "group": "organize",
+                  "kind": "Transformation",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "Line": false,
+                        "NewField": false,
+                        "TraceID": true,
+                        "id": true,
+                        "labelTypes": true,
+                        "labels": true,
+                        "tsNs": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {
+                        "ErrorTraceID": 1,
+                        "Line": 3,
+                        "Time": 0,
+                        "TraceID": 2,
+                        "id": 7,
+                        "labelTypes": 6,
+                        "labels": 5,
+                        "tsNs": 4
+                      },
+                      "renameByName": {
+                        "Line": "ErrorMessage",
+                        "NewField": "ErrorMessage",
+                        "TraceID": ""
+                      }
+                    }
+                  }
+                }
+              ]
             }
           },
+          "description": "",
+          "id": 5,
+          "links": [],
+          "title": "[Todak-Todag] Recent Error Traces",
           "vizConfig": {
+            "group": "table",
             "kind": "VizConfig",
-            "group": "traces",
-            "version": "13.0.1+security-01",
             "spec": {
-              "options": {
-                "spanFilters": {
-                  "adhocFilters": [],
-                  "criticalPathOnly": false,
-                  "matchesOnly": false
-                }
-              },
               "fieldConfig": {
-                "defaults": {},
-                "overrides": []
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": []
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "labels",
+                      "scope": "series"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 208
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "sortBy": [
+                  {
+                    "desc": true,
+                    "displayName": "ErrorMessage"
+                  }
+                ]
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       },
       "panel-6": {
         "kind": "Panel",
         "spec": {
-          "id": 6,
-          "title": "[Todak-Todag] HTTP 4xx Error Rate",
-          "description": "",
-          "links": [],
           "data": {
             "kind": "QueryGroup",
             "spec": {
@@ -521,67 +603,39 @@
                 {
                   "kind": "PanelQuery",
                   "spec": {
+                    "hidden": false,
                     "query": {
-                      "kind": "DataQuery",
-                      "group": "prometheus",
-                      "version": "v0",
                       "datasource": {
                         "name": "todak-prometheus"
                       },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
                         "expr": "(\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count{status=~\"4..\"}[5m])\r\n  )\r\n  /\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n) * 100\r\nor\r\n(\r\n  0 * sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n)",
                         "legendFormat": "{{job}}",
                         "range": true
-                      }
+                      },
+                      "version": "v0"
                     },
-                    "refId": "A",
-                    "hidden": false
+                    "refId": "A"
                   }
                 }
               ],
-              "transformations": [],
-              "queryOptions": {}
+              "queryOptions": {},
+              "transformations": []
             }
           },
+          "description": "",
+          "id": 6,
+          "links": [],
+          "title": "[Todak-Todag] HTTP 4xx Error Rate",
           "vizConfig": {
-            "kind": "VizConfig",
             "group": "timeseries",
-            "version": "13.0.1+security-01",
+            "kind": "VizConfig",
             "spec": {
-              "options": {
-                "annotations": {
-                  "clustering": -1,
-                  "multiLane": false
-                },
-                "legend": {
-                  "calcs": [],
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "hideZeros": false,
-                  "mode": "single",
-                  "sort": "none"
-                }
-              },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "percent",
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "value": 0,
-                        "color": "green"
-                      },
-                      {
-                        "value": 80,
-                        "color": "red"
-                      }
-                    ]
-                  },
                   "color": {
                     "mode": "palette-classic"
                   },
@@ -618,11 +672,43 @@
                     "thresholdsStyle": {
                       "mode": "off"
                     }
-                  }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "percent"
                 },
                 "overrides": []
+              },
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
               }
-            }
+            },
+            "version": "13.2.1"
           }
         }
       }
@@ -634,79 +720,79 @@
           {
             "kind": "GridLayoutItem",
             "spec": {
-              "x": 0,
-              "y": 0,
-              "width": 12,
-              "height": 8,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-1"
-              }
+              },
+              "height": 8,
+              "width": 12,
+              "x": 0,
+              "y": 0
             }
           },
           {
             "kind": "GridLayoutItem",
             "spec": {
-              "x": 12,
-              "y": 0,
-              "width": 12,
-              "height": 8,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-2"
-              }
+              },
+              "height": 8,
+              "width": 12,
+              "x": 12,
+              "y": 0
             }
           },
           {
             "kind": "GridLayoutItem",
             "spec": {
-              "x": 0,
-              "y": 8,
-              "width": 12,
-              "height": 8,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-3"
-              }
+              },
+              "height": 8,
+              "width": 12,
+              "x": 0,
+              "y": 8
             }
           },
           {
             "kind": "GridLayoutItem",
             "spec": {
-              "x": 12,
-              "y": 8,
-              "width": 12,
-              "height": 8,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-6"
-              }
+              },
+              "height": 8,
+              "width": 12,
+              "x": 12,
+              "y": 8
             }
           },
           {
             "kind": "GridLayoutItem",
             "spec": {
-              "x": 0,
-              "y": 16,
-              "width": 12,
-              "height": 8,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-5"
-              }
+              },
+              "height": 8,
+              "width": 12,
+              "x": 0,
+              "y": 16
             }
           },
           {
             "kind": "GridLayoutItem",
             "spec": {
-              "x": 12,
-              "y": 16,
-              "width": 12,
-              "height": 8,
               "element": {
                 "kind": "ElementReference",
                 "name": "panel-4"
-              }
+              },
+              "height": 8,
+              "width": 12,
+              "x": 12,
+              "y": 16
             }
           }
         ]
@@ -714,12 +800,17 @@
     },
     "links": [],
     "liveNow": false,
+    "preferences": {
+      "layout": {
+        "kind": "GridLayout",
+        "spec": {
+          "items": []
+        }
+      }
+    },
     "preload": false,
     "tags": [],
     "timeSettings": {
-      "timezone": "browser",
-      "from": "now-6h",
-      "to": "now",
       "autoRefresh": "",
       "autoRefreshIntervals": [
         "5s",
@@ -733,54 +824,49 @@
         "2h",
         "1d"
       ],
+      "fiscalYearStartMonth": 0,
+      "from": "now-6h",
       "hideTimepicker": false,
-      "fiscalYearStartMonth": 0
+      "timezone": "browser",
+      "to": "now"
     },
     "title": "[Todak-Todag] Dashboard",
     "variables": [
       {
         "kind": "QueryVariable",
         "spec": {
-          "name": "service",
+          "allowCustomValue": true,
           "current": {
-            "text": "social-worker-service",
-            "value": "social-worker-service"
+            "text": "All",
+            "value": "$__all"
           },
+          "definition": "",
           "hide": "dontHide",
-          "refresh": "onDashboardLoad",
-          "skipUrlSync": false,
+          "includeAll": true,
+          "multi": false,
+          "name": "service",
+          "options": [],
           "query": {
-            "kind": "DataQuery",
-            "group": "loki",
-            "version": "v0",
             "datasource": {
               "name": "todak-loki"
             },
+            "group": "loki",
+            "kind": "DataQuery",
             "spec": {
               "label": "service",
               "refId": "LokiVariableQueryEditor-VariableQuery",
               "stream": "",
               "type": 1
-            }
+            },
+            "version": "v0"
           },
+          "refresh": "onDashboardLoad",
           "regex": "",
           "regexApplyTo": "value",
-          "sort": "disabled",
-          "definition": "",
-          "options": [],
-          "multi": false,
-          "includeAll": false,
-          "allowCustomValue": true
+          "skipUrlSync": false,
+          "sort": "disabled"
         }
       }
-    ],
-    "preferences": {
-      "layout": {
-        "kind": "GridLayout",
-        "spec": {
-          "items": []
-        }
-      }
-    }
+    ]
   }
 }
