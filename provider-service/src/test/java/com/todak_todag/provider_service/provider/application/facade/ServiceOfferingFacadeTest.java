@@ -10,9 +10,11 @@ import com.todak_todag.provider_service.provider.application.command.ServiceOffe
 import com.todak_todag.provider_service.provider.application.port.SchedulePort;
 import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
+import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
 import com.todak_todag.provider_service.provider.application.service.command.ProvideWorkCommandService;
 import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
@@ -233,6 +235,109 @@ class ServiceOfferingFacadeTest {
                     .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS);
 
             verify(serviceOfferingCommandService, never()).delete(any());
+        }
+
+        private ServiceOfferingDeleteCommand adminCommand() {
+            return new ServiceOfferingDeleteCommand(serviceOfferingId, adminId, UserRole.ADMIN);
+        }
+
+        @Test
+        @DisplayName("ADMIN은 담당 지역이면 본인 소유가 아니어도 CommandService에 위임한다")
+        void delete_admin_sameRegion() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.getId()).willReturn(serviceOfferingId);
+            given(offering.getRegionId()).willReturn(regionId);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(userPort.findRegionIdByUserId(adminId)).willReturn(regionId);
+            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
+
+            serviceOfferingFacade.delete(adminCommand());
+
+            verify(serviceOfferingCommandService).delete(any(ServiceOfferingDeleteCommand.class));
+            verify(offering, never()).isOwnedBy(any());
+        }
+
+        @Test
+        @DisplayName("ADMIN이라도 담당 지역이 아니면 Schedule-Service를 호출하지 않고 AUTH_FORBIDDEN")
+        void delete_admin_otherRegion() {
+            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
+            given(offering.getRegionId()).willReturn(otherRegionId);
+
+            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(userPort.findRegionIdByUserId(adminId)).willReturn(regionId);
+
+            assertThatThrownBy(() -> serviceOfferingFacade.delete(adminCommand()))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
+
+            verify(schedulePort, never()).existsConfirmedSchedule(any());
+            verify(serviceOfferingCommandService, never()).delete(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("제공자별 조회")
+    class Search {
+
+        private ServiceOfferingSearchQuery query(UUID targetProviderId, UUID requesterId, UserRole role) {
+            return new ServiceOfferingSearchQuery(targetProviderId, requesterId, role, pageable);
+        }
+
+        private Page<ServiceOfferingSearchResult> page() {
+            return new PageImpl<>(
+                    List.of(new ServiceOfferingSearchResult(serviceOfferingId, provideServiceId, "방문간호", Instant.now())),
+                    pageable,
+                    1
+            );
+        }
+
+        @Test
+        @DisplayName("ADMIN이 담당 지역 제공자를 지정하면 QueryService에 위임한다")
+        void search_admin_sameRegion() {
+            given(userPort.findRegionIdByUserId(providerId)).willReturn(regionId);
+            given(userPort.findRegionIdByUserId(adminId)).willReturn(regionId);
+            given(serviceOfferingQueryService.search(any(ServiceOfferingSearchQuery.class))).willReturn(page());
+
+            Page<ServiceOfferingSearchResult> results =
+                    serviceOfferingFacade.search(query(providerId, adminId, UserRole.ADMIN));
+
+            assertThat(results.getContent()).hasSize(1);
+        }
+
+        @Test
+        @DisplayName("ADMIN이 다른 지역 제공자를 지정하면 조회하지 않고 AUTH_FORBIDDEN")
+        void search_admin_otherRegion() {
+            given(userPort.findRegionIdByUserId(providerId)).willReturn(otherRegionId);
+            given(userPort.findRegionIdByUserId(adminId)).willReturn(regionId);
+
+            assertThatThrownBy(() -> serviceOfferingFacade.search(query(providerId, adminId, UserRole.ADMIN)))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting(e -> ((BusinessException) e).getErrorCode())
+                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
+
+            verify(serviceOfferingQueryService, never()).search(any());
+        }
+
+        @Test
+        @DisplayName("ADMIN이 제공자를 지정하지 않으면 지역 검증 없이 위임한다")
+        void search_admin_withoutProvider() {
+            given(serviceOfferingQueryService.search(any(ServiceOfferingSearchQuery.class))).willReturn(page());
+
+            serviceOfferingFacade.search(query(null, adminId, UserRole.ADMIN));
+
+            verify(userPort, never()).findRegionIdByUserId(any());
+        }
+
+        @Test
+        @DisplayName("제공자 본인 조회는 지역 검증 없이 위임한다")
+        void search_provider_noRegionCheck() {
+            given(serviceOfferingQueryService.search(any(ServiceOfferingSearchQuery.class))).willReturn(page());
+
+            serviceOfferingFacade.search(query(null, providerId, UserRole.SERVICE_PROVIDER));
+
+            verify(userPort, never()).findRegionIdByUserId(any());
         }
     }
 
