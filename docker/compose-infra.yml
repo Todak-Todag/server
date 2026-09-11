@@ -57,7 +57,7 @@ services:
 
     # Redis 상태 확인.
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -91,7 +91,7 @@ services:
 
     # RabbitMQ 상태 확인.
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -299,14 +299,110 @@ services:
     networks:
       - todak-network
 
+  # 메트릭 수집 및 저장.
+  prometheus:
+    image: prom/prometheus
+    container_name: todak-prometheus
+    restart: unless-stopped
 
+    # Prometheus 설정 및 데이터 영속화.
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+    # Prometheus UI 포트.
+    ports:
+      - "9090:9090"
+
+    networks:
+      - todak-network
+
+
+  # 로그 저장소.
+  loki:
+    image: grafana/loki:3.7.0
+    container_name: todak-loki
+    restart: unless-stopped
+
+    # Loki 설정 파일 사용.
+    command: -config.file=/etc/loki/loki-config.yml
+
+    # Loki 설정 및 데이터 영속화.
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+
+    # Loki API 포트.
+    ports:
+      - "3100:3100"
+
+    networks:
+      - todak-network
+
+
+  # Docker 컨테이너 로그 수집.
+  alloy:
+    image: grafana/alloy:latest
+    container_name: todak-alloy
+    restart: unless-stopped
+
+    command:
+      - run
+      - /etc/alloy/config.alloy
+      - --server.http.listen-addr=0.0.0.0:10000
+      - --storage.path=/var/lib/alloy/data
+
+    volumes:
+      # Alloy 설정.
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+
+      # Docker 컨테이너 검색 및 로그 수집.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # 로그 읽기 위치 등 Alloy 상태 영속화.
+      - alloy-data:/var/lib/alloy/data
+
+    # Alloy UI.
+    ports:
+      - "10000:10000"
+
+    depends_on:
+      - loki
+
+    networks:
+      - todak-network
+
+
+  # Metrics / Logs 시각화.
+  grafana:
+    image: grafana/grafana:latest
+    container_name: todak-grafana
+    restart: unless-stopped
+
+    # Grafana UI.
+    ports:
+      - "3000:3000"
+
+    # Grafana 설정 및 대시보드 영속화.
+    volumes:
+      - grafana-data:/var/lib/grafana
+
+    depends_on:
+      - prometheus
+      - loki
+
+    networks:
+      - todak-network
 
 # 컨테이너 데이터 영속화.
 volumes:
   postgres-data:
   redis-data:
   rabbitmq-data:
-
+  prometheus-data:
+  loki-data:
+  alloy-data:
+  grafana-data:
 
 # 컨테이너 간 통신용 네트워크.
 networks:
