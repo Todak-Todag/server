@@ -6,7 +6,6 @@ import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.facade.ServiceOfferingFacade;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
-import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -47,9 +46,6 @@ class ServiceOfferingApiControllerTest {
 
     @MockitoBean
     private ServiceOfferingFacade serviceOfferingFacade;
-
-    @MockitoBean
-    private ServiceOfferingQueryService serviceOfferingQueryService;
 
     @Nested
     @DisplayName("등록")
@@ -200,7 +196,7 @@ class ServiceOfferingApiControllerTest {
             UUID serviceOfferingId = UUID.randomUUID();
             UUID provideServiceId = UUID.randomUUID();
 
-            given(serviceOfferingQueryService.search(any()))
+            given(serviceOfferingFacade.search(any()))
                     .willReturn(page(serviceOfferingId, provideServiceId));
 
             mockMvc.perform(get(BASE_URL)
@@ -222,7 +218,7 @@ class ServiceOfferingApiControllerTest {
         @Test
         @DisplayName("ADMIN도 조회할 수 있다")
         void search_admin() throws Exception {
-            given(serviceOfferingQueryService.search(any()))
+            given(serviceOfferingFacade.search(any()))
                     .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
             mockMvc.perform(get(BASE_URL)

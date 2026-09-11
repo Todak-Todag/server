@@ -9,5 +9,6 @@ import java.util.UUID;
 
 public interface JpaOutboxEventRepository extends JpaRepository<ProviderOutboxEvent, UUID> {
 
-    List<ProviderOutboxEvent> findAllByPublishedAtIsNullOrderByCreatedAtAsc(Pageable pageable);
+    List<ProviderOutboxEvent> findAllByPublishedAtIsNullAndRetryCountLessThanOrderByCreatedAtAsc(
+            int maxRetryCount, Pageable pageable);
 }

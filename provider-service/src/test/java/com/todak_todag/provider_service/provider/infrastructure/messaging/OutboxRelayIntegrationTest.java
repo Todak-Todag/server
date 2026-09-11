@@ -71,7 +71,8 @@ class OutboxRelayIntegrationTest extends ContainerTestSupport {
         matchingEventPort.publishMatched(matchedEvent());
 
         List<ProviderOutboxEvent> pending = jpaOutboxEventRepository
-                .findAllByPublishedAtIsNullOrderByCreatedAtAsc(org.springframework.data.domain.PageRequest.of(0, 10));
+                .findAllByPublishedAtIsNullAndRetryCountLessThanOrderByCreatedAtAsc(
+                        ProviderOutboxEvent.MAX_RETRY_COUNT, org.springframework.data.domain.PageRequest.of(0, 10));
 
         assertThat(pending).hasSize(1);
         assertThat(pending.get(0).getAggregateId()).isEqualTo(servicePreferenceId);
@@ -114,6 +115,44 @@ class OutboxRelayIntegrationTest extends ContainerTestSupport {
         outboxRelayFacade.relay();
 
         assertThat(rabbitTemplate.receive(TEST_QUEUE, 500)).isNull();
+    }
+
+    @Test
+    @DisplayName("재시도 한도에 닿은 건은 릴레이가 더 이상 집어가지 않고 삭제하지도 않는다")
+    void relay_skipsRetryExhausted() {
+        matchingEventPort.publishMatched(matchedEvent());
+        failStored(ProviderOutboxEvent.MAX_RETRY_COUNT);
+
+        outboxRelayFacade.relay();
+
+        assertThat(rabbitTemplate.receive(TEST_QUEUE, 500)).isNull();
+
+        // 원인 확인과 수동 재처리를 위해 미발행 상태로 남아 있어야 한다
+        List<ProviderOutboxEvent> all = jpaOutboxEventRepository.findAll();
+        assertThat(all).hasSize(1);
+        assertThat(all.get(0).getPublishedAt()).isNull();
+        assertThat(all.get(0).getRetryCount()).isEqualTo(ProviderOutboxEvent.MAX_RETRY_COUNT);
+    }
+
+    @Test
+    @DisplayName("재시도 한도 직전인 건은 여전히 발행된다")
+    void relay_publishesBelowMax() {
+        matchingEventPort.publishMatched(matchedEvent());
+        failStored(ProviderOutboxEvent.MAX_RETRY_COUNT - 1);
+
+        outboxRelayFacade.relay();
+
+        assertThat(rabbitTemplate.receive(TEST_QUEUE, 5000)).isNotNull();
+        assertThat(jpaOutboxEventRepository.findAll().get(0).getPublishedAt()).isNotNull();
+    }
+
+    // 저장된 아웃박스 이벤트를 지정한 횟수만큼 실패한 상태로 만든다
+    private void failStored(int count) {
+        ProviderOutboxEvent event = jpaOutboxEventRepository.findAll().get(0);
+        for (int i = 0; i < count; i++) {
+            event.recordFailure("발행 실패");
+        }
+        jpaOutboxEventRepository.save(event);
     }
 
     private ProviderMatchedEvent matchedEvent() {

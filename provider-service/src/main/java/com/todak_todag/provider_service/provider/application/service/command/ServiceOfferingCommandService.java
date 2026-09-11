@@ -1,5 +1,6 @@
 package com.todak_todag.provider_service.provider.application.service.command;
 
+import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
@@ -53,9 +54,11 @@ public class ServiceOfferingCommandService {
         ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
                 .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
 
-        if (!serviceOffering.isOwnedBy(command.userId())) {
+        // ADMIN의 담당 지역 검증은 Facade가 트랜잭션 밖에서 마쳤다 (User-Service 호출이 필요해 여기서 다시 하지 않는다)
+        if (command.userRole() != UserRole.ADMIN && !serviceOffering.isOwnedBy(command.userId())) {
             throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
         }
+
 
         List<ProvideWork> provideWorks = provideWorkQueryRepository.findAllByServiceOfferingId(serviceOffering.getId());
         provideWorks.forEach(provideWork -> provideWork.markDeleted(command.userId()));

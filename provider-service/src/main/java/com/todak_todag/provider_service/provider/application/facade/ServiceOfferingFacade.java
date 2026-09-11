@@ -10,9 +10,11 @@ import com.todak_todag.provider_service.provider.application.command.ServiceOffe
 import com.todak_todag.provider_service.provider.application.port.SchedulePort;
 import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
+import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
 import com.todak_todag.provider_service.provider.application.service.command.ProvideWorkCommandService;
 import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
@@ -61,11 +63,16 @@ public class ServiceOfferingFacade {
     }
 
     // 제공 서비스 삭제
-    // 소유자 검증을 먼저 수행해 권한 없는 요청이 Schedule-Service를 호출하지 않도록 한다
+    // ADMIN은 담당 지역이면 삭제할 수 있고, 제공자는 본인 소유만 삭제할 수 있다
     public void delete(ServiceOfferingDeleteCommand command) {
-        // TODO: User-Service 사용자 조회 API 구현 후 ADMIN 담당 지역 검증으로 교체
-        //       그 전까지는 ADMIN도 본인 소유만 삭제 가능하도록 제한
-        ServiceOffering serviceOffering = findOwnedServiceOffering(command.serviceOfferingId(), command.userId());
+        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
+
+        if (command.userRole() == UserRole.ADMIN) {
+            validateRegionAccess(command.userId(), command.userRole(), serviceOffering.getRegionId());
+        } else if (!serviceOffering.isOwnedBy(command.userId())) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
+        }
 
         if (schedulePort.existsConfirmedSchedule(serviceOffering.getId())) {
             throw new BusinessException(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS);
@@ -80,6 +87,17 @@ public class ServiceOfferingFacade {
         validateRegionAccess(query.userId(), query.userRole(), query.regionId());
 
         return serviceOfferingQueryService.searchByRegion(query);
+    }
+
+    // 제공 서비스 목록 조회
+    // ADMIN이 특정 제공자를 지정하면 그 제공자가 담당 지역 소속인지 확인한다
+    public Page<ServiceOfferingSearchResult> search(ServiceOfferingSearchQuery query) {
+        if (query.userRole() == UserRole.ADMIN && query.providerId() != null) {
+            UUID providerRegionId = userPort.findRegionIdByUserId(query.providerId());
+            validateRegionAccess(query.userId(), query.userRole(), providerRegionId);
+        }
+
+        return serviceOfferingQueryService.search(query);
     }
 
     // 제공 가능 일정 수정

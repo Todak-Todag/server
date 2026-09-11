@@ -10,7 +10,6 @@ import com.todak_todag.provider_service.provider.application.facade.ServiceOffer
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
-import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
 import com.todak_todag.provider_service.provider.presentation.request.ServiceOfferingCreateRequest;
 import com.todak_todag.provider_service.provider.presentation.response.ServiceOfferingCreateResponse;
 import com.todak_todag.provider_service.provider.presentation.response.ServiceOfferingSearchResponse;
@@ -30,7 +29,6 @@ import java.util.UUID;
 public class ServiceOfferingApiController implements ServiceOfferingApiSpec {
 
     private final ServiceOfferingFacade serviceOfferingFacade;
-    private final ServiceOfferingQueryService serviceOfferingQueryService;
 
     @Override
     @PostMapping
@@ -70,7 +68,7 @@ public class ServiceOfferingApiController implements ServiceOfferingApiSpec {
             @RequestParam(value = "size", required = false) Integer size,
             @RequestParam(value = "sort", required = false) String sort
     ) {
-        Page<ServiceOfferingSearchResult> results = serviceOfferingQueryService.search(
+        Page<ServiceOfferingSearchResult> results = serviceOfferingFacade.search(
                 new ServiceOfferingSearchQuery(
                         providerId,
                         user.getUserId(),

@@ -20,7 +20,8 @@ public class OutboxEventQueryRepositoryImpl implements OutboxEventQueryRepositor
     @Override
     public List<ProviderOutboxEvent> findPending(int limit) {
         return jpaOutboxEventRepository
-                .findAllByPublishedAtIsNullOrderByCreatedAtAsc(PageRequest.of(0, limit));
+                .findAllByPublishedAtIsNullAndRetryCountLessThanOrderByCreatedAtAsc(
+                        ProviderOutboxEvent.MAX_RETRY_COUNT, PageRequest.of(0, limit));
     }
 
     @Override
