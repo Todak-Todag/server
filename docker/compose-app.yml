@@ -130,7 +130,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: local
 
-      SPRING_CONFIG_IMPORT: configserver:http://config-server:8888
+      CONFIG_SERVER_URL: http://config-server:8888
 
       EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
 
@@ -325,6 +325,62 @@ services:
     networks:
       - todak-network
 
+  social-worker-service:
+    build:
+      context: ..
+      dockerfile: social-worker-service/Dockerfile
+      args:
+        JAR_FILE: social-worker-service/build/libs/*.jar
+
+    container_name: todak-social-worker-service
+    restart: unless-stopped
+
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+
+      # Config Server
+      CONFIG_SERVER_URL: http://config-server:8888
+
+      # Eureka
+      EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
+
+      # PostgreSQL
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # RabbitMQ
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # Zipkin
+      ZIPKIN_HOST: zipkin
+
+      # Internal API Key
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+    ports:
+      - "19002:19002"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19002/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+    networks:
+      - todak-network
+
 networks:
   todak-network:
     external: true
+
