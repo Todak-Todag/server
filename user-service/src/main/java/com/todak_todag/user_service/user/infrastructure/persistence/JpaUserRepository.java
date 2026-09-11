@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.user.domain.entity.user.User;
@@ -31,6 +32,10 @@ public interface JpaUserRepository extends JpaRepository<User, UUID>, UserQueryD
 					AND u.status =:status
 					AND u.deletedAt IS NULL
 	""")
-	Set<UUID> findByRegionIdAndRoleAndStatus(UUID regionId, UserRole socialWorker, UserStatus approved);
+	Set<UUID> findByRegionIdAndRoleAndStatus(
+			@Param("regionId") UUID regionId,
+			@Param("role") UserRole role,
+			@Param("status") UserStatus status
+	);
 
 }

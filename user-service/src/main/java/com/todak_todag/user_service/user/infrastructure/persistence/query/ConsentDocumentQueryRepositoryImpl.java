@@ -199,4 +199,20 @@ public class ConsentDocumentQueryRepositoryImpl
                         version
                 );
     }
+
+    //versionId를 통한 consentDocumentId의 필수/선택 여부 조회 구현체
+    @Override
+    public Optional<Boolean> findRequiredByVersionId(UUID versionId) {
+        Boolean required = queryFactory
+                .select(consentDocument.required)
+                .from(consentDocumentVersion)
+                .join(consentDocument)
+                .on(consentDocument.id.eq(
+                        consentDocumentVersion.consentDocumentId
+                ))
+                .where(consentDocumentVersion.id.eq(versionId))
+                .fetchOne();
+
+        return Optional.ofNullable(required);
+    }
 }

@@ -11,6 +11,8 @@ import java.util.UUID;
 
 @Component
 public class SecurityAuditorAware implements AuditorAware<UUID> {
+    private static final UUID SYSTEM_USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000000");
+
     @Override
     public Optional<UUID> getCurrentAuditor() {
         Authentication authentication =
@@ -19,7 +21,7 @@ public class SecurityAuditorAware implements AuditorAware<UUID> {
         if (authentication == null
                 || !authentication.isAuthenticated()
                 || !(authentication.getPrincipal() instanceof UserContext userContext)) {
-            return Optional.empty();
+            return Optional.of(SYSTEM_USER_ID);
         }
 
         return Optional.of(userContext.userId());

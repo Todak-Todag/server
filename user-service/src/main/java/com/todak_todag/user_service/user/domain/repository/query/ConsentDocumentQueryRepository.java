@@ -43,4 +43,7 @@ public interface ConsentDocumentQueryRepository {
             UUID consentDocumentId,
             String version
     );
+
+    // 필수 약관 버전 아이디 조회
+    Optional<Boolean> findRequiredByVersionId(UUID consentDocumentVersionId);
 }

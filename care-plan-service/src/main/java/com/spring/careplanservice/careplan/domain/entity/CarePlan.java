@@ -86,11 +86,14 @@ public class CarePlan extends BaseAuditEntity {
         markDeleted(deletedBy);
     }
 
-    public void complete() {
+    // 실제로 이번 호출에서 COMPLETED로 바뀐 경우에만 Outbox를 넣어야 함
+    public boolean complete() {
         if (this.status != CarePlanStatus.IN_PROGRESS) {
-            return;
+            return false;
         }
 
         this.status = CarePlanStatus.COMPLETED;
+
+        return true;
     }
 }
