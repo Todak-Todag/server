@@ -49,6 +49,10 @@ public class ProviderOutboxEvent extends BaseUpdatableEntity {
     @Column(name = "last_error_message", columnDefinition = "TEXT")
     private String lastErrorMessage;
 
+    // 폴링이 1초 주기라 약 3분. 브로커 재시작·순단은 이 안에 복구되어 자동으로 발행된다
+    // 이보다 긴 장애는 사람이 개입할 장애로 보고, 한도를 넘긴 건은 삭제하지 않고 남긴다
+    public static final int MAX_RETRY_COUNT = 180;
+
     public static ProviderOutboxEvent of(
             OutboxEventType eventType,
             UUID aggregateId,
@@ -66,10 +70,14 @@ public class ProviderOutboxEvent extends BaseUpdatableEntity {
         this.publishedAt = Instant.now();
     }
 
-    // 발행 실패는 상태를 바꾸지 않는다. 다음 폴링에서 다시 시도한다
-    // 원인을 추적할 수 있도록 시도 횟수와 마지막 사유만 남긴다
+    // 발행 실패는 상태를 바꾸지 않고 다음 폴링에서 다시 시도한다
+    // 시도 횟수가 MAX_RETRY_COUNT에 닿으면 조회 대상에서 빠진다 (삭제하지 않고 원인 확인용으로 남긴다)
     public void recordFailure(String errorMessage) {
         this.retryCount++;
         this.lastErrorMessage = errorMessage;
+    }
+
+    public boolean isRetryExhausted() {
+        return this.retryCount >= MAX_RETRY_COUNT;
     }
 }
