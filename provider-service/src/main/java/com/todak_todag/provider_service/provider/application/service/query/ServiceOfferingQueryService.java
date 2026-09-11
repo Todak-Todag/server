@@ -63,8 +63,7 @@ public class ServiceOfferingQueryService {
     private UUID resolveTargetProviderId(ServiceOfferingSearchQuery query) {
         if (query.userRole() == UserRole.ADMIN) {
             // ADMIN은 담당 지역 내 제공자만 조회 가능
-            // TODO: User-Service 사용자 조회 API 구현 후 요청자·대상 지역 일치 검증 추가
-            //       그 전까지는 ADMIN이면 모든 지역을 조회할 수 있다
+            // ADMIN의 담당 지역 검증은 Facade에서 마친 뒤 들어온다
             return query.providerId() != null ? query.providerId() : query.userId();
         }
 
