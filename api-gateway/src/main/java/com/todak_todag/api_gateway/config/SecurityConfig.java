@@ -75,7 +75,10 @@ public class SecurityConfig {
 						
 						// Actuator
 						.pathMatchers(
-								"/actuator/health"
+								"/actuator/health",
+								"/actuator/health/**",
+								"/actuator/info",
+								"/actuator/prometheus"
 						).permitAll()
 						
 						// 로그인, 회원가입, 토큰재발급, 로그아웃
