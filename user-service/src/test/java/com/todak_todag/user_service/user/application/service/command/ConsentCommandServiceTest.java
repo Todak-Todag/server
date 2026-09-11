@@ -894,6 +894,15 @@ class ConsentCommandServiceTest {
                     Optional.of(consent)
             );
 
+            // 철회할 약관이 선택 약관이라고 설정
+            given(
+                    consentDocumentQueryRepository.findRequiredByVersionId(
+                            versionId
+                    )
+            ).willReturn(
+                    Optional.of(false)
+            );
+
             // when
             ConsentWithdrawResult result =
                     consentCommandService.withdraw(
@@ -1104,6 +1113,198 @@ class ConsentCommandServiceTest {
                                         .CONSENT_ALREADY_WITHDRAWN
                         );
                     });
+        }
+    }
+
+    @Nested
+    @DisplayName("약관 철회에 따른 사용자 상태 변경")
+    class WithdrawUserStatus {
+
+        @Test
+        @DisplayName("필수 약관을 철회하면 APPROVED 사용자가 WITHDRAWN으로 변경된다")
+        void withdraw_requiredConsent_changesUserToWithdrawn() {
+            // given
+            User user = createApprovedPatient();
+            UUID consentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+
+            Consent consent = stubConsent(user, consentId, versionId, true);
+
+            given(userQueryRepository.findById(user.getId()))
+                    .willReturn(Optional.of(user));
+
+            // when
+            ConsentWithdrawResult result = consentCommandService.withdraw(
+                    new ConsentWithdrawCommand(user.getId(), consentId)
+            );
+
+            // then
+            assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+            assertWithdrawn(consent, result, consentId);
+        }
+
+        @Test
+        @DisplayName("선택 약관을 철회하면 APPROVED 사용자 상태가 유지된다")
+        void withdraw_optionalConsent_keepsApproved() {
+            // given
+            User user = createApprovedPatient();
+            UUID consentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+
+            Consent consent = stubConsent(user, consentId, versionId, false);
+
+            // when
+            ConsentWithdrawResult result = consentCommandService.withdraw(
+                    new ConsentWithdrawCommand(user.getId(), consentId)
+            );
+
+            // then
+            assertThat(user.getStatus()).isEqualTo(UserStatus.APPROVED);
+            assertWithdrawn(consent, result, consentId);
+
+            // 선택 약관은 사용자 상태 변경을 위한 조회 자체가 필요 없다.
+            then(userQueryRepository).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("이미 WITHDRAWN인 사용자가 선택 약관을 철회해도 승인 상태로 복구되지 않는다")
+        void withdraw_optionalConsent_keepsWithdrawn() {
+            // given: 환자는 생성 시 WITHDRAWN 상태다.
+            User user = createPatient();
+            UUID consentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+
+            Consent consent = stubConsent(user, consentId, versionId, false);
+
+            // when
+            ConsentWithdrawResult result = consentCommandService.withdraw(
+                    new ConsentWithdrawCommand(user.getId(), consentId)
+            );
+
+            // then
+            assertThat(user.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+            assertWithdrawn(consent, result, consentId);
+
+            then(userQueryRepository).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("정지된 사용자가 필수 약관을 철회해도 SUSPENDED 상태가 유지된다")
+        void withdraw_requiredConsent_keepsSuspended() {
+            // given
+            User user = createApprovedPatient();
+            user.suspend("운영 정책 위반");
+
+            UUID consentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+
+            Consent consent = stubConsent(user, consentId, versionId, true);
+
+            given(userQueryRepository.findById(user.getId()))
+                    .willReturn(Optional.of(user));
+
+            // when
+            ConsentWithdrawResult result = consentCommandService.withdraw(
+                    new ConsentWithdrawCommand(user.getId(), consentId)
+            );
+
+            // then
+            assertThat(user.getStatus()).isEqualTo(UserStatus.SUSPENDED);
+            assertThat(user.getStatusChangeReason()).isEqualTo("운영 정책 위반");
+            assertWithdrawn(consent, result, consentId);
+        }
+
+        @Test
+        @DisplayName("약관 버전을 찾을 수 없으면 동의 내역을 변경하지 않는다")
+        void withdraw_versionNotFound() {
+            // given
+            User user = createApprovedPatient();
+            UUID consentId = UUID.randomUUID();
+            UUID versionId = UUID.randomUUID();
+
+            Consent consent = Consent.agree(
+                    user.getId(),
+                    versionId,
+                    LocalDateTime.now().minusDays(1)
+            );
+
+            given(consentCommandRepository.findById(consentId))
+                    .willReturn(Optional.of(consent));
+
+            given(consentDocumentQueryRepository.findRequiredByVersionId(versionId))
+                    .willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> consentCommandService.withdraw(
+                    new ConsentWithdrawCommand(user.getId(), consentId)
+            ))
+                    .isInstanceOfSatisfying(
+                            BusinessException.class,
+                            exception -> assertThat(exception.getErrorCode())
+                                    .isEqualTo(
+                                            ConsentErrorCode.INVALID_CONSENT_DOCUMENT_VERSION
+                                    )
+                    );
+
+            assertThat(consent.getStatus())
+                    .isEqualTo(Consent.ConsentStatus.AGREED);
+            assertThat(consent.getWithdrawnAt()).isNull();
+            assertThat(user.getStatus()).isEqualTo(UserStatus.APPROVED);
+
+            then(userQueryRepository).shouldHaveNoInteractions();
+        }
+
+        private User createPatient() {
+            return User.createPatient(
+                    UUID.randomUUID(),
+                    "patient",
+                    "passwordHash",
+                    "테스트 환자",
+                    "010-1111-2222",
+                    "서울시 테스트 주소"
+            );
+        }
+
+        private User createApprovedPatient() {
+            User user = createPatient();
+            user.approveFromRequiredConsent();
+            return user;
+        }
+
+        private Consent stubConsent(
+                User user,
+                UUID consentId,
+                UUID versionId,
+                boolean required
+        ) {
+            Consent consent = Consent.agree(
+                    user.getId(),
+                    versionId,
+                    LocalDateTime.now().minusDays(1)
+            );
+
+            given(consentCommandRepository.findById(consentId))
+                    .willReturn(Optional.of(consent));
+
+            given(consentDocumentQueryRepository.findRequiredByVersionId(versionId))
+                    .willReturn(Optional.of(required));
+
+            return consent;
+        }
+
+        private void assertWithdrawn(
+                Consent consent,
+                ConsentWithdrawResult result,
+                UUID consentId
+        ) {
+            assertThat(consent.getStatus())
+                    .isEqualTo(Consent.ConsentStatus.WITHDRAWN);
+            assertThat(consent.getWithdrawnAt()).isNotNull();
+
+            assertThat(result.consentId()).isEqualTo(consentId);
+            assertThat(result.status())
+                    .isEqualTo(Consent.ConsentStatus.WITHDRAWN);
+            assertThat(result.withdrawnAt()).isEqualTo(consent.getWithdrawnAt());
         }
     }
 }

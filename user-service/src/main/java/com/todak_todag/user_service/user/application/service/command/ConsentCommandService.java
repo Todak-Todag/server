@@ -180,10 +180,26 @@ public class ConsentCommandService {
 
         validateNotWithdrawn(consent);
 
-        LocalDateTime now =
-                LocalDateTime.now();
+        boolean required = consentDocumentQueryRepository
+                .findRequiredByVersionId(
+                        consent.getConsentDocumentVersionId()
+                )
+                .orElseThrow(() -> new BusinessException(
+                        ConsentErrorCode.INVALID_CONSENT_DOCUMENT_VERSION
+                ));
 
+        LocalDateTime now = LocalDateTime.now();
         consent.withdraw(now);
+
+        if (required) {
+            User user = userQueryRepository
+                    .findById(command.userId())
+                    .orElseThrow(() -> new BusinessException(
+                            UserErrorCode.USER_NOT_FOUND
+                    ));
+
+            user.withdrawFromRequiredConsent();
+        }
 
         log.info(
                 "[Consent] 약관 동의 철회 완료 userId={} consentId={}",

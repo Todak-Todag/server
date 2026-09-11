@@ -294,4 +294,11 @@ public class User extends BaseAuditableEntity {
 			this.statusChangeReason = null;
 		}
 	}
+
+	// Approved인 상태의 사용자만 WITHDRAWN으로 변경 가능
+	public void withdrawFromRequiredConsent() {
+		if (isApprove()) {
+			this.status = UserStatus.WITHDRAWN;
+		}
+	}
 }
