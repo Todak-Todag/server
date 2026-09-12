@@ -106,5 +106,5 @@ servicePreferenceId + date + failedAt  → 이미 FAILED 이력이 있으면 ski
 | 재매칭 실패 | 위에 더해, 기존 `RESCHEDULING` 일정을 `SCHEDULED`로 복구 |
 | 중복 수신 | 아무 작업도 하지 않고 로그만 남김 |
 
-> ⚠️ **알려진 이슈**: 초기 매칭 실패는 `p_service_schedules`에 레코드를 남기지 않으므로, 그 서비스를 제외한 나머지 일정이 모두 끝나면 `CarePlanCompleted`(11번)가 조기 발행될 수 있다. 16번(재매칭 시도)이 구현된 지금 완료 판정 로직과 함께 재검토가 필요하다 (`ServiceMatchingCommandService`의 TODO).
+> **해소됨**: 초기 매칭 실패가 `p_service_schedules`에 레코드를 남기지 않아 `CarePlanCompleted`(11번)가 조기 발행되던 문제는, 11번의 완료 판정이 **미해소 `FAILED` 이력**까지 함께 보도록 보강해 해결했다. 상세 조건은 `11_이벤트발행_CarePlanCompleted.md`의 "매칭 기준이 필요한 이유" 참고.
 >

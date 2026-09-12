@@ -149,10 +149,8 @@ public class ServiceMatchingCommandService {
 
     // 재매칭 실패라면 기존 RESCHEDULING 일정을 SCHEDULED로 복구
     //
-    // TODO: 초기 매칭 실패는 p_service_schedules에 레코드를 남기지 않으므로,
-    //       그 서비스를 뺀 나머지 일정이 모두 끝나면 CarePlanCompleted가 조기 발행될 수 있다.
-    //       재매칭 요청 API가 아직 없어 복구 경로 자체가 없는 상태라 현재 범위 밖으로 두었고,
-    //       해당 API 구현 시 CarePlanCompletionEventAppender의 완료 판정과 함께 다뤄야 한다.
+    // 초기 매칭 실패(RESCHEDULING 0건)는 여기서 아무 일정도 만들지 않음
+    // 따라서, CarePlanCompletionEventAppender가 미해소 FAILED 이력을 함께 보도록 보강
     private void restoreRescheduledIfPresent(ProviderMatchFailedEvent event) {
         List<ServiceSchedule> rescheduling =
                 serviceScheduleCommandRepository.findRescheduling(event.servicePreferenceId());

@@ -37,7 +37,6 @@ spring:
         default_batch_fetch_size: 100
 
         # TODO: Flyway/Liquibase 도입 후 제거
-        # TODO: p_schedule_outbox_events 테이블은 ddl-auto:validate라 자동 생성되지 않음 — prod 반영 시 별도 DDL 필요
         hbm2ddl:
           create_namespaces: true
 

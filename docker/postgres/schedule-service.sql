@@ -67,6 +67,16 @@ CREATE TABLE IF NOT EXISTS schedule_schema.p_schedule_outbox_events (
     updated_by UUID NOT NULL
 );
 
+-- CarePlanCompleted는 케어플랜당 한 번만 적재되어야 함
+-- 애플리케이션은 케어플랜 단위 advisory lock으로 판정~적재 구간을 직렬화하며, 이 인덱스는 그 바깥에서
+-- 들어온 중복을 막는 DB 불변식
+-- 전체 (event_type, aggregate_id)에 걸지 않는 이유: ProviderReMatched는 일정 변경이
+-- aggregate_id = service_schedule_id로 적재하는데, "변경 -> 재매칭 실패 -> SCHEDULED 복구 -> 재변경"에서
+-- 같은 키로 두 번 적재되는 것이 정상 흐름이라 테이블 전체 유니크는 그 경로를 깨뜨림
+CREATE UNIQUE INDEX IF NOT EXISTS ux_schedule_outbox_events_care_plan_completed
+    ON schedule_schema.p_schedule_outbox_events (aggregate_id)
+    WHERE event_type = 'CarePlanCompleted';
+
 CREATE TYPE schedule_schema.service_matching_attempts_status AS ENUM (
     'MATCHED', 'FAILED'
 );

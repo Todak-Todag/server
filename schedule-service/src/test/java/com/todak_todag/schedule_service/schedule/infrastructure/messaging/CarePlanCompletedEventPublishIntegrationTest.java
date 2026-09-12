@@ -9,9 +9,13 @@ import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceResultRegisterResult;
 import com.todak_todag.schedule_service.schedule.application.service.command.ServiceResultCommandService;
 import com.todak_todag.schedule_service.schedule.application.service.command.ServiceScheduleCommandService;
+import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
+import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot;
+import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataCarePlanServiceResultRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataScheduleOutboxEventRepository;
+import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceMatchingAttemptRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceScheduleRepository;
 import com.todak_todag.schedule_service.support.PostgresTestSupport;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +31,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.rabbitmq.RabbitMQContainer;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -75,11 +80,15 @@ class CarePlanCompletedEventPublishIntegrationTest extends PostgresTestSupport {
     @Autowired
     private SpringDataScheduleOutboxEventRepository springDataScheduleOutboxEventRepository;
 
+    @Autowired
+    private SpringDataServiceMatchingAttemptRepository springDataServiceMatchingAttemptRepository;
+
     @BeforeEach
     void clear() {
         springDataScheduleOutboxEventRepository.deleteAll();
         springDataCarePlanServiceResultRepository.deleteAll();
         springDataServiceScheduleRepository.deleteAll();
+        springDataServiceMatchingAttemptRepository.deleteAll();
 
         while (rabbitTemplate.receive(RabbitMqConfig.CARE_PLAN_SCHEDULE_COMPLETED_QUEUE, 200) != null) {
             // 남아있는 메시지 비우기
@@ -229,6 +238,66 @@ class CarePlanCompletedEventPublishIntegrationTest extends PostgresTestSupport {
         assertThat(receiveAll()).isEmpty();
     }
 
+    @Test
+    @DisplayName("초기 매칭에 실패해 일정 레코드조차 없는 서비스가 남아있으면, 나머지 일정이 끝나도 발행되지 않는다")
+    void 미해소_초기_매칭_실패가_남아있으면_발행되지_않는다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        failedAttempt(carePlanId, UUID.randomUUID());
+        ServiceSchedule completedB = completedSchedule(carePlanId, 3);
+
+        // when
+        registerResult(completedB);
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        assertThat(receiveAll()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("초기 매칭 실패가 재매칭으로 해소되고 그 일정까지 끝나면 그제서야 발행된다")
+    void 재매칭으로_해소된_뒤에_발행된다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        UUID preferenceIdA = UUID.randomUUID();
+        failedAttempt(carePlanId, preferenceIdA);
+        registerResult(completedSchedule(carePlanId, 3));
+        scheduleOutboxRelayFacade.relay();
+        assertThat(receiveAll()).isEmpty();
+
+        // when
+        ServiceSchedule rematchedA = completedSchedule(carePlanId, preferenceIdA, 5);
+        ServiceResultRegisterResult resultA = registerResult(rematchedA);
+        scheduleOutboxRelayFacade.relay();
+
+        // then
+        List<String> received = receiveAll();
+        assertThat(received).hasSize(1);
+        assertThat(received.getFirst()).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\","
+                        + "\"serviceResultId\":\"" + resultA.serviceResultId() + "\",\"status\":\"COMPLETED\"}"
+        );
+    }
+
+    // 초기 매칭 실패 이력 저장
+    private ServiceMatchingAttempt failedAttempt(UUID carePlanId, UUID servicePreferenceId) {
+        return springDataServiceMatchingAttemptRepository.save(
+                ServiceMatchingAttempt.record(
+                        carePlanId,
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        servicePreferenceId,
+                        null,
+                        LocalDate.now().plusDays(1),
+                        PreferredTimeSlot.MORNING,
+                        MatchingAttemptStatus.FAILED,
+                        "NO_AVAILABLE_PROVIDER",
+                        null,
+                        Instant.now()
+                )
+        );
+    }
+
     // 수행 결과 등록
     private ServiceResultRegisterResult registerResult(ServiceSchedule schedule) {
         UUID providerId = UUID.randomUUID();
@@ -247,12 +316,17 @@ class CarePlanCompletedEventPublishIntegrationTest extends PostgresTestSupport {
 
     // SCHEDULED 상태의 일정 저장
     private ServiceSchedule scheduledSchedule(UUID carePlanId, int plusDays) {
+        return scheduledSchedule(carePlanId, UUID.randomUUID(), plusDays);
+    }
+
+    // 희망 일정(servicePreferenceId)을 지정해 저장 — 매칭 실패 이력과 같은 희망 일정으로 묶을 때 사용
+    private ServiceSchedule scheduledSchedule(UUID carePlanId, UUID servicePreferenceId, int plusDays) {
         LocalDate date = LocalDate.now().plusDays(plusDays);
 
         return springDataServiceScheduleRepository.save(
                 ServiceSchedule.confirm(
                         carePlanId,
-                        UUID.randomUUID(),
+                        servicePreferenceId,
                         UUID.randomUUID(),
                         date,
                         date.atTime(9, 0),
@@ -263,7 +337,11 @@ class CarePlanCompletedEventPublishIntegrationTest extends PostgresTestSupport {
 
     // 수행 완료 처리 COMPLETED로 만들어 저장
     private ServiceSchedule completedSchedule(UUID carePlanId, int plusDays) {
-        ServiceSchedule schedule = scheduledSchedule(carePlanId, plusDays);
+        return completedSchedule(carePlanId, UUID.randomUUID(), plusDays);
+    }
+
+    private ServiceSchedule completedSchedule(UUID carePlanId, UUID servicePreferenceId, int plusDays) {
+        ServiceSchedule schedule = scheduledSchedule(carePlanId, servicePreferenceId, plusDays);
         schedule.complete();
 
         return springDataServiceScheduleRepository.save(schedule);
