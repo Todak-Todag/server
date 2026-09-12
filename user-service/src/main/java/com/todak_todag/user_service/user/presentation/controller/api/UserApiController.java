@@ -127,9 +127,16 @@ public class UserApiController implements UserApiSpec {
 	@PatchMapping("/me/password")
 	public ResponseEntity<ApiResponse<UserPasswordUpdateResponse>> passwordUpdate(
 			@Valid @RequestBody UserPasswordUpdateRequest userPasswordUpdateRequest,
-			@AuthenticationPrincipal UserContext user
+			@AuthenticationPrincipal UserContext user,
+			HttpServletRequest servletRequest,
+			HttpServletResponse servletResponse
 	) {
-		UUID userId = userUpdateService.passwordUpdate(userPasswordUpdateRequest.toCommand(user));
+		String accessToken = cookieProvider.getCookieValue(accessTokenCookieName, servletRequest);
+		
+		UUID userId = userUpdateService.passwordUpdate(userPasswordUpdateRequest.toCommand(accessToken, user));
+		
+		cookieProvider.addCookie(accessTokenCookieName, Duration.ZERO, "", servletResponse);
+		cookieProvider.addCookie(refreshTokenCookieName, Duration.ZERO, "", servletResponse);
 		
 		UserPasswordUpdateResponse response = new UserPasswordUpdateResponse(userId);
 		
@@ -164,13 +171,10 @@ public class UserApiController implements UserApiSpec {
 	public ResponseEntity<ApiResponse<Void>> userDelete(
 			@Valid @RequestBody UserDeleteRequest userDeleteRequest,
 			@AuthenticationPrincipal UserContext user,
-			HttpServletRequest request,
 			HttpServletResponse response
 	) {
 		
-		String accessToken = cookieProvider.getCookieValue(accessTokenCookieName, request);
-		
-		userUpdateService.userDelete(userDeleteRequest.toCommand(user, accessToken));
+		userUpdateService.userDelete(userDeleteRequest.toCommand(user));
 		
 		cookieProvider.addCookie(accessTokenCookieName, Duration.ZERO, "", response);
 		cookieProvider.addCookie(refreshTokenCookieName, Duration.ZERO, "", response);

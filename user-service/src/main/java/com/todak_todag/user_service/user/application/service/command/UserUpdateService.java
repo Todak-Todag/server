@@ -64,10 +64,19 @@ public class UserUpdateService {
 		}
 		
 		// 5. 저장된 액세스 토큰 삭제
-		tokenStorePort.deleteAccessToken(command.accessToken());
+		tokenStorePort.revokeAllSessions(user.getId());
 	}
 	
 	public UserUpdateResult userUpdate(UserUpdateCommand command) {
+		// 0. regionId가 넘어오지 않았는데 address 가 존재하는 경우 빠른 실패 시키기 위해 Validator 밖에서 처리
+		//    공백 문자열은 changeMyInfo / AddressValidator 와 동일하게 '미입력' 으로 취급한다.
+		if(command.regionId() == null
+				&& command.address() != null
+				&& !command.address().isBlank()
+		) {
+			throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION);
+		}
+		
 		// 1. 요청자 조회
 		User user = userQueryRepo.findActiveById(command.requesterId())
 				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
@@ -111,6 +120,18 @@ public class UserUpdateService {
 		// 4. 변경한다.
 		user.changePassword(newPasswordHash);
 		
+		// 5. 사용자의 현재 세션을 만료시킨다.
+		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.orElse(null);
+		
+		// 6. 로그인 세션을 만료 시킨다.
+		if(loginSession != null) {
+			loginSession.logout();
+		}
+		
+		// 7. 로그인 세션을 만료 시킨 후 Redis 에도 반영한다.
+		tokenStorePort.revokeAllSessions(user.getId());
+		
 		return user.getId();
 	}
 	
@@ -128,11 +149,11 @@ public class UserUpdateService {
 			
 			// 2-1. 관리자를 조회한다. 없으면 권한이 없는 것이다.
 			User admin = userQueryRepo.findAdminById(command.requesterId())
-					.orElseThrow(() -> new BusinessException(CommonErrorCode.FORBIDDEN));
+					.orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
 
 			// 2-3. 지역이 다르면 권한이 없다.
 			if(!Objects.equals(admin.getRegionId(), target.getRegionId())) {
-				throw new BusinessException(CommonErrorCode.FORBIDDEN);
+				throw new BusinessException(CommonErrorCode.AUTH_FORBIDDEN);
 			}
 		}
 		
@@ -177,7 +198,19 @@ public class UserUpdateService {
 			}
 		}
 		
+		// 4. 사용자 정지!
 		user.suspend(command.suspendReason());
+		
+		// 5. 사용자 정지 시킨후 대상 사용자의 로그인 세션을 만료 시킨다.
+		Auth suspendUserLoginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.orElse(null);
+		
+		if(suspendUserLoginSession != null) {
+			suspendUserLoginSession.logout();
+		}
+		
+		// 6. Redis 에 저장된 대상 사용자의 AccessToken 전체 무효화
+		tokenStorePort.revokeAllSessions(user.getId());
 		
 		return user.getId();
 	}

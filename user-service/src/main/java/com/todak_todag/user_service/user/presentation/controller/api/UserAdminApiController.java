@@ -70,15 +70,16 @@ public class UserAdminApiController implements UserAdminApiSpec {
 	}
 
 	@Override
-	@PatchMapping("/status")
+	@PatchMapping("/{userId}/status")
 	@PreAuthorize("hasAnyRole('MASTER', 'ADMIN')")
 	public ResponseEntity<ApiResponse<UserApprovalResponse>> approval(
+			@PathVariable("userId") UUID userId,
 			@Valid @RequestBody UserApprovalRequest userApprovalRequest,
 			@AuthenticationPrincipal UserContext user
 	) {
 		
 		UserApprovalResult result = userUpdateService.approval(
-				userApprovalRequest.toCommand(user)
+				userApprovalRequest.toCommand(userId, user)
 		);
 		
 		UserApprovalResponse response = new UserApprovalResponse(

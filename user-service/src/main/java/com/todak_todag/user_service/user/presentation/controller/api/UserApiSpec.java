@@ -48,9 +48,6 @@ public interface UserApiSpec {
 			UserContext user,
 			
 			@Parameter(hidden = true)
-			HttpServletRequest request,
-			
-			@Parameter(hidden = true)
 			HttpServletResponse response
 	);
 	
@@ -142,6 +139,12 @@ public interface UserApiSpec {
 			UserPasswordUpdateRequest userPasswordUpdateRequest,
 			
 			@Parameter(hidden = true)
-			UserContext user
+			UserContext user,
+			
+			@Parameter(hidden = true)
+			HttpServletRequest servletRequest,
+			
+			@Parameter(hidden = true)
+			HttpServletResponse servletResponse
 	);
 }

@@ -131,7 +131,7 @@ class AdminAuthorizationRoutingIntegrationTest {
 			),
 			new AdminEndpoint(
 					HttpMethod.PATCH,
-					"/api/v1/admin/users/status",
+					"/api/v1/admin/users/11111111-1111-1111-1111-111111111111/status",
 					Set.of("MASTER", "ADMIN"),
 					"PATIENT"
 			),

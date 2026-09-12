@@ -53,6 +53,8 @@ internal:
   key: 01234567890123456789012345678901
 
 authentication:
+  user:
+    redis-key-prefix: "test:auth:user:"
   access-token:
     redis-key-prefix: "test:access-token:"
     cookie-name: "AccessToken"

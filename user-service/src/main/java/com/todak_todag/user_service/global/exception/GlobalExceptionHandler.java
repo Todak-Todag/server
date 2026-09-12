@@ -5,6 +5,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -55,6 +56,14 @@ public class GlobalExceptionHandler {
         log.error("[User] 데이터 저장소 접근 실패", e);
         return ResponseEntity.status(CommonErrorCode.DATA_STORE_UNAVAILABLE.getStatus())
                 .body(ErrorResponse.of(CommonErrorCode.DATA_STORE_UNAVAILABLE));
+    }
+
+    // @PreAuthorize 로 거부된 요청. 핸들러가 없으면 Exception 핸들러로 떨어져 500 이 된다.
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
+        log.warn("[User] 권한 없는 요청 message={}", e.getMessage());
+        return ResponseEntity.status(CommonErrorCode.AUTH_FORBIDDEN.getStatus())
+                .body(ErrorResponse.of(CommonErrorCode.AUTH_FORBIDDEN));
     }
 
     @ExceptionHandler(Exception.class)

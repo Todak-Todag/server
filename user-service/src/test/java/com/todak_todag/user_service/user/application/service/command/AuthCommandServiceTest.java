@@ -199,7 +199,7 @@ class AuthCommandServiceTest {
 			// Then
 			InOrder inOrder = inOrder(authCommandRepo, accessTokenStorePort);
 			inOrder.verify(authCommandRepo).save(any(Auth.class));
-			inOrder.verify(accessTokenStorePort).storeAccessToken(ACCESS_TOKEN, JWT_ACCESS_TOKEN);
+			inOrder.verify(accessTokenStorePort).storeAccessToken(USER_ID, ACCESS_TOKEN, JWT_ACCESS_TOKEN);
 		}
 
 		@Test
@@ -337,7 +337,7 @@ class AuthCommandServiceTest {
 			inOrder.verify(passwordEncoder).matches(RAW_PASSWORD, HASHED_PASSWORD);
 			inOrder.verify(authQueryRepo).findActiveByUserId(USER_ID);
 			inOrder.verify(authCommandRepo).save(any(Auth.class));
-			inOrder.verify(accessTokenStorePort).storeAccessToken(ACCESS_TOKEN, JWT_ACCESS_TOKEN);
+			inOrder.verify(accessTokenStorePort).storeAccessToken(USER_ID, ACCESS_TOKEN, JWT_ACCESS_TOKEN);
 		}
 	}
 
@@ -362,7 +362,7 @@ class AuthCommandServiceTest {
 
 			// Then
 			assertThat(activeSession.getLogoutAt()).isNotNull();
-			verify(accessTokenStorePort).deleteAccessToken(ACCESS_TOKEN);
+			verify(accessTokenStorePort).deleteAccessToken(USER_ID, ACCESS_TOKEN);
 		}
 
 		@Test
@@ -375,7 +375,7 @@ class AuthCommandServiceTest {
 			authCommandService.logout(command(ACCESS_TOKEN));
 
 			// Then
-			verify(accessTokenStorePort).deleteAccessToken(ACCESS_TOKEN);
+			verify(accessTokenStorePort).deleteAccessToken(USER_ID, ACCESS_TOKEN);
 		}
 
 		@Test
@@ -489,7 +489,7 @@ class AuthCommandServiceTest {
 			authCommandService.reissue(REFRESH_TOKEN);
 
 			// Then
-			verify(accessTokenStorePort).storeAccessToken(NEW_ACCESS_TOKEN, NEW_JWT_ACCESS_TOKEN);
+			verify(accessTokenStorePort).storeAccessToken(USER_ID, NEW_ACCESS_TOKEN, NEW_JWT_ACCESS_TOKEN);
 		}
 
 		@Test

@@ -99,7 +99,7 @@ public class SecurityConfig {
 						// ===== MASTER + ADMIN 경로 방어 ===== //
 						.pathMatchers(HttpMethod.PATCH,
 								"/api/v1/admin/users/{userId}/suspend",
-								"/api/v1/admin/users/status"
+								"/api/v1/admin/users/{userId}/status"
 						).hasAnyRole("MASTER", "ADMIN")
 						
 						.pathMatchers(HttpMethod.GET,

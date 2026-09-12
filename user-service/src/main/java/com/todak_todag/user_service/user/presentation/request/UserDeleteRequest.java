@@ -10,10 +10,9 @@ public record UserDeleteRequest(
 		String currentPassword
 ) {
 
-	public UserDeleteCommand toCommand(UserContext user, String accessToken) {
+	public UserDeleteCommand toCommand(UserContext user) {
 		return new UserDeleteCommand(
 				currentPassword,
-				accessToken,
 				user
 		);
 	}

@@ -1,5 +1,6 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -19,6 +21,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
 import org.springframework.boot.autoconfigure.aop.AopAutoConfiguration;
@@ -34,6 +37,7 @@ import com.todak_todag.user_service.global.config.SecurityConfig;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
@@ -172,6 +176,40 @@ class UserApiControllerTest {
 	}
 
 	@Nested
+	@DisplayName("퇴원 예정자 등록")
+	class CreatePatient {
+
+		private static final String PATIENT_URI = "/api/v1/users/patient";
+
+		private static final String VALID_BODY = """
+				{
+				  "username": "patient0001",
+				  "password": "Test1234!@",
+				  "name": "박환자",
+				  "phone": "01011112222",
+				  "regionId": null,
+				  "address": null
+				}
+				""";
+
+		@Test
+		@DisplayName("병원 담당자가 아니면 500이 아닌 403을 반환하고 서비스를 호출하지 않는다")
+		void createPatientTest_fail_forbiddenRole() throws Exception {
+			// when & then
+			mockMvc.perform(post(PATIENT_URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", UserRole.PATIENT.name())
+							.contentType(MediaType.APPLICATION_JSON)
+							.content(VALID_BODY))
+					.andExpect(status().isForbidden())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.error.errorCode").value("AUTH_FORBIDDEN"));
+
+			then(userCreateService).should(never()).createUserPatient(any());
+		}
+	}
+
+	@Nested
 	@DisplayName("비밀번호 변경")
 	class PasswordUpdate {
 
@@ -277,6 +315,83 @@ class UserApiControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.error.errorCode").value("USER_INVALID_CURRENT_PASSWORD"));
 		}
+
+		@Test
+		@DisplayName("정상 요청이면 AccessToken/RefreshToken 쿠키를 즉시 만료시킨다")
+		void passwordUpdateTest_success_expiresCookies() throws Exception {
+			// given
+			given(userUpdateService.passwordUpdate(any())).willReturn(USER_ID);
+
+			// when
+			mockMvc.perform(patch(PASSWORD_URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isOk());
+
+			// then
+			then(cookieProvider).should().addCookie(eq("AccessToken"), eq(Duration.ZERO), eq(""), any());
+			then(cookieProvider).should().addCookie(eq("RefreshToken"), eq(Duration.ZERO), eq(""), any());
+		}
+
+		@Test
+		@DisplayName("쿠키에서 읽은 AccessToken 이 Command 에 담겨 서비스로 전달된다")
+		void passwordUpdateTest_success_passesAccessTokenFromCookie() throws Exception {
+			// given
+			given(cookieProvider.getCookieValue(eq("AccessToken"), any())).willReturn("access-token-value");
+			given(userUpdateService.passwordUpdate(any())).willReturn(USER_ID);
+
+			// when
+			mockMvc.perform(patch(PASSWORD_URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isOk());
+
+			// then
+			ArgumentCaptor<UserPasswordUpdateCommand> captor =
+					ArgumentCaptor.forClass(UserPasswordUpdateCommand.class);
+			then(userUpdateService).should().passwordUpdate(captor.capture());
+
+			assertThat(captor.getValue().accessToken()).isEqualTo("access-token-value");
+			assertThat(captor.getValue().requesterId()).isEqualTo(USER_ID);
+		}
+
+		@Test
+		@DisplayName("기존 비밀번호가 일치하지 않으면 쿠키를 만료시키지 않는다")
+		void passwordUpdateTest_fail_doesNotExpireCookies() throws Exception {
+			// given
+			given(userUpdateService.passwordUpdate(any()))
+					.willThrow(new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD));
+
+			// when
+			mockMvc.perform(patch(PASSWORD_URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "wrongPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isConflict());
+
+			// then
+			then(cookieProvider).should(never()).addCookie(any(), any(), any(), any());
+		}
 	}
 
 	@Nested
@@ -304,6 +419,28 @@ class UserApiControllerTest {
 			then(userUpdateService).should().userDelete(any());
 			then(cookieProvider).should().addCookie(eq("AccessToken"), eq(Duration.ZERO), eq(""), any());
 			then(cookieProvider).should().addCookie(eq("RefreshToken"), eq(Duration.ZERO), eq(""), any());
+		}
+
+		@Test
+		@DisplayName("탈퇴는 사용자 식별자 기준으로 세션을 무효화하므로 쿠키에서 AccessToken 을 읽지 않는다")
+		void userDeleteTest_success_doesNotReadAccessTokenCookie() throws Exception {
+			// given
+			willDoNothing().given(userUpdateService).userDelete(any());
+
+			// when
+			mockMvc.perform(delete(URI)
+							.header("X-User-Id", USER_ID.toString())
+							.header("X-User-Role", "PATIENT")
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!"
+									}
+									"""))
+					.andExpect(status().isNoContent());
+
+			// then
+			then(cookieProvider).should(never()).getCookieValue(any(), any());
 		}
 
 		@Test
