@@ -45,7 +45,6 @@ public class SecurityConfig {
 
                         // 공개 API
                         .requestMatchers(
-                                "/actuator/health",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -53,7 +52,10 @@ public class SecurityConfig {
                                 "/api/v1/users/signup",
                                 "/api/v1/auth/reissue",
                                 "/api/v1/regions/**",
-                                "/api/v1/consent-documents/**"
+                                "/api/v1/consent-documents/**",
+                                "/actuator/health/**",
+                                "/actuator/info",
+                                "/actuator/prometheus"
                         ).permitAll()
 
                         .anyRequest().authenticated()
