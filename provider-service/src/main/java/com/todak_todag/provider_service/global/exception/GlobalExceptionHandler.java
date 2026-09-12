@@ -12,10 +12,37 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.hibernate.exception.ConstraintViolationException;
+
+import java.util.Map;
 
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // 애플리케이션 중복 검증을 동시에 통과한 요청은 DB 유니크 인덱스가 막는다
+    // 어떤 제약이 걸렸는지에 따라 응답이 달라야 해서 제약 이름으로 분기한다
+    private static final Map<String, ErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+            "uq_provide_services_name", ProviderErrorCode.PROVIDE_SERVICE_DUPLICATE,
+            "uq_service_offerings_provider_service", ProviderErrorCode.SERVICE_OFFERING_DUPLICATE
+    );
+
+    // Hibernate가 감싼 예외에서 제약 이름을 꺼낸다. PostgreSQL은 소문자로 돌려준다
+    private String extractConstraintName(DataIntegrityViolationException e) {
+        Throwable cause = e.getCause();
+
+        while (cause != null) {
+            if (cause instanceof ConstraintViolationException constraintViolation) {
+                String name = constraintViolation.getConstraintName();
+
+                return (name == null) ? null : name.toLowerCase();
+            }
+
+            cause = cause.getCause();
+        }
+
+        return null;
+    }
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException e) {
@@ -49,12 +76,23 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(ProviderErrorCode.AUTH_FORBIDDEN));
     }
 
-    // 애플리케이션 중복 검증을 동시에 통과한 요청은 DB 유니크 인덱스가 막는다
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
-        log.warn("[Provider] 데이터 무결성 위반 message={}", e.getMessage());
-        return ResponseEntity.status(ProviderErrorCode.PROVIDE_SERVICE_DUPLICATE.getStatus())
-                .body(ErrorResponse.of(ProviderErrorCode.PROVIDE_SERVICE_DUPLICATE));
+        String constraintName = extractConstraintName(e);
+        ErrorCode errorCode = CONSTRAINT_ERROR_CODES.get(constraintName);
+
+        // 매핑되지 않은 제약 위반은 예상하지 못한 상황이다
+        // 409로 뭉뚱그리면 원인을 숨기게 되므로 500으로 두고 원문을 남긴다
+        if (errorCode == null) {
+            log.error("[Provider] 매핑되지 않은 데이터 무결성 위반 constraint={}", constraintName, e);
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ErrorResponse.of(CommonErrorCode.INTERNAL_SERVER_ERROR));
+        }
+
+        log.warn("[Provider] 데이터 무결성 위반 constraint={}", constraintName);
+
+        return ResponseEntity.status(errorCode.getStatus()).body(ErrorResponse.of(errorCode));
     }
 
     @ExceptionHandler(FeignException.class)
@@ -70,4 +108,5 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.of(CommonErrorCode.INTERNAL_SERVER_ERROR));
     }
+
 }
