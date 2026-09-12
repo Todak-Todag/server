@@ -25,16 +25,16 @@ class ScheduleOutboxEventCommandRepositoryImplTest {
     private ScheduleOutboxEventCommandRepositoryImpl scheduleOutboxEventCommandRepositoryImpl;
 
     @Test
-    void save를_호출하면_SpringDataScheduleOutboxEventRepository_save로_위임한다() {
+    void save를_호출하면_SpringDataScheduleOutboxEventRepository_saveAndFlush로_위임한다() {
         // given
         ScheduleOutboxEvent event = ScheduleOutboxEvent.create("ProviderReMatched", UUID.randomUUID(), "{}");
-        when(springDataScheduleOutboxEventRepository.save(event)).thenReturn(event);
+        when(springDataScheduleOutboxEventRepository.saveAndFlush(event)).thenReturn(event);
 
         // when
         ScheduleOutboxEvent result = scheduleOutboxEventCommandRepositoryImpl.save(event);
 
         // then
-        verify(springDataScheduleOutboxEventRepository).save(event);
+        verify(springDataScheduleOutboxEventRepository).saveAndFlush(event);
         assertThat(result).isSameAs(event);
     }
 
