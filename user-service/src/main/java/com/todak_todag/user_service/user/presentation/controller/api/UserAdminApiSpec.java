@@ -52,6 +52,9 @@ public interface UserAdminApiSpec {
 			"""
 	)
 	ResponseEntity<ApiResponse<UserApprovalResponse>> approval(
+			@Parameter(description = "승인/거절 대상 사용자 ID", required = true)
+			UUID userId,
+			
 			@Parameter(description = "승인/거절 정보", required = true)
 			@Valid
 			UserApprovalRequest userApprovalRequest,
