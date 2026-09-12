@@ -78,3 +78,9 @@ CREATE TABLE IF NOT EXISTS provider_schema.p_provider_outbox_events (
 CREATE INDEX IF NOT EXISTS ix_provider_outbox_events_pending
     ON provider_schema.p_provider_outbox_events (created_at)
     WHERE published_at IS NULL;
+
+-- 같은 제공자가 같은 서비스 종류를 두 번 등록할 수 없다
+-- 논리 삭제된 건은 제외해야 지웠던 조합을 다시 등록할 수 있다
+CREATE UNIQUE INDEX IF NOT EXISTS uq_service_offerings_provider_service
+    ON provider_schema.p_provide_service_offerings (provider_id, provide_service_id)
+    WHERE deleted_at IS NULL;
