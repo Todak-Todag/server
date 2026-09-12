@@ -2,6 +2,7 @@ package com.todak_todag.user_service.user.presentation.controller.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -90,6 +91,9 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 	@Value("${authentication.access-token.redis-key-prefix}")
 	private String accessKeyPrefix;
 
+	@Value("${authentication.user.redis-key-prefix}")
+	private String userKeyPrefix;
+
 	@Value("${master.username}")
 	private String masterUsername;
 
@@ -106,6 +110,15 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 				.findFirst()
 				.map(header -> header.substring((cookieName + "=").length()).split(";", 2)[0])
 				.orElseThrow(() -> new AssertionError(cookieName + " 쿠키가 응답에 없습니다."));
+	}
+
+	private String accessKeyOf(String accessToken) {
+		return accessKeyPrefix + tokenPort.hashToken(accessToken);
+	}
+
+	// 사용자별 AccessToken 역인덱스(Set) 키
+	private String userKeyOf(UUID userId) {
+		return userKeyPrefix + userId;
 	}
 
 	// Set-Cookie 헤더 원문 전체(속성 포함)를 가져온다
@@ -379,6 +392,26 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 			Long ttl = redisTemplate.getExpire(redisKey);
 			assertThat(ttl).isPositive();
 		}
+
+		@Test
+		@DisplayName("로그인에 성공하면 사용자별 역인덱스에 AccessToken 해시가 등록되고 TTL이 설정된다")
+		void loginTest_success_registersTokenHashInUserIndex() throws Exception {
+			String username = "logintest6";
+			User user = saveApprovedUser(username);
+
+			MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+					.contentType(MediaType.APPLICATION_JSON)
+					.content(objectMapper.writeValueAsString(new UserLoginRequest(username, RAW_PASSWORD))))
+					.andExpect(status().isNoContent())
+					.andReturn();
+
+			String accessToken = extractCookieValue(result, "AccessToken");
+
+			assertThat(redisTemplate.opsForSet().members(userKeyOf(user.getId())))
+					.containsExactly(tokenPort.hashToken(accessToken));
+
+			assertThat(redisTemplate.getExpire(userKeyOf(user.getId()))).isPositive();
+		}
 	}
 
 	@Nested
@@ -465,6 +498,27 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 		void logoutTest_withoutAuthentication_returnsForbidden() throws Exception {
 			mockMvc.perform(post("/api/v1/auth/logout"))
 					.andExpect(status().isForbidden());
+		}
+
+		@Test
+		@DisplayName("정상 로그아웃하면 사용자별 역인덱스에서도 AccessToken 해시가 제거된다")
+		void logoutTest_success_removesTokenHashFromUserIndex() throws Exception {
+			String username = "logouttest4";
+			User user = saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String accessToken = extractCookieValue(loginResult, "AccessToken");
+
+			assertThat(redisTemplate.opsForSet().members(userKeyOf(user.getId())))
+					.containsExactly(tokenPort.hashToken(accessToken));
+
+			mockMvc.perform(post("/api/v1/auth/logout")
+					.header("X-User-Id", user.getId().toString())
+					.header("X-User-Role", UserRole.ADMIN.name())
+					.cookie(new Cookie("AccessToken", accessToken)))
+					.andExpect(status().isNoContent());
+
+			assertThat(redisTemplate.opsForSet().members(userKeyOf(user.getId()))).isEmpty();
 		}
 	}
 
@@ -574,6 +628,54 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 
 			assertThat(storedJwt).isNotBlank();
 			assertThat(storedJwt.split("\\.")).hasSize(3); // JWT header.payload.signature
+		}
+
+		@Test
+		@DisplayName("재발급된 AccessToken도 사용자별 역인덱스에 등록된다 - 누락되면 정지/탈퇴로 무효화할 수 없다")
+		void reissueTest_success_registersNewTokenHashInUserIndex() throws Exception {
+			String username = "reissuetest7";
+			User user = saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String oldRefreshToken = extractCookieValue(loginResult, "RefreshToken");
+
+			MvcResult reissueResult = mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", oldRefreshToken)))
+					.andExpect(status().isNoContent())
+					.andReturn();
+
+			String newAccessToken = extractCookieValue(reissueResult, "AccessToken");
+
+			assertThat(redisTemplate.opsForSet().members(userKeyOf(user.getId())))
+					.contains(tokenPort.hashToken(newAccessToken));
+		}
+
+		@Test
+		@DisplayName("재발급 후 정지되면 재발급된 AccessToken 도 Redis 에서 함께 삭제된다")
+		void reissueTest_afterSuspend_newTokenIsAlsoRevoked() throws Exception {
+			String username = "reissuetest8";
+			User user = saveApprovedUser(username);
+
+			MvcResult loginResult = login(username);
+			String oldRefreshToken = extractCookieValue(loginResult, "RefreshToken");
+
+			MvcResult reissueResult = mockMvc.perform(post("/api/v1/auth/reissue")
+					.cookie(new Cookie("RefreshToken", oldRefreshToken)))
+					.andExpect(status().isNoContent())
+					.andReturn();
+
+			String newAccessToken = extractCookieValue(reissueResult, "AccessToken");
+			assertThat(redisTemplate.opsForValue().get(accessKeyOf(newAccessToken))).isNotBlank();
+
+			mockMvc.perform(patch("/api/v1/admin/users/" + user.getId() + "/suspend")
+					.header("X-User-Id", UUID.fromString(masterId).toString())
+					.header("X-User-Role", UserRole.MASTER.name())
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("{\"suspendReason\":\"약관 위반\"}"))
+					.andExpect(status().isOk());
+
+			assertThat(redisTemplate.opsForValue().get(accessKeyOf(newAccessToken))).isNull();
+			assertThat(redisTemplate.hasKey(userKeyOf(user.getId()))).isFalse();
 		}
 
 		@Test

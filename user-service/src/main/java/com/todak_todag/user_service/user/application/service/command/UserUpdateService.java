@@ -69,7 +69,11 @@ public class UserUpdateService {
 	
 	public UserUpdateResult userUpdate(UserUpdateCommand command) {
 		// 0. regionId가 넘어오지 않았는데 address 가 존재하는 경우 빠른 실패 시키기 위해 Validator 밖에서 처리
-		if(command.regionId() == null && command.address() != null) {
+		//    공백 문자열은 changeMyInfo / AddressValidator 와 동일하게 '미입력' 으로 취급한다.
+		if(command.regionId() == null
+				&& command.address() != null
+				&& !command.address().isBlank()
+		) {
 			throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION);
 		}
 		
@@ -126,7 +130,7 @@ public class UserUpdateService {
 		}
 		
 		// 7. 로그인 세션을 만료 시킨 후 Redis 에도 반영한다.
-		tokenStorePort.deleteAccessToken(command.accessToken());
+		tokenStorePort.deleteAccessToken(user.getId(), command.accessToken());
 		
 		return user.getId();
 	}

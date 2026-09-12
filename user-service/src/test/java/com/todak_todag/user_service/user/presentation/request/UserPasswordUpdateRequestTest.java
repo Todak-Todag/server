@@ -113,15 +113,27 @@ class UserPasswordUpdateRequestTest {
 	}
 
 	@Test
-	@DisplayName("toCommand()는 currentPassword/newPassword/요청자를 그대로 Command에 담는다")
+	@DisplayName("toCommand()는 currentPassword/newPassword/accessToken/요청자를 그대로 Command에 담는다")
 	void toCommand_mapsFieldsAsIs() {
 		UserContext user = UserContext.from(UUID.randomUUID().toString(), UserRole.PATIENT.name());
 		UserPasswordUpdateRequest request = new UserPasswordUpdateRequest("currentPw123!", "newPw123!");
 
-		UserPasswordUpdateCommand command = request.toCommand(user);
+		UserPasswordUpdateCommand command = request.toCommand("access-token-value", user);
 
 		assertThat(command.currentPassword()).isEqualTo("currentPw123!");
 		assertThat(command.newPassword()).isEqualTo("newPw123!");
+		assertThat(command.accessToken()).isEqualTo("access-token-value");
 		assertThat(command.requesterId()).isEqualTo(user.getUserId());
+	}
+
+	@Test
+	@DisplayName("toCommand()는 쿠키가 없어 accessToken이 null이어도 그대로 Command에 담는다")
+	void toCommand_nullAccessTokenIsPassedThrough() {
+		UserContext user = UserContext.from(UUID.randomUUID().toString(), UserRole.PATIENT.name());
+		UserPasswordUpdateRequest request = new UserPasswordUpdateRequest("currentPw123!", "newPw123!");
+
+		UserPasswordUpdateCommand command = request.toCommand(null, user);
+
+		assertThat(command.accessToken()).isNull();
 	}
 }
