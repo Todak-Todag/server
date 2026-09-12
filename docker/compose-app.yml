@@ -357,6 +357,10 @@ services:
       RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
 
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
       # Zipkin
       ZIPKIN_HOST: zipkin
 
