@@ -3,7 +3,6 @@ package com.todak_todag.user_service.user.application.service.command;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -24,7 +23,6 @@ import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.AuthCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
-import com.todak_todag.user_service.user.domain.repository.query.ConsentHistoryView;
 import com.todak_todag.user_service.user.domain.repository.query.ConsentQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
@@ -118,7 +116,7 @@ public class AuthCommandService {
 		loginSession.renew(newRefreshTokenHash, now.plus(refreshExpiration));
 		
 		// 8. Redis 저장
-		tokenStorePort.storeAccessToken(newAccessToken, newJwtAccessToken);
+		tokenStorePort.storeAccessToken(user.getId(), newAccessToken, newJwtAccessToken);
 		
 		return new AuthReissueResult(newAccessToken, newRefreshToken);
 	}
@@ -132,7 +130,7 @@ public class AuthCommandService {
 		}
 		
 		if(command.accessToken() != null && !command.accessToken().isBlank()) {
-			tokenStorePort.deleteAccessToken(command.accessToken());			
+			tokenStorePort.deleteAccessToken(command.requesterId(), command.accessToken());			
 		}
 	}
 	
@@ -165,7 +163,7 @@ public class AuthCommandService {
 					String refreshToken = tokenPort.createToken();
 					
 					// 3분짜리 임시 토큰 발급
-					tokenStorePort.storeAccessTokenTemp(accessToken, jwtAccessToken, Duration.ofMinutes(3));
+					tokenStorePort.storeAccessTokenTemp(loginUser.getId(), accessToken, jwtAccessToken, Duration.ofMinutes(3));
 					
 					return new AuthLoginResult(loginUser.getId(), accessToken, refreshToken);
 				}
@@ -198,7 +196,7 @@ public class AuthCommandService {
 				));
 
 		// 10. 발급한 AccessToken을 Redis에 저장 (실패 시 트랜잭션 전체 롤백)
-		tokenStorePort.storeAccessToken(accessToken, jwtAccessToken);
+		tokenStorePort.storeAccessToken(loginUser.getId(), accessToken, jwtAccessToken);
 
 		return new AuthLoginResult(loginSession.getUserId(), accessToken, refreshToken);
 	}

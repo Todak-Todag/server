@@ -7,7 +7,6 @@ import com.todak_todag.user_service.global.security.UserContext;
 
 public record UserDeleteCommand(
 		String currentPassword,
-		String accessToken,
 		UserContext user	
 ) {
 

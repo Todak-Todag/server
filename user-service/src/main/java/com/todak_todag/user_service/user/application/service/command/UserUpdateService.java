@@ -64,7 +64,7 @@ public class UserUpdateService {
 		}
 		
 		// 5. 저장된 액세스 토큰 삭제
-		tokenStorePort.deleteAccessToken(command.accessToken());
+		tokenStorePort.revokeAllSessions(user.getId());
 	}
 	
 	public UserUpdateResult userUpdate(UserUpdateCommand command) {
@@ -194,7 +194,19 @@ public class UserUpdateService {
 			}
 		}
 		
+		// 4. 사용자 정지!
 		user.suspend(command.suspendReason());
+		
+		// 5. 사용자 정지 시킨후 대상 사용자의 로그인 세션을 만료 시킨다.
+		Auth suspendUserLoginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.orElse(null);
+		
+		if(suspendUserLoginSession != null) {
+			suspendUserLoginSession.logout();
+		}
+		
+		// 6. Redis 에 저장된 대상 사용자의 AccessToken 전체 무효화
+		tokenStorePort.revokeAllSessions(user.getId());
 		
 		return user.getId();
 	}

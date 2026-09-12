@@ -171,13 +171,10 @@ public class UserApiController implements UserApiSpec {
 	public ResponseEntity<ApiResponse<Void>> userDelete(
 			@Valid @RequestBody UserDeleteRequest userDeleteRequest,
 			@AuthenticationPrincipal UserContext user,
-			HttpServletRequest request,
 			HttpServletResponse response
 	) {
 		
-		String accessToken = cookieProvider.getCookieValue(accessTokenCookieName, request);
-		
-		userUpdateService.userDelete(userDeleteRequest.toCommand(user, accessToken));
+		userUpdateService.userDelete(userDeleteRequest.toCommand(user));
 		
 		cookieProvider.addCookie(accessTokenCookieName, Duration.ZERO, "", response);
 		cookieProvider.addCookie(refreshTokenCookieName, Duration.ZERO, "", response);

@@ -48,9 +48,6 @@ public interface UserApiSpec {
 			UserContext user,
 			
 			@Parameter(hidden = true)
-			HttpServletRequest request,
-			
-			@Parameter(hidden = true)
 			HttpServletResponse response
 	);
 	
