@@ -232,7 +232,7 @@ class UserUpdateServiceTest {
 			assertThatThrownBy(() -> userUpdateService.approval(command))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(CommonErrorCode.FORBIDDEN);
+					.isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
 
 			assertThat(target.getStatus()).isEqualTo(UserStatus.PENDING);
 		}
@@ -252,7 +252,7 @@ class UserUpdateServiceTest {
 			assertThatThrownBy(() -> userUpdateService.approval(command))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(CommonErrorCode.FORBIDDEN);
+					.isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
 
 			assertThat(target.getStatus()).isEqualTo(UserStatus.PENDING);
 		}

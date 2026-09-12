@@ -8,6 +8,7 @@ import com.todak_todag.user_service.global.security.UserContext;
 public record UserPasswordUpdateCommand(
 		String currentPassword,
 		String newPassword,
+		String accessToken,
 		UserContext user
 ) {
 

@@ -23,10 +23,11 @@ public record UserPasswordUpdateRequest(
 		)
 		String newPassword
 ) {
-	public UserPasswordUpdateCommand toCommand(UserContext user) {
+	public UserPasswordUpdateCommand toCommand(String accessToken, UserContext user) {
 		return new UserPasswordUpdateCommand(
 				currentPassword,
 				newPassword,
+				accessToken,
 				user
 		);
 	}

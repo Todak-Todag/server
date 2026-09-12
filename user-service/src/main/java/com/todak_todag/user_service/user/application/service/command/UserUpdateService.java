@@ -116,6 +116,18 @@ public class UserUpdateService {
 		// 4. 변경한다.
 		user.changePassword(newPasswordHash);
 		
+		// 5. 사용자의 현재 세션을 만료시킨다.
+		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.orElse(null);
+		
+		// 6. 로그인 세션을 만료 시킨다.
+		if(loginSession != null) {
+			loginSession.logout();
+		}
+		
+		// 7. 로그인 세션을 만료 시킨 후 Redis 에도 반영한다.
+		tokenStorePort.deleteAccessToken(command.accessToken());
+		
 		return user.getId();
 	}
 	
@@ -133,11 +145,11 @@ public class UserUpdateService {
 			
 			// 2-1. 관리자를 조회한다. 없으면 권한이 없는 것이다.
 			User admin = userQueryRepo.findAdminById(command.requesterId())
-					.orElseThrow(() -> new BusinessException(CommonErrorCode.FORBIDDEN));
+					.orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
 
 			// 2-3. 지역이 다르면 권한이 없다.
 			if(!Objects.equals(admin.getRegionId(), target.getRegionId())) {
-				throw new BusinessException(CommonErrorCode.FORBIDDEN);
+				throw new BusinessException(CommonErrorCode.AUTH_FORBIDDEN);
 			}
 		}
 		

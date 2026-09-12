@@ -474,7 +474,7 @@ class UserQueryServiceTest {
             assertThatThrownBy(() -> userQueryService.search(query, admin))
                     .isInstanceOf(BusinessException.class)
                     .extracting(exception -> ((BusinessException) exception).getErrorCode())
-                    .isEqualTo(CommonErrorCode.FORBIDDEN);
+                    .isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
 
             then(userSearchPort).should(never()).search(any(UserSearchQuery.class), any(Pageable.class));
         }

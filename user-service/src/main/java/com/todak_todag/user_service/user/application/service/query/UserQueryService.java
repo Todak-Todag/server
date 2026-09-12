@@ -129,7 +129,7 @@ public class UserQueryService {
     	}
 
     	User admin = userQueryRepo.findAdminById(requester.getUserId())
-    			.orElseThrow(() -> new BusinessException(CommonErrorCode.FORBIDDEN));
+    			.orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
 
     	return admin.getRegionId();
     }
