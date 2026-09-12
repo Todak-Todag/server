@@ -1,6 +1,3 @@
-server:
-  port: 19005
-
 spring:
   application:
     name: care-plan-service
@@ -10,5 +7,5 @@ spring:
 
   config:
     import:
-      - "optional:file:.env[.properties]"
+      - "optional:file:../.env[.properties]"
       - "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
