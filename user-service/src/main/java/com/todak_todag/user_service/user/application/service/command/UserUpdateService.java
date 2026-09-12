@@ -130,7 +130,7 @@ public class UserUpdateService {
 		}
 		
 		// 7. 로그인 세션을 만료 시킨 후 Redis 에도 반영한다.
-		tokenStorePort.deleteAccessToken(user.getId(), command.accessToken());
+		tokenStorePort.revokeAllSessions(user.getId());
 		
 		return user.getId();
 	}

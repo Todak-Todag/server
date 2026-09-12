@@ -830,8 +830,8 @@ class UserUpdateServiceTest {
 		}
 
 		@Test
-		@DisplayName("비밀번호가 변경되면 현재 기기의 AccessToken 이 Redis 에서 삭제된다")
-		void passwordUpdateTest_success_deletesCurrentAccessToken() {
+		@DisplayName("비밀번호가 변경되면 해당 사용자의 모든 세션이 무효화된다 (다른 기기 포함)")
+		void passwordUpdateTest_success_revokesAllSessions() {
 			// Given
 			User target = approvedTarget(REGION_ID);
 			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
@@ -845,15 +845,15 @@ class UserUpdateServiceTest {
 			// When
 			userUpdateService.passwordUpdate(command);
 
-			// Then
-			verify(tokenStorePort, times(1)).deleteAccessToken(TARGET_ID, ACCESS_TOKEN);
-			verify(tokenStorePort, never()).revokeAllSessions(any());
+			// Then - 특정 토큰 1개만 지우면 다른 기기의 탈취된 세션이 살아남는다
+			verify(tokenStorePort, times(1)).revokeAllSessions(TARGET_ID);
+			verify(tokenStorePort, never()).deleteAccessToken(any(), any());
 		}
 
 		@Test
-		@DisplayName("쿠키가 없어 accessToken 이 null 이어도 예외 없이 변경되고 넘어온 값 그대로 전달된다")
-		void passwordUpdateTest_success_nullAccessTokenIsPassedThrough() {
-			// Given
+		@DisplayName("무효화는 Command 의 accessToken 과 무관하게 사용자 식별자 기준으로 수행된다")
+		void passwordUpdateTest_success_revokeDoesNotDependOnAccessToken() {
+			// Given - 쿠키가 없어 accessToken 이 null 로 넘어온 상황
 			User target = approvedTarget(REGION_ID);
 			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
 			given(passwordEncoder.matches("currentPw123!", target.getPasswordHash())).willReturn(true);
@@ -865,11 +865,11 @@ class UserUpdateServiceTest {
 
 			// When & Then
 			assertThatCode(() -> userUpdateService.passwordUpdate(command)).doesNotThrowAnyException();
-			verify(tokenStorePort).deleteAccessToken(TARGET_ID, null);
+			verify(tokenStorePort).revokeAllSessions(TARGET_ID);
 		}
 
 		@Test
-		@DisplayName("활성 로그인 세션이 없어도 예외 없이 변경되고 AccessToken 삭제는 수행된다")
+		@DisplayName("활성 로그인 세션이 없어도 예외 없이 변경되고 세션 무효화는 수행된다")
 		void passwordUpdateTest_success_noActiveSession() {
 			// Given
 			User target = approvedTarget(REGION_ID);
@@ -884,7 +884,7 @@ class UserUpdateServiceTest {
 
 			// When & Then
 			assertThatCode(() -> userUpdateService.passwordUpdate(command)).doesNotThrowAnyException();
-			verify(tokenStorePort).deleteAccessToken(TARGET_ID, ACCESS_TOKEN);
+			verify(tokenStorePort).revokeAllSessions(TARGET_ID);
 		}
 
 		@Test
@@ -926,7 +926,7 @@ class UserUpdateServiceTest {
 		}
 
 		@Test
-		@DisplayName("정상 흐름은 비밀번호 변경 - 로그인 세션 조회 - AccessToken 삭제 순서로 수행된다")
+		@DisplayName("정상 흐름은 비밀번호 변경 - 로그인 세션 조회 - 세션 전체 무효화 순서로 수행된다")
 		void passwordUpdateTest_executionOrder() {
 			// Given
 			User target = approvedTarget(REGION_ID);
@@ -949,7 +949,7 @@ class UserUpdateServiceTest {
 			order.verify(passwordEncoder).matches("currentPw123!", storedHash);
 			order.verify(passwordEncoder).encode("newPw123!");
 			order.verify(authQueryRepo).findActiveByUserId(TARGET_ID);
-			order.verify(tokenStorePort).deleteAccessToken(TARGET_ID, ACCESS_TOKEN);
+			order.verify(tokenStorePort).revokeAllSessions(TARGET_ID);
 		}
 	}
 
