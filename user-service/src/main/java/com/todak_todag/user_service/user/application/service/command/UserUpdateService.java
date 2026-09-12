@@ -68,6 +68,11 @@ public class UserUpdateService {
 	}
 	
 	public UserUpdateResult userUpdate(UserUpdateCommand command) {
+		// 0. regionId가 넘어오지 않았는데 address 가 존재하는 경우 빠른 실패 시키기 위해 Validator 밖에서 처리
+		if(command.regionId() == null && command.address() != null) {
+			throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION);
+		}
+		
 		// 1. 요청자 조회
 		User user = userQueryRepo.findActiveById(command.requesterId())
 				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
