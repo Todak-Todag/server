@@ -1,5 +1,6 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import static com.todak_todag.user_service.support.AuthenticatedRequestSupport.asUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -436,8 +437,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 			String accessToken = extractCookieValue(loginResult, "AccessToken");
 
 			MvcResult logoutResult = mockMvc.perform(post("/api/v1/auth/logout")
-					.header("X-User-Id", user.getId().toString())
-					.header("X-User-Role", UserRole.ADMIN.name())
+					.with(asUser(user.getId(), UserRole.ADMIN))
 					.cookie(new Cookie("AccessToken", accessToken)))
 					.andExpect(status().isNoContent())
 					.andReturn();
@@ -459,8 +459,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 			String accessToken = extractCookieValue(loginResult, "AccessToken");
 
 			mockMvc.perform(post("/api/v1/auth/logout")
-					.header("X-User-Id", user.getId().toString())
-					.header("X-User-Role", UserRole.ADMIN.name())
+					.with(asUser(user.getId(), UserRole.ADMIN))
 					.cookie(new Cookie("AccessToken", accessToken)))
 					.andExpect(status().isNoContent());
 
@@ -485,8 +484,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 			assertThat(redisTemplate.opsForValue().get(redisKey)).isNotBlank();
 
 			mockMvc.perform(post("/api/v1/auth/logout")
-					.header("X-User-Id", user.getId().toString())
-					.header("X-User-Role", UserRole.ADMIN.name())
+					.with(asUser(user.getId(), UserRole.ADMIN))
 					.cookie(new Cookie("AccessToken", accessToken)))
 					.andExpect(status().isNoContent());
 
@@ -494,10 +492,10 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 		}
 
 		@Test
-		@DisplayName("인증 정보 없이 요청하면 403을 반환한다")
-		void logoutTest_withoutAuthentication_returnsForbidden() throws Exception {
+		@DisplayName("인증 정보 없이 요청하면 401을 반환한다")
+		void logoutTest_withoutAuthentication_returnsUnauthorized() throws Exception {
 			mockMvc.perform(post("/api/v1/auth/logout"))
-					.andExpect(status().isForbidden());
+					.andExpect(status().isUnauthorized());
 		}
 
 		@Test
@@ -513,8 +511,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 					.containsExactly(tokenPort.hashToken(accessToken));
 
 			mockMvc.perform(post("/api/v1/auth/logout")
-					.header("X-User-Id", user.getId().toString())
-					.header("X-User-Role", UserRole.ADMIN.name())
+					.with(asUser(user.getId(), UserRole.ADMIN))
 					.cookie(new Cookie("AccessToken", accessToken)))
 					.andExpect(status().isNoContent());
 
@@ -668,8 +665,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 			assertThat(redisTemplate.opsForValue().get(accessKeyOf(newAccessToken))).isNotBlank();
 
 			mockMvc.perform(patch("/api/v1/admin/users/" + user.getId() + "/suspend")
-					.header("X-User-Id", UUID.fromString(masterId).toString())
-					.header("X-User-Role", UserRole.MASTER.name())
+					.with(asUser(UUID.fromString(masterId), UserRole.MASTER))
 					.contentType(MediaType.APPLICATION_JSON)
 					.content("{\"suspendReason\":\"약관 위반\"}"))
 					.andExpect(status().isOk());

@@ -1,6 +1,5 @@
 package com.todak_todag.user_service.controller;
 
-import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -28,28 +27,41 @@ import com.todak_todag.user_service.support.PostgresTestSupport;
 public class InternalApiSecurityIntegrationTest extends PostgresTestSupport {
 
 	private static final String INTERNAL_API_KEY = "01234567890123456789012345678901";
-	
+
 	private static final String INTERNAL_TEST_URL = "/internal/v1/probe";
-	
+
+	private static final String PUBLIC_TEST_URL = "/api/v1/regions/probe";
+
 	private static final String ERROR_CODE = CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST.getCode();
-	
+
 	@Autowired
 	private MockMvc mockMvc;
-	
+
 	@TestConfiguration
 	static class TestInternalEndPoint {
-		
+
 		@RestController
 		@RequestMapping(INTERNAL_TEST_URL)
 		static class ProbeController {
-			
+
 			@GetMapping
 			String probe() {
 				return "probe";
 			}
-			
+
 		}
-		
+
+		@RestController
+		@RequestMapping(PUBLIC_TEST_URL)
+		static class PublicProbeController {
+
+			@GetMapping
+			String probe() {
+				return "probe";
+			}
+
+		}
+
 	}
 	
 	@Test
@@ -88,8 +100,8 @@ public class InternalApiSecurityIntegrationTest extends PostgresTestSupport {
 	@Test
 	@DisplayName("공개 API는 내부 키 없이도 인터셉터를 거치지 않아야함")
 	void internalApiTest_isPublicApi() throws Exception {
-		mockMvc.perform(get("/api/v1/probe"))
-		.andExpect(status().is(not(401)));
+		mockMvc.perform(get(PUBLIC_TEST_URL))
+		.andExpect(status().isOk());
 	}
-	
+
 }
