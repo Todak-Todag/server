@@ -6,6 +6,7 @@ import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpd
 import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
 import com.spring.careplanservice.careplan.application.event.CarePlanCompletionEventAppender;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEventAppender;
 import com.spring.careplanservice.careplan.application.event.ScheduleStatus;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
@@ -30,7 +31,6 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -72,9 +72,6 @@ class CarePlanCommandServiceTest {
     private ServicePreferenceQueryRepository servicePreferenceQueryRepository;
 
     @Mock
-    private ApplicationEventPublisher applicationEventPublisher;
-
-    @Mock
     private UserQueryPort userQueryPort;
 
     @Mock
@@ -82,6 +79,9 @@ class CarePlanCommandServiceTest {
 
     @Mock
     private CarePlanCompletionEventAppender carePlanCompletionEventAppender;
+
+    @Mock
+    private CarePlanConfirmedEventAppender carePlanConfirmedEventAppender;
 
     @Mock
     private ServicePreferenceCommandRepository servicePreferenceCommandRepository;
@@ -528,7 +528,7 @@ class CarePlanCommandServiceTest {
 
             verify(carePlanCommandRepository).findById(carePlanId);
             verify(userQueryPort).findById(patientId);
-            verify(applicationEventPublisher).publishEvent(any(CarePlanConfirmedEvent.class));
+            verify(carePlanConfirmedEventAppender).append(any(CarePlanConfirmedEvent.class));
         }
 
         @Test

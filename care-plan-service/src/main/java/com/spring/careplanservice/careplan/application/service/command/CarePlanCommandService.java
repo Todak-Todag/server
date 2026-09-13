@@ -21,7 +21,6 @@ import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,10 +42,10 @@ public class CarePlanCommandService {
     private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
     private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
     private final ServicePreferenceCommandRepository servicePreferenceCommandRepository;
-    private final ApplicationEventPublisher applicationEventPublisher;
     private final UserQueryPort userQueryPort;
     private final ScheduleResultQueryPort scheduleResultQueryPort;
     private final CarePlanCompletionEventAppender carePlanCompletionEventAppender;
+    private final CarePlanConfirmedEventAppender carePlanConfirmedEventAppender;
 
     @Transactional
     public CarePlanCreateResult createCarePlan(
@@ -126,7 +125,7 @@ public class CarePlanCommandService {
                     userFindResult.regionId()
             );
 
-            applicationEventPublisher.publishEvent(
+            carePlanConfirmedEventAppender.append(
                     carePlanConfirmedEvent
             );
         }
