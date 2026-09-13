@@ -74,6 +74,11 @@ public class SecurityConfig {
 								"/v3/api-docs/**"
 						).permitAll()
 						
+						// JWKS
+						.pathMatchers(
+								"/.well-known/jwks.json"
+						).permitAll()
+						
 						// Actuator
 						.pathMatchers(
 								"/actuator/health",
@@ -180,6 +185,11 @@ public class SecurityConfig {
 		return http.build();
 	}
 	
+	/*
+	 * AuthenticationWebFilter.setRequiresAuthenticationMatcher(...)
+	 * 
+	 * 이 요청에 대해 인증 시도(쿠키 파싱, Redis 조회)를 할지 말지 결정
+	 */
 	private ServerWebExchangeMatcher protectedRequestMatcher() {
 		ServerWebExchangeMatcher publicRequestMatcher = new OrServerWebExchangeMatcher(
 			ServerWebExchangeMatchers.pathMatchers(
@@ -195,6 +205,10 @@ public class SecurityConfig {
 			
 			ServerWebExchangeMatchers.pathMatchers(
 					"/actuator/health"
+			),
+			
+			ServerWebExchangeMatchers.pathMatchers(
+					"/.well-known/jwks.json"
 			),
 			
 			ServerWebExchangeMatchers.pathMatchers(HttpMethod.POST,
