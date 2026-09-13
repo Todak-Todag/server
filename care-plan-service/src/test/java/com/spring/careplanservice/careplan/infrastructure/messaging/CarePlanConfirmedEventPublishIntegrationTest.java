@@ -4,6 +4,8 @@ package com.spring.careplanservice.careplan.infrastructure.messaging;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
+import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.port.CarePlanConfirmedEventPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
@@ -11,6 +13,7 @@ import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
+import com.spring.careplanservice.careplan.infrastructure.persistence.repository.SpringDataCarePlanOutboxEventRepository;
 import com.spring.careplanservice.careplan.support.IntegrationTestSupport;
 import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.config.RabbitMqConfig;
@@ -30,14 +33,20 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSupport {
     /*
-    1) CarePlanConfirmedEventPublishIntegrationTest
-       = 이벤트 발행 측 테스트
-       = Care Plan이 CONFIRMED 되면
-         RabbitMQ로 CarePlanConfirmed 이벤트가 나가는지 검증
+    1) CarePlanConfirmed Outbox 적재 테스트
+       = Care Plan이 CONFIRMED 되면 같은 트랜잭션 안에서
+         CARE_PLAN_CONFIRMED 타입의 Outbox row가 PENDING으로 저장되는지 검증
+    2) 트랜잭션 롤백 테스트
+       = CONFIRMED 처리 도중 예외가 발생하면
+         Care Plan 상태 변경과 Outbox 적재가 함께 롤백되는지 검증
+    3) CarePlanConfirmedEventRabbitAdapter 발행 테스트
+       = Outbox Relay가 실제로 호출하는 Port/Adapter가
+         기존 care-plan.exchange / care-plan.confirmed.key로 정상 발행하는지 검증
     */
 
     private static final String TEST_QUEUE = "test.care-plan-confirmed.queue";
@@ -53,6 +62,12 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
 
     @Autowired
     private ServicePreferenceCommandRepository servicePreferenceCommandRepository;
+
+    @Autowired
+    private SpringDataCarePlanOutboxEventRepository springDataCarePlanOutboxEventRepository;
+
+    @Autowired
+    private CarePlanConfirmedEventPort carePlanConfirmedEventPort;
 
     @Autowired
     private RabbitTemplate rabbitTemplate;
@@ -79,14 +94,118 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
         provideServiceId = UUID.randomUUID();
 
         setAuthentication();
-
-        declareTestQueue();
     }
 
     @Test
-    @DisplayName("Care Plan이 UNDER_REVIEW에서 CONFIRMED로 변경되면 CarePlanConfirmed 이벤트 발행")
-    void carePlanConfirmedEventPublish_success() throws Exception {
-        // UNDER_REVIEW 상태의 Care Plan 생성
+    @DisplayName("Care Plan이 UNDER_REVIEW에서 CONFIRMED로 변경되면 같은 트랜잭션에서 CARE_PLAN_CONFIRMED Outbox row가 PENDING으로 저장된다")
+    void carePlanConfirmedOutboxEvent_created_success() throws Exception {
+        CarePlan savedCarePlan = createUnderReviewCarePlanWithService();
+
+        given(userQueryPort.findById(patientId)).willReturn(new UserFindResult(patientId, UserRole.PATIENT, regionId));
+
+        CarePlanStatusUpdateCommand command = new CarePlanStatusUpdateCommand(
+                userId,
+                UserRole.PATIENT,
+                savedCarePlan.getId(),
+                CarePlanStatus.CONFIRMED
+        );
+
+        carePlanCommandService.updateCarePlanStatus(command);
+
+        CarePlan updatedCarePlan = carePlanCommandRepository.findById(savedCarePlan.getId()).orElseThrow();
+        assertThat(updatedCarePlan.getStatus()).isEqualTo(CarePlanStatus.CONFIRMED);
+
+        CarePlanOutboxEvent outboxEvent = findOutboxEventByAggregateId(savedCarePlan.getId());
+
+        assertThat(outboxEvent.getEventType()).isEqualTo(CarePlanOutboxEventType.CARE_PLAN_CONFIRMED);
+        assertThat(outboxEvent.getStatus()).isEqualTo(CarePlanOutboxEventStatus.PENDING);
+
+        JsonNode payload = objectMapper.readTree(outboxEvent.getPayload());
+        assertThat(payload.get("carePlanId").asText()).isEqualTo(savedCarePlan.getId().toString());
+        assertThat(payload.get("regionId").asText()).isEqualTo(regionId.toString());
+    }
+
+    @Test
+    @DisplayName("CONFIRMED 처리 도중 예외가 발생하면 Care Plan 상태 변경과 Outbox 적재가 함께 롤백된다")
+    void updateCarePlanStatus_rollsBackTogetherWithOutbox_whenTransactionFails() {
+        CarePlan savedCarePlan = createUnderReviewCarePlanWithService();
+
+        given(userQueryPort.findById(patientId)).willThrow(new RuntimeException("user-service 호출 실패"));
+
+        CarePlanStatusUpdateCommand command = new CarePlanStatusUpdateCommand(
+                userId,
+                UserRole.PATIENT,
+                savedCarePlan.getId(),
+                CarePlanStatus.CONFIRMED
+        );
+
+        assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(command))
+                .isInstanceOf(RuntimeException.class);
+
+        CarePlan carePlanAfterFailure = carePlanCommandRepository.findById(savedCarePlan.getId()).orElseThrow();
+        assertThat(carePlanAfterFailure.getStatus()).isEqualTo(CarePlanStatus.UNDER_REVIEW);
+
+        boolean outboxEventCreated = springDataCarePlanOutboxEventRepository.findAll().stream()
+                .anyMatch(event -> event.getAggregateId().equals(savedCarePlan.getId()));
+
+        assertThat(outboxEventCreated).isFalse();
+    }
+
+    @Test
+    @DisplayName("CarePlanConfirmedEventRabbitAdapter는 CarePlanConfirmed 이벤트를 기존 care-plan.exchange / care-plan.confirmed.key로 발행한다")
+    void carePlanConfirmedEventPort_publish_success() throws Exception {
+        Queue queue = QueueBuilder
+                .nonDurable(TEST_QUEUE)
+                .exclusive()
+                .autoDelete()
+                .build();
+
+        amqpAdmin.declareQueue(queue);
+
+        Binding binding = BindingBuilder
+                .bind(queue)
+                .to(new DirectExchange(RabbitMqConfig.CARE_PLAN_CONFIRMED_EXCHANGE))
+                .with(RabbitMqConfig.CARE_PLAN_CONFIRMED_ROUTING_KEY);
+
+        amqpAdmin.declareBinding(binding);
+
+        UUID carePlanId = UUID.randomUUID();
+
+        CarePlanConfirmedEvent event = new CarePlanConfirmedEvent(
+                carePlanId,
+                regionId,
+                List.of(
+                        new CarePlanConfirmedEvent.Service(
+                                UUID.randomUUID(),
+                                provideServiceId,
+                                List.of(
+                                        new CarePlanConfirmedEvent.Preference(
+                                                UUID.randomUUID(),
+                                                LocalDate.of(2026, 9, 10),
+                                                PreferredTimeSlot.MORNING
+                                        )
+                                )
+                        )
+                )
+        );
+
+        carePlanConfirmedEventPort.publish(event);
+
+        Message message = rabbitTemplate.receive(TEST_QUEUE, 5000);
+
+        assertThat(message).isNotNull();
+
+        JsonNode payload = objectMapper.readTree(message.getBody());
+
+        assertThat(payload.get("carePlanId").asText()).isEqualTo(carePlanId.toString());
+        assertThat(payload.get("regionId").asText()).isEqualTo(regionId.toString());
+
+        JsonNode services = payload.get("services");
+        assertThat(services.isArray()).isTrue();
+        assertThat(services.size()).isEqualTo(1);
+    }
+
+    private CarePlan createUnderReviewCarePlanWithService() {
         CarePlan carePlan = CarePlan.create(
                 patientId,
                 UUID.randomUUID(),
@@ -97,7 +216,6 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
 
         CarePlan savedCarePlan = carePlanCommandRepository.save(carePlan);
 
-        // Care Plan에 포함될 서비스 항목 생성
         CarePlanService carePlanService = CarePlanService.create(
                 savedCarePlan.getId(),
                 provideServiceId
@@ -105,75 +223,24 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
 
         CarePlanService savedCarePlanService = carePlanServiceCommandRepository.save(carePlanService);
 
-        // Provider 매칭에 사용할 희망 일정 생성
-        CarePlanServicePreference preference = CarePlanServicePreference.create(
-                savedCarePlanService.getId(),
-                LocalDate.of(2026, 9, 10),
-                PreferredTimeSlot.MORNING
+        servicePreferenceCommandRepository.save(
+                CarePlanServicePreference.create(
+                        savedCarePlanService.getId(),
+                        LocalDate.of(2026, 9, 10),
+                        PreferredTimeSlot.MORNING
+                )
         );
 
-        CarePlanServicePreference savedPreference = servicePreferenceCommandRepository.save(preference);
+        return savedCarePlan;
+    }
 
-        // Care Plan 확정 시 이벤트 payload에 포함될 환자의 지역 정보 Mocking
-        given(userQueryPort.findById(patientId)).willReturn(new UserFindResult(patientId, UserRole.PATIENT, regionId));
-
-        // 환자가 Care Plan을 UNDER_REVIEW -> CONFIRMED로 변경하는 요청
-        CarePlanStatusUpdateCommand command = new CarePlanStatusUpdateCommand(
-                userId,
-                UserRole.PATIENT,
-                savedCarePlan.getId(),
-                CarePlanStatus.CONFIRMED
-        );
-
-        // 상태 변경 트랜잭션이 커밋되면 AFTER_COMMIT 이벤트 리스너를 통해
-        // CarePlanConfirmedEvent가 RabbitMQ에 발행된다.
-        carePlanCommandService.updateCarePlanStatus(command);
-
-        // Care Plan 상태가 실제로 CONFIRMED로 변경되었는지 확인
-        CarePlan updatedCarePlan = carePlanCommandRepository.findById(savedCarePlan.getId()).orElseThrow();
-
-        assertThat(updatedCarePlan.getStatus()).isEqualTo(CarePlanStatus.CONFIRMED);
-
-        // receiveAndConvert()를 사용하면 __TypeId__ 기반 역직렬화를 수행하므로
-        // 발행 테스트에서는 Raw Message를 직접 받아 실제 JSON payload를 검증한다.
-        Message message = rabbitTemplate.receive(
-                TEST_QUEUE,
-                5000
-        );
-
-        assertThat(message).isNotNull();
-
-        JsonNode payload = objectMapper.readTree(message.getBody());
-
-        // 이벤트 최상위 정보 검증
-        assertThat(payload.get("carePlanId").asText()).isEqualTo(savedCarePlan.getId().toString());
-
-        assertThat(payload.get("regionId").asText()).isEqualTo(regionId.toString());
-
-        // 이벤트에 포함된 서비스 목록 검증
-        JsonNode services = payload.get("services");
-
-        assertThat(services).isNotNull();
-        assertThat(services.isArray()).isTrue();
-        assertThat(services.size()).isEqualTo(1);
-
-        JsonNode service = services.get(0);
-
-        assertThat(service.get("planServiceId").asText()).isEqualTo(savedCarePlanService.getId().toString());
-        assertThat(service.get("provideServiceId").asText()).isEqualTo(provideServiceId.toString());
-
-        // 해당 서비스에 등록된 희망 일정 목록 검증
-        JsonNode preferences = service.get("preferences");
-
-        assertThat(preferences).isNotNull();
-        assertThat(preferences.isArray()).isTrue();
-        assertThat(preferences.size()).isEqualTo(1);
-
-        JsonNode preferencePayload = preferences.get(0);
-
-        assertThat(preferencePayload.get("servicePreferenceId").asText()).isEqualTo(savedPreference.getId().toString());
-        assertThat(preferencePayload.get("preferredDate").asText()).isEqualTo("2026-09-10");
-        assertThat(preferencePayload.get("preferredTimeSlot").asText()).isEqualTo("MORNING");
+    private CarePlanOutboxEvent findOutboxEventByAggregateId(UUID aggregateId) {
+        return springDataCarePlanOutboxEventRepository.findAll().stream()
+                .filter(event -> event.getAggregateId().equals(aggregateId))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(
+                        "aggregateId=" + aggregateId + "에 대한 Outbox 이벤트가 존재하지 않습니다."
+                ));
     }
 
     private void setAuthentication() {
@@ -189,29 +256,5 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-    }
-
-    private void declareTestQueue() {
-        Queue queue = new Queue(
-                TEST_QUEUE,
-                false,
-                true,
-                true
-        );
-
-        amqpAdmin.declareQueue(queue);
-
-        Binding binding =
-                BindingBuilder.bind(queue)
-                        .to(
-                                new DirectExchange(
-                                        RabbitMqConfig.CARE_PLAN_CONFIRMED_EXCHANGE
-                                )
-                        )
-                        .with(
-                                RabbitMqConfig.CARE_PLAN_CONFIRMED_ROUTING_KEY
-                        );
-
-        amqpAdmin.declareBinding(binding);
     }
 }
