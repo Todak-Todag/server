@@ -6,13 +6,16 @@ import com.todak_todag.schedule_service.schedule.application.service.command.Sch
 import com.todak_todag.schedule_service.schedule.domain.entity.CarePlanServiceResult;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
+import com.todak_todag.schedule_service.schedule.domain.repository.command.CarePlanCompletionLockRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.CarePlanServiceResultCommandRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ScheduleOutboxEventCommandRepository;
+import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceMatchingAttemptCommandRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -29,13 +32,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 // CarePlanCompleted "발행 조건 판단" 단위 테스트
-// 판단 규칙: (1) 아직 끝나지 않은 일정이 0건이고, (2) 이 케어플랜에 CarePlanCompleted가 아직 적재되지 않았을 때만 적재
+// 판단 규칙: (1) 아직 해소되지 않은 것이 0건이고, (2) 이 케어플랜에 CarePlanCompleted가 아직 적재되지 않았을 때만 적재
 //            "끝나지 않음" = 상태가 SCHEDULED/RESCHEDULING이거나, COMPLETED/NO_SHOW인데 수행 결과 미등록
+//            "미해소 매칭 실패" = 일정 레코드가 아직 하나도 없는 FAILED 이력 (초기 매칭 실패)
 @ExtendWith(MockitoExtension.class)
 class CarePlanCompletionEventAppenderTest {
 
@@ -51,7 +56,13 @@ class CarePlanCompletionEventAppenderTest {
     private ServiceScheduleCommandRepository serviceScheduleCommandRepository;
 
     @Mock
+    private ServiceMatchingAttemptCommandRepository serviceMatchingAttemptCommandRepository;
+
+    @Mock
     private CarePlanServiceResultCommandRepository carePlanServiceResultCommandRepository;
+
+    @Mock
+    private CarePlanCompletionLockRepository carePlanCompletionLockRepository;
 
     @Mock
     private ScheduleOutboxEventCommandRepository scheduleOutboxEventCommandRepository;
@@ -180,6 +191,7 @@ class CarePlanCompletionEventAppenderTest {
                 .thenReturn(0L);
         when(serviceScheduleCommandRepository.countMissingResult(eq(carePlanId), eq(RESULT_REQUIRED_STATUSES)))
                 .thenReturn(0L);
+        when(serviceMatchingAttemptCommandRepository.countUnresolvedFailed(carePlanId)).thenReturn(0L);
         when(scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(
                 CarePlanCompletedEventPort.EVENT_TYPE, carePlanId)).thenReturn(true);
 
@@ -213,12 +225,101 @@ class CarePlanCompletionEventAppenderTest {
         );
     }
 
-    // 끝나지 않은 일정이 0건이고(진행 중 0건 + 결과 미등록 0건), 아직 적재된 적이 없는 상황
+    @Test
+    @DisplayName("초기 매칭 실패로 일정 레코드조차 없는 서비스가 남아있으면, 나머지 일정이 모두 끝나도 적재하지 않는다")
+    void 미해소_초기_매칭_실패가_남아있으면_적재하지_않는다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        ServiceSchedule completedB = schedule(carePlanId, ScheduleStatus.COMPLETED);
+
+        when(serviceScheduleCommandRepository.countByCarePlanIdAndStatusIn(eq(carePlanId), eq(UNFINISHED_STATUSES)))
+                .thenReturn(0L);
+        when(serviceScheduleCommandRepository.countMissingResult(eq(carePlanId), eq(RESULT_REQUIRED_STATUSES)))
+                .thenReturn(0L);
+        when(serviceMatchingAttemptCommandRepository.countUnresolvedFailed(carePlanId)).thenReturn(1L);
+
+        // when
+        carePlanCompletionEventAppender.appendIfCarePlanCompleted(completedB);
+
+        // then
+        verify(scheduleOutboxEventCommandRepository, never()).existsByEventTypeAndAggregateId(anyString(), any());
+        verify(serviceScheduleCommandRepository, never()).findLastSchedule(any());
+        verify(scheduleOutboxCommandService, never()).enqueue(anyString(), any(), anyString());
+    }
+
+    @Test
+    @DisplayName("초기 매칭 실패가 재매칭으로 해소되고 그 일정까지 종결되면 그제서야 적재한다")
+    void 재매칭으로_해소된_뒤에_적재한다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        ServiceSchedule rematchedA = schedule(carePlanId, ScheduleStatus.COMPLETED);
+        CarePlanServiceResult resultA = result(rematchedA.getId());
+
+        givenLastScheduleWithNoUnfinished(carePlanId, rematchedA);
+        when(carePlanServiceResultCommandRepository.findByServiceScheduleId(rematchedA.getId()))
+                .thenReturn(Optional.of(resultA));
+
+        // when
+        carePlanCompletionEventAppender.appendIfCarePlanCompleted(rematchedA);
+
+        // then
+        assertThat(capturePayload(carePlanId)).isEqualTo(
+                "{\"carePlanId\":\"" + carePlanId + "\","
+                        + "\"serviceResultId\":\"" + resultA.getServiceResultId() + "\",\"status\":\"COMPLETED\"}"
+        );
+    }
+
+    @Test
+    @DisplayName("미해소 매칭 실패가 없는 일반적인 케어플랜은 기존대로 적재된다")
+    void 미해소_매칭_실패가_없으면_기존대로_적재한다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        ServiceSchedule lastSchedule = schedule(carePlanId, ScheduleStatus.COMPLETED);
+
+        givenLastScheduleWithNoUnfinished(carePlanId, lastSchedule);
+        when(carePlanServiceResultCommandRepository.findByServiceScheduleId(lastSchedule.getId()))
+                .thenReturn(Optional.of(result(lastSchedule.getId())));
+
+        // when
+        carePlanCompletionEventAppender.appendIfCarePlanCompleted(lastSchedule);
+
+        // then
+        verify(serviceMatchingAttemptCommandRepository).countUnresolvedFailed(carePlanId);
+        verify(scheduleOutboxCommandService).enqueue(eq(CarePlanCompletedEventPort.EVENT_TYPE), eq(carePlanId), anyString());
+    }
+
+    @Test
+    @DisplayName("완료 판정 조회보다 먼저 케어플랜 락을 잡는다 — 판정과 적재 사이에 다른 트랜잭션이 끼어들지 못하게")
+    void 판정_전에_케어플랜_락을_먼저_잡는다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        ServiceSchedule lastSchedule = schedule(carePlanId, ScheduleStatus.COMPLETED);
+
+        givenLastScheduleWithNoUnfinished(carePlanId, lastSchedule);
+        when(carePlanServiceResultCommandRepository.findByServiceScheduleId(lastSchedule.getId()))
+                .thenReturn(Optional.of(result(lastSchedule.getId())));
+
+        // when
+        carePlanCompletionEventAppender.appendIfCarePlanCompleted(lastSchedule);
+
+        // then
+        InOrder inOrder = inOrder(
+                carePlanCompletionLockRepository,
+                serviceScheduleCommandRepository,
+                scheduleOutboxCommandService
+        );
+        inOrder.verify(carePlanCompletionLockRepository).lockForCompletionCheck(carePlanId);
+        inOrder.verify(serviceScheduleCommandRepository).countByCarePlanIdAndStatusIn(eq(carePlanId), eq(UNFINISHED_STATUSES));
+        inOrder.verify(scheduleOutboxCommandService).enqueue(anyString(), eq(carePlanId), anyString());
+    }
+
+    // 해소되지 않은 것이 0건이고(진행 중 0건 + 결과 미등록 0건 + 미해소 매칭 실패 0건), 아직 적재된 적이 없는 상황
     private void givenLastScheduleWithNoUnfinished(UUID carePlanId, ServiceSchedule lastSchedule) {
         when(serviceScheduleCommandRepository.countByCarePlanIdAndStatusIn(eq(carePlanId), eq(UNFINISHED_STATUSES)))
                 .thenReturn(0L);
         when(serviceScheduleCommandRepository.countMissingResult(eq(carePlanId), eq(RESULT_REQUIRED_STATUSES)))
                 .thenReturn(0L);
+        when(serviceMatchingAttemptCommandRepository.countUnresolvedFailed(carePlanId)).thenReturn(0L);
         when(scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(
                 CarePlanCompletedEventPort.EVENT_TYPE, carePlanId)).thenReturn(false);
         when(serviceScheduleCommandRepository.findLastSchedule(carePlanId)).thenReturn(Optional.of(lastSchedule));
