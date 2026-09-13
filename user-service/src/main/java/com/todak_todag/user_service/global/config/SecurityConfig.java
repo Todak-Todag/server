@@ -19,10 +19,10 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.HeaderBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-import com.todak_todag.user_service.global.security.HeaderAuthenticationFilter;
+import com.todak_todag.user_service.global.security.GatewayAuthenticationConverter;
 
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -42,13 +42,18 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
 
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // Gateway Header -> UserContext 로 파싱
-                // Controller 에서는 @AuthenticationPrincipal UserContext user 로 사용가능합니다.
-                // ROLE 접두사가 붙습니다.
-                // @PreAuthorize("hasRole('MASTER')") 로 Controller 에서 사용할 수 있습니다.
-                // 여러가지의 경우 @PreAuthorize("hasAnyRole('MASTER', 'ADMIN')") 으로 사용할 수 있습니다.
-                .addFilterBefore(new HeaderAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
+                
+                // Spring Security OAuth2 Resource Server
+                // bearerTokenResolver 의 원래 표준은 Authorization: Bearer <토큰> 헤더인데
+                // X-Gateway-Token 이라는 게이트웨이가 전달하는 별도의 헤더에 토큰을 넣으므로 그 헤더 이름을 지정한다.
+                .oauth2ResourceServer(oauth2 -> oauth2
+                		.bearerTokenResolver(new HeaderBearerTokenResolver("X-Gateway-Token"))
+                		
+                		// 찾은 토큰을 어떻게 검증하고 검증되면 무엇으로 바꾸는가? -> .jwt(...)
+                		// SpringContext 안의 JwtDecoder Bean (바로아래 새로 정의한 gatewayTokenDecoder Bean)을 찾아서 사용
+                		// GatewayAuthenticationConverter 는 UserContext로 바꾸는 역할
+                		.jwt(jwt -> jwt.jwtAuthenticationConverter(new GatewayAuthenticationConverter()))
+                )
 
                 .authorizeHttpRequests(auth -> auth
                         // 내부 서비스 간 호출 인가는 InternalApiIntercepter 담당
