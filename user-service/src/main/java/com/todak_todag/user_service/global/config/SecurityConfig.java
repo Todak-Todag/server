@@ -85,12 +85,20 @@ public class SecurityConfig {
     		@Value("${internal-jwt.clock-skew}") Duration clockSkew
     ) {
     	NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
+    			
+    			// 알고리즘 고정시키기
     			.jwsAlgorithm(SignatureAlgorithm.RS256)
     			.build();
     	
     	decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<Jwt>(
+
+    			// exp 를 확인하되 설정한 초만큼 오차를 허용함.
     			new JwtTimestampValidator(clockSkew),
+    			
+    			// iss 클레임이 게이트웨이가 발급한 것인지 확인
     			new JwtIssuerValidator(issuer),
+    			
+    			// aud 클레임에 자신의 서비스 이름이 포함되어 있는가를 확인
     			new JwtClaimValidator<List<String>>("aud", aud -> aud != null && aud.contains(audience))
     	));
     	
