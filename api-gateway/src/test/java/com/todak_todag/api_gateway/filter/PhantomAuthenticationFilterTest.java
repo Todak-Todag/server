@@ -1,14 +1,22 @@
 package com.todak_todag.api_gateway.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.route.Route;
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
@@ -19,6 +27,7 @@ import org.springframework.web.server.ServerWebExchange;
 
 import com.todak_todag.api_gateway.authentication.ClientAuthenticationToken;
 import com.todak_todag.api_gateway.authentication.ClientContext;
+import com.todak_todag.api_gateway.token.InternalTokenIssuer;
 
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -30,10 +39,19 @@ class PhantomAuthenticationFilterTest {
 
 	private static final String USER_ROLE_HEADER = "X-User-Role";
 
+	private static final String GATEWAY_TOKEN_HEADER = "X-Gateway-Token";
+
+	private final InternalTokenIssuer tokenIssuer = mock(InternalTokenIssuer.class);
+
 	private final PhantomAuthenticationFilter phantomAuthenticationFilter =
-			new PhantomAuthenticationFilter();
+			new PhantomAuthenticationFilter(tokenIssuer);
 
 	private final RecordingGatewayFilterChain chain = new RecordingGatewayFilterChain();
+
+	@BeforeEach
+	void setUp() {
+		given(tokenIssuer.issue(any(), anyString())).willReturn("stub-gateway-token");
+	}
 
 	@Test
 	@DisplayName("인증된 요청에는 검증된 X-User-Id, X-User-Role 이 추가된다")
@@ -48,6 +66,58 @@ class PhantomAuthenticationFilterTest {
 
 		assertThat(chain.firstHeader(USER_ID_HEADER)).isEqualTo("1");
 		assertThat(chain.firstHeader(USER_ROLE_HEADER)).isEqualTo("USER");
+	}
+
+	@Test
+	@DisplayName("인증된 요청에는 InternalTokenIssuer 가 발급한 X-Gateway-Token 이 추가된다")
+	void addsGatewayTokenForAuthenticatedRequest() {
+		given(tokenIssuer.issue(any(), anyString())).willReturn("signed-gateway-token");
+
+		ServerWebExchange exchange = exchangeWithPrincipal(
+				MockServerHttpRequest.get("/api/v1/users/1").build(),
+				authenticated("1", "USER")
+		);
+
+		StepVerifier.create(phantomAuthenticationFilter.filter(exchange, chain))
+				.verifyComplete();
+
+		assertThat(chain.firstHeader(GATEWAY_TOKEN_HEADER)).isEqualTo("signed-gateway-token");
+	}
+
+	@Test
+	@DisplayName("Route 정보가 있으면 그 Route id 를 aud 로 넘겨 토큰 발급을 요청한다")
+	void resolvesAudienceFromMatchedRoute() {
+		Route route = mock(Route.class);
+		given(route.getId()).willReturn("schedule-service");
+
+		ClientContext client = new ClientContext("1", "USER");
+
+		ServerWebExchange exchange = exchangeWithPrincipal(
+				MockServerHttpRequest.get("/api/v1/service-schedules/1").build(),
+				authenticated("1", "USER")
+		);
+		exchange.getAttributes().put(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR, route);
+
+		StepVerifier.create(phantomAuthenticationFilter.filter(exchange, chain))
+				.verifyComplete();
+
+		verify(tokenIssuer).issue(client, "schedule-service");
+	}
+
+	@Test
+	@DisplayName("Route 정보가 없으면 aud 를 \"unknown\" 으로 넘겨 토큰 발급을 요청한다")
+	void resolvesUnknownAudienceWhenRouteAttributeIsAbsent() {
+		ClientContext client = new ClientContext("1", "USER");
+
+		ServerWebExchange exchange = exchangeWithPrincipal(
+				MockServerHttpRequest.get("/api/v1/users/1").build(),
+				authenticated("1", "USER")
+		);
+
+		StepVerifier.create(phantomAuthenticationFilter.filter(exchange, chain))
+				.verifyComplete();
+
+		verify(tokenIssuer).issue(client, "unknown");
 	}
 
 	@Test
@@ -71,6 +141,7 @@ class PhantomAuthenticationFilterTest {
 				MockServerHttpRequest.get("/api/v1/users/1")
 						.header(USER_ID_HEADER, "9999")
 						.header(USER_ROLE_HEADER, "ADMIN")
+						.header(GATEWAY_TOKEN_HEADER, "forged-token")
 						.build(),
 				authenticated("1", "USER")
 		);
@@ -80,6 +151,7 @@ class PhantomAuthenticationFilterTest {
 
 		assertThat(chain.firstHeaderValues(USER_ID_HEADER)).containsExactly("1");
 		assertThat(chain.firstHeaderValues(USER_ROLE_HEADER)).containsExactly("USER");
+		assertThat(chain.firstHeaderValues(GATEWAY_TOKEN_HEADER)).containsExactly("stub-gateway-token");
 	}
 
 	@Test
@@ -89,6 +161,7 @@ class PhantomAuthenticationFilterTest {
 				MockServerHttpRequest.get("/api/v1/users/1")
 						.header(USER_ID_HEADER, "9999")
 						.header(USER_ROLE_HEADER, "ADMIN")
+						.header(GATEWAY_TOKEN_HEADER, "forged-token")
 						.build()
 		);
 
@@ -98,6 +171,7 @@ class PhantomAuthenticationFilterTest {
 		assertThat(chain.invocationCount()).isEqualTo(1);
 		assertThat(chain.lastHeader(USER_ID_HEADER)).isNull();
 		assertThat(chain.lastHeader(USER_ROLE_HEADER)).isNull();
+		assertThat(chain.lastHeader(GATEWAY_TOKEN_HEADER)).isNull();
 	}
 
 	@Test
@@ -167,10 +241,6 @@ class PhantomAuthenticationFilterTest {
 				.build();
 	}
 
-	/**
-	 * downstream 으로 넘어간 exchange 를 호출마다 기록한다.
-	 * 헤더뿐 아니라 호출 횟수도 검증해야 하므로 전부 모아 둔다.
-	 */
 	private static final class RecordingGatewayFilterChain implements GatewayFilterChain {
 
 		private final List<ServerWebExchange> invocations = new ArrayList<>();
@@ -192,7 +262,6 @@ class PhantomAuthenticationFilterTest {
 			return invocations.get(index).getRequest();
 		}
 
-		/** downstream 으로 라우팅되는 요청. 체인은 한 번만 호출되어야 하므로 첫 호출이 곧 유일한 호출이다. */
 		private String firstHeader(String name) {
 			return requestAt(0).getHeaders().getFirst(name);
 		}
