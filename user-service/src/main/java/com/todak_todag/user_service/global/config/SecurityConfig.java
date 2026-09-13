@@ -1,5 +1,9 @@
 package com.todak_todag.user_service.global.config;
 
+import java.time.Duration;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -7,6 +11,14 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtClaimValidator;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtIssuerValidator;
+import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -63,5 +75,25 @@ public class SecurityConfig {
         ;
 
         return http.build();
+    }
+    
+    @Bean
+    public JwtDecoder gatewayTokenDecoder(
+    		@Value("${internal-jwt.jwk-set-uri}") String jwkSetUri,
+    		@Value("${internal-jwt.issuer}") String issuer,
+    		@Value("${internal-jwt.audience}") String audience,
+    		@Value("${internal-jwt.clock-skew}") Duration clockSkew
+    ) {
+    	NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
+    			.jwsAlgorithm(SignatureAlgorithm.RS256)
+    			.build();
+    	
+    	decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<Jwt>(
+    			new JwtTimestampValidator(clockSkew),
+    			new JwtIssuerValidator(issuer),
+    			new JwtClaimValidator<List<String>>("aud", aud -> aud != null && aud.contains(audience))
+    	));
+    	
+    	return decoder;
     }
 }
