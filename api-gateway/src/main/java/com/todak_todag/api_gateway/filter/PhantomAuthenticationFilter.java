@@ -2,6 +2,8 @@ package com.todak_todag.api_gateway.filter;
 
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.cloud.gateway.route.Route;
+import org.springframework.cloud.gateway.support.ServerWebExchangeUtils;
 import org.springframework.core.Ordered;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.core.Authentication;
@@ -48,7 +50,21 @@ public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
 	}
 	
 	private ServerWebExchange addClientHeaders(ServerWebExchange sanitizedExchange, ClientContext clientContext) {
+		String audience = resolveAudience(sanitizedExchange);
 		
+		String gatewayToken = tokenIssuer.issue(clientContext, audience);
+		
+		ServerHttpRequest request = sanitizedExchange.getRequest().mutate()
+				.headers(headers -> {
+					headers.set(USER_ID_HEADER, clientContext.userId());
+					headers.set(USER_ROLE_HEADER, clientContext.role());
+					headers.set(GATEWAY_TOKEN_HEADER, gatewayToken);
+				})
+				.build();
+		
+		return sanitizedExchange.mutate()
+				.request(request)
+				.build();
 	}
 
 	private ServerWebExchange removeClientHeaders(ServerWebExchange exchange) {
@@ -57,12 +73,19 @@ public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
 				.headers(headers -> {
 					headers.remove(USER_ID_HEADER);
 					headers.remove(USER_ROLE_HEADER);
+					headers.remove(GATEWAY_TOKEN_HEADER);
 				})
 				.build();
 		
 		return exchange.mutate()
 				.request(request)
 				.build();
+	}
+	
+	private String resolveAudience(ServerWebExchange exchange) {
+		Route route = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
+		
+		return (route != null) ? route.getId() : "unknown";
 	}
 
 }
