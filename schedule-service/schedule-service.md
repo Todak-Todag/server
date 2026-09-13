@@ -117,6 +117,8 @@ schedule/
 | `ProviderReMatched` (16번 경로) | `matchingAttemptId` | 재시도 중복 접수(409) 판별 키 |
 | `CarePlanCompleted` | `carePlanId` | 케어플랜당 1회 발행 보장(멱등) 키 |
 
+`CarePlanCompleted`에 한해 `aggregate_id`에 부분 유니크 인덱스(`ux_schedule_outbox_events_care_plan_completed`, `WHERE event_type = 'CarePlanCompleted'`)를 둬 케어플랜당 1건을 DB가 보장한다. `ProviderReMatched`는 03번 경로에서 같은 `serviceScheduleId`로 재적재되는 것이 정상이라 제약 대상이 아니다.
+
 ---
 
 ## 3. 상태(status) 정의
@@ -213,6 +215,7 @@ schedule/
 - 요청 주체는 퇴원 예정자다.
 - Care Plan이 `CONFIRMED`가 아니면(재매칭이 의미 없으므로) 빈 페이지를 반환한다.
 - `status` 미지정 시 기본값은 `FAILED`이며, **`FAILED` 조회일 때만** "해당 `servicePreferenceId`로 생성된 일정이 아직 하나도 없는" 조건을 함께 적용한다. 매칭 시도는 누적되므로 나중에 성공해 해소된 과거 실패를 이 조건으로 걸러낸다.
+- 같은 조건을 11번 완료 판정의 **매칭 기준**이 사용한다 (5.2절). 이 API에 실패 건이 보이면 그 케어플랜은 아직 완료로 판정되지 않는다.
 
 ### 4.7 조회 권한 공통 규칙
 
@@ -272,9 +275,12 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
 
 **`CarePlanCompleted` 발행 조건** (`CarePlanCompletionEventAppender`) — 두 조건을 모두 만족해야 적재한다.
 
-1. 해당 케어플랜에 **아직 끝나지 않은 일정이 하나도 없다.**
-  - "끝나지 않음" = `status`가 `SCHEDULED`/`RESCHEDULING`이거나, `COMPLETED`/`NO_SHOW`인데 수행 결과가 아직 없는 경우
+1. 해당 케어플랜에 **아직 해소되지 않은 것이 하나도 없다.** 아래 두 기준은 OR로 결합해 하나라도 걸리면 미완료다.
+  - **일정 기준**: `status`가 `SCHEDULED`/`RESCHEDULING`이거나, `COMPLETED`/`NO_SHOW`인데 수행 결과가 아직 없는 일정이 0건
+  - **매칭 기준**: `status = FAILED`인데 그 `service_preference_id`로 일정 레코드가 아직 하나도 없는 매칭 시도가 0건 (= 초기 매칭 실패가 아직 재매칭으로 해소되지 않음). 초기 매칭 실패는 일정 레코드를 남기지 않아(14번) 이 기준이 없으면 그 서비스가 판정에서 빠져 조기 발행된다.
 2. 해당 케어플랜으로 `CarePlanCompleted`가 **아직 적재된 적이 없다** (`aggregate_id = carePlanId` 기준 멱등).
+
+판정~적재 구간은 `pg_advisory_xact_lock(carePlanId 해시)`으로 케어플랜 단위 직렬화한다. 락이 없으면 마지막 두 일정이 동시에 끝났을 때 양쪽 모두 서로를 미완료로 읽고 조기 반환해 이벤트가 영영 적재되지 않을 수 있다. DB 쪽 불변식으로 `p_schedule_outbox_events`에 `aggregate_id` 부분 유니크 인덱스(`WHERE event_type = 'CarePlanCompleted'`)를 둔다.
 
 페이로드 기준이 되는 "마지막 일정"은 트리거가 된 일정이 아니라 `finished_at DESC, created_at DESC` 정렬로 다시 조회하며, `CHANGED`와 논리 삭제 건은 제외한다.
 

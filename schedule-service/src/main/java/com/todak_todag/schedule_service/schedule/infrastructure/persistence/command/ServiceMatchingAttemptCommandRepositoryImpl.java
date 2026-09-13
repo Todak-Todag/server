@@ -68,4 +68,10 @@ public class ServiceMatchingAttemptCommandRepositoryImpl implements ServiceMatch
                         MatchingAttemptStatus.MATCHED
                 );
     }
+
+    @Override
+    public long countUnresolvedFailed(UUID carePlanId) {
+        return springDataServiceMatchingAttemptRepository
+                .countUnresolvedByStatus(carePlanId, MatchingAttemptStatus.FAILED);
+    }
 }

@@ -18,6 +18,10 @@ public interface ServiceMatchingAttemptCommandRepository {
     // 해당 서비스 희망 일정(servicePreferenceId)을 성사시킨 가장 최근 매칭 시도 1건
     Optional<ServiceMatchingAttempt> findLatestMatched(UUID servicePreferenceId);
 
+    // 케어플랜에 아직 해소되지 않은 매칭 실패가 몇 건인지 — CarePlanCompleted 발행 조건 판단용
+    // "미해소" = FAILED 이력이 있는데 그 희망 일정으로 생성된 일정 레코드가 아직 하나도 없는 경우
+    long countUnresolvedFailed(UUID carePlanId);
+
     // 동일한 ProviderMatched를 이미 기록했는지 (중복 수신 방어용)
     // 같은 매칭 결과를 가리키는 값들의 조합을 대체 키로 사용
     boolean existsMatched(

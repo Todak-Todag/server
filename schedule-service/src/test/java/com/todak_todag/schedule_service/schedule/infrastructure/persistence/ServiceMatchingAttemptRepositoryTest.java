@@ -6,6 +6,7 @@ import com.todak_todag.schedule_service.global.config.QueryDslConfig;
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.PreferredTimeSlot;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
+import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceMatchingAttemptCommandRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.query.ServiceMatchingAttemptQueryRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.command.ServiceMatchingAttemptCommandRepositoryImpl;
@@ -128,6 +129,101 @@ class ServiceMatchingAttemptRepositoryTest extends PostgresTestSupport {
         assertThat(found.get().getMatchedAt()).isNull();
         assertThat(found.get().getServiceOfferingId()).isNull();
         assertThat(found.get().getPreferredTimeSlot()).isEqualTo(PreferredTimeSlot.AFTERNOON);
+    }
+
+    @Test
+    void 일정이_아직_없는_FAILED_이력만_미해소로_집계된다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        UUID unresolvedPreferenceId = UUID.randomUUID();
+        UUID resolvedPreferenceId = UUID.randomUUID();
+
+        serviceMatchingAttemptCommandRepository.save(failedAttempt(carePlanId, unresolvedPreferenceId));
+        serviceMatchingAttemptCommandRepository.save(failedAttempt(carePlanId, resolvedPreferenceId));
+        entityManager.persist(scheduleOf(carePlanId, resolvedPreferenceId));
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        long unresolved = serviceMatchingAttemptCommandRepository.countUnresolvedFailed(carePlanId);
+
+        // then
+        assertThat(unresolved).isEqualTo(1L);
+    }
+
+    @Test
+    void 소프트_삭제된_FAILED_이력은_미해소_집계에서_제외된다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        ServiceMatchingAttempt attempt =
+                serviceMatchingAttemptCommandRepository.save(failedAttempt(carePlanId, UUID.randomUUID()));
+        attempt.markDeleted(SystemId.SYSTEM_USER_ID);
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        long unresolved = serviceMatchingAttemptCommandRepository.countUnresolvedFailed(carePlanId);
+
+        // then
+        assertThat(unresolved).isZero();
+    }
+
+    @Test
+    void 매칭에_성공한_이력은_일정_유무와_무관하게_미해소로_집계되지_않는다() {
+        // given
+        UUID carePlanId = UUID.randomUUID();
+        serviceMatchingAttemptCommandRepository.save(
+                ServiceMatchingAttempt.record(
+                        carePlanId,
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        LocalDate.now().plusDays(1),
+                        null,
+                        MatchingAttemptStatus.MATCHED,
+                        null,
+                        Instant.now(),
+                        null
+                )
+        );
+        entityManager.flush();
+        entityManager.clear();
+
+        // when
+        long unresolved = serviceMatchingAttemptCommandRepository.countUnresolvedFailed(carePlanId);
+
+        // then
+        assertThat(unresolved).isZero();
+    }
+
+    private ServiceMatchingAttempt failedAttempt(UUID carePlanId, UUID servicePreferenceId) {
+        return ServiceMatchingAttempt.record(
+                carePlanId,
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                servicePreferenceId,
+                null,
+                LocalDate.now().plusDays(1),
+                PreferredTimeSlot.MORNING,
+                MatchingAttemptStatus.FAILED,
+                "NO_AVAILABLE_PROVIDER",
+                null,
+                Instant.now()
+        );
+    }
+
+    private ServiceSchedule scheduleOf(UUID carePlanId, UUID servicePreferenceId) {
+        LocalDate date = LocalDate.now().plusDays(2);
+
+        return ServiceSchedule.confirm(
+                carePlanId,
+                servicePreferenceId,
+                UUID.randomUUID(),
+                date,
+                date.atTime(9, 0),
+                date.atTime(10, 0)
+        );
     }
 
     @Test

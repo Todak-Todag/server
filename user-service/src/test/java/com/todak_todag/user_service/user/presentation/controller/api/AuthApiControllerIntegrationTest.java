@@ -301,7 +301,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(new UserLoginRequest("no-such-user", RAW_PASSWORD))))
 					.andExpect(status().isConflict())
-					.andExpect(jsonPath("$.error.errorCode").value("USER_LOGIN_MISMATCHED"));
+					.andExpect(jsonPath("$.code").value("USER_LOGIN_MISMATCHED"));
 		}
 
 		@Test
@@ -314,7 +314,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(new UserLoginRequest(username, "wrong-password!"))))
 					.andExpect(status().isConflict())
-					.andExpect(jsonPath("$.error.errorCode").value("USER_LOGIN_MISMATCHED"));
+					.andExpect(jsonPath("$.code").value("USER_LOGIN_MISMATCHED"));
 		}
 
 		@Test
@@ -335,7 +335,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 					.contentType(MediaType.APPLICATION_JSON)
 					.content(objectMapper.writeValueAsString(new UserLoginRequest(username, RAW_PASSWORD))))
 					.andExpect(status().isForbidden())
-					.andExpect(jsonPath("$.error.errorCode").value("USER_NOT_APPROVAL"));
+					.andExpect(jsonPath("$.code").value("USER_NOT_APPROVAL"));
 		}
 
 		@Test
@@ -694,7 +694,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 			mockMvc.perform(post("/api/v1/auth/reissue")
 					.cookie(new Cookie("RefreshToken", oldRefreshToken)))
 					.andExpect(status().isUnauthorized())
-					.andExpect(jsonPath("$.error.errorCode").value("AUTH_REFRESH_TOKEN_INVALID"));
+					.andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_INVALID"));
 		}
 
 		@Test
@@ -702,7 +702,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 		void reissueTest_withoutRefreshTokenCookie_returnsInvalid() throws Exception {
 			mockMvc.perform(post("/api/v1/auth/reissue"))
 					.andExpect(status().isUnauthorized())
-					.andExpect(jsonPath("$.error.errorCode").value("AUTH_REFRESH_TOKEN_INVALID"));
+					.andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_INVALID"));
 		}
 
 		@Test
@@ -711,7 +711,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 			mockMvc.perform(post("/api/v1/auth/reissue")
 					.cookie(new Cookie("RefreshToken", "too-short-token")))
 					.andExpect(status().isUnauthorized())
-					.andExpect(jsonPath("$.error.errorCode").value("AUTH_REFRESH_TOKEN_INVALID"));
+					.andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_INVALID"));
 		}
 
 		@Test
@@ -730,7 +730,7 @@ class AuthApiControllerIntegrationTest extends PostgresRedisTestSupport {
 			mockMvc.perform(post("/api/v1/auth/reissue")
 					.cookie(new Cookie("RefreshToken", refreshToken)))
 					.andExpect(status().isUnauthorized())
-					.andExpect(jsonPath("$.error.errorCode").value("AUTH_REFRESH_TOKEN_EXPIRED"));
+					.andExpect(jsonPath("$.code").value("AUTH_REFRESH_TOKEN_EXPIRED"));
 		}
 	}
 }

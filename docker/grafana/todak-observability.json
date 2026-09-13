@@ -13,7 +13,6 @@
     },
     "annotations": {
       "grafana.app/createdBy": "access-policy:service",
-      "grafana.app/folder": "dfxwzc35zs8aod",
       "grafana.app/managedBy": "classic-file-provisioning",
       "grafana.app/managerId": "Todak-Todag",
       "grafana.app/sourceChecksum": "28f6c87979275218ad452de8b072232a",
@@ -21,8 +20,7 @@
       "grafana.app/sourceTimestamp": "1789142572000",
       "grafana.app/updatedBy": "access-policy:service",
       "grafana.app/updatedTimestamp": "2026-09-11T16:03:32Z",
-      "grafana.app/folderTitle": "Todak-Todag",
-      "grafana.app/folderUrl": "/dashboards/f/dfxwzc35zs8aod/todak-todag"
+      "grafana.app/folderTitle": "Todak-Todag"
     }
   },
   "spec": {

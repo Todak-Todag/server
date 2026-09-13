@@ -70,7 +70,7 @@ public class InternalApiSecurityIntegrationTest extends PostgresTestSupport {
 		)
 		.andExpect(status().isUnauthorized())
 		.andExpect(jsonPath("$.success").value(false))
-		.andExpect(jsonPath("$.error.errorCode").value(ERROR_CODE));
+		.andExpect(jsonPath("$.code").value(ERROR_CODE));
 	}
 	
 	@Test
@@ -82,7 +82,7 @@ public class InternalApiSecurityIntegrationTest extends PostgresTestSupport {
 		)
 		.andExpect(status().isUnauthorized())
 		.andExpect(jsonPath("$.success").value(false))
-		.andExpect(jsonPath("$.error.errorCode").value(ERROR_CODE));
+		.andExpect(jsonPath("$.code").value(ERROR_CODE));
 	}
 	
 	@Test
