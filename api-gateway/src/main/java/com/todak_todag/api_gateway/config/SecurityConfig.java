@@ -22,7 +22,8 @@ import com.todak_todag.api_gateway.authentication.ClientCookieConverter;
 
 @EnableConfigurationProperties({
 	AuthenticationProperties.class,
-	RefreshTokenProperties.class
+	RefreshTokenProperties.class,
+	InternalJwtProperties.class
 })
 @Configuration
 @EnableWebFluxSecurity
