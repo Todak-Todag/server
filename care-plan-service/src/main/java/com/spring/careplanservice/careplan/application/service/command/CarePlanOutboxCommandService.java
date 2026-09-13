@@ -3,8 +3,6 @@ package com.spring.careplanservice.careplan.application.service.command;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEvent;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEventStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanOutboxEventCommandRepository;
-import com.spring.careplanservice.global.exception.BusinessException;
-import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -73,9 +71,12 @@ public class CarePlanOutboxCommandService {
 
         if (event.getStatus() == CarePlanOutboxEventStatus.FAILED) {
             log.error(
-                    "[CarePlan] Outbox 이벤트 최종 발행 실패 outboxEventId={} retryCount={}",
+                    "[CarePlan] Outbox 이벤트 최종 발행 실패 outboxEventId={} eventType={} aggregateId={} retryCount={} lastErrorMessage={}",
                     event.getId(),
-                    event.getRetryCount()
+                    event.getEventType(),
+                    event.getAggregateId(),
+                    event.getRetryCount(),
+                    event.getLastErrorMessage()
             );
         }
     }
@@ -134,33 +135,6 @@ public class CarePlanOutboxCommandService {
 
         log.warn(
                 "[CarePlan] 방치된 PROCESSING Outbox 이벤트를 PENDING으로 복구 outboxEventId={}",
-                event.getId()
-        );
-    }
-
-    // 운영자가 FAILED 이벤트를 재처리 대상(PENDING)으로 되돌린다.
-    @Transactional
-    public void retryFailed(UUID outboxEventId) {
-        CarePlanOutboxEvent event = carePlanOutboxEventCommandRepository
-                .findById(outboxEventId)
-                .orElseThrow(() ->
-                        new BusinessException(
-                                ErrorCode.CARE_PLAN_OUTBOX_EVENT_NOT_FOUND
-                        )
-                );
-
-        if (!event.isFailed()) {
-            throw new BusinessException(
-                    ErrorCode.CARE_PLAN_OUTBOX_EVENT_RETRY_NOT_ALLOWED
-            );
-        }
-
-        event.retryFromFailed();
-
-        carePlanOutboxEventCommandRepository.save(event);
-
-        log.info(
-                "[CarePlan] FAILED Outbox 이벤트 재처리 요청 outboxEventId={}",
                 event.getId()
         );
     }

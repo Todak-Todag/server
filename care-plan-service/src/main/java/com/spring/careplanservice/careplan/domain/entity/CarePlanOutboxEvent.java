@@ -111,10 +111,6 @@ public class CarePlanOutboxEvent extends BaseAuditEntity {
         return this.status == CarePlanOutboxEventStatus.PENDING;
     }
 
-    public boolean isFailed() {
-        return this.status == CarePlanOutboxEventStatus.FAILED;
-    }
-
     // 다중 인스턴스 환경에서 Relay가 발행을 시도하기 전에 선점한다.
     // 이 메서드 호출 후 저장(save) 시점에 @Version 값이 이미 바뀌어 있으면
     // 다른 인스턴스가 먼저 선점한 것이므로 낙관적 락 예외가 발생한다.
@@ -136,13 +132,5 @@ public class CarePlanOutboxEvent extends BaseAuditEntity {
     // 호출 전에 isStuckProcessing(threshold)로 검증해야 한다.
     public void revertStuckProcessing() {
         this.status = CarePlanOutboxEventStatus.PENDING;
-    }
-
-    // 운영자가 FAILED 이벤트를 재처리 대상으로 되돌린다.
-    // 호출 전에 FAILED 상태인지(isFailed())는 호출부에서 검증해야 한다.
-    public void retryFromFailed() {
-        this.status = CarePlanOutboxEventStatus.PENDING;
-        this.retryCount = 0;
-        this.lastErrorMessage = null;
     }
 }

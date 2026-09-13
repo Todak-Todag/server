@@ -34,9 +34,10 @@ class CarePlanOutboxConcurrencyIntegrationTest extends IntegrationTestSupport {
     /*
     12번(Outbox 운영 안정성) 검증
     1) claim()의 낙관적 락(@Version)이 다중 인스턴스 동시 선점을 실제로 막는지
-    2) FAILED -> retryFailed() -> relay()가 실제로 SENT까지 이어지는지
-    3) 오래 방치된 PROCESSING 이벤트를 findStuckProcessing()/revertStuckProcessing()으로
+    2) 오래 방치된 PROCESSING 이벤트를 findStuckProcessing()/revertStuckProcessing()으로
        복구한 뒤 다시 발행까지 이어지는지
+    3) stuck 복구 시 재조회 시점에 여전히 stuck 상태인지 재검증해
+       그 사이 재선점된 이벤트를 잘못 되돌리지 않는지
     를 실제 Postgres(Testcontainers)로 검증한다.
     */
 
@@ -98,8 +99,8 @@ class CarePlanOutboxConcurrencyIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
-    @DisplayName("FAILED 이벤트를 재처리하면 PENDING으로 돌아가고, 이후 relay()가 실제로 SENT까지 전환한다")
-    void retryFailed_thenRelay_reachesSent() {
+    @DisplayName("3회 연속 발행 실패하면 FAILED로 전환되고, 그 이후에는 자동 재시도 대상에서 제외된다")
+    void recordFailure_maxRetry_becomesFailed_andExcludedFromFurtherRelay() {
         UUID outboxEventId = saveNewPendingEvent();
 
         // 3회 연속 실패시켜 FAILED 상태로 만든다.
@@ -109,24 +110,15 @@ class CarePlanOutboxConcurrencyIntegrationTest extends IntegrationTestSupport {
 
         CarePlanOutboxEvent failedEvent = springDataRepository.findById(outboxEventId).orElseThrow();
         assertThat(failedEvent.getStatus()).isEqualTo(CarePlanOutboxEventStatus.FAILED);
+        assertThat(failedEvent.getRetryCount()).isEqualTo(3);
+        assertThat(failedEvent.getLastErrorMessage()).isEqualTo("3차 실패");
 
-        // 운영자가 FAILED 목록 조회 API로 확인할 수 있는지
-        assertThat(carePlanOutboxQueryService.findFailed(100))
-                .anyMatch(result -> result.outboxEventId().equals(outboxEventId));
-
-        // 운영자가 재처리를 요청
-        carePlanOutboxCommandService.retryFailed(outboxEventId);
-
-        CarePlanOutboxEvent retriedEvent = springDataRepository.findById(outboxEventId).orElseThrow();
-        assertThat(retriedEvent.getStatus()).isEqualTo(CarePlanOutboxEventStatus.PENDING);
-        assertThat(retriedEvent.getRetryCount()).isEqualTo(0);
-
-        // 재처리 후 다음 폴링(relay)에서 실제로 발행 성공 -> SENT까지 이어지는지 확인
-        // (RabbitMQ 발행 자체는 이 테스트의 관심사가 아니므로 Port는 Mock으로 대체한다)
+        // FAILED는 수동 재처리 수단이 없으므로, 이후 relay()를 호출해도
+        // findPending() 대상에서 계속 제외되어 상태가 그대로 유지되어야 한다.
         carePlanOutboxRelayFacade.relay();
 
-        CarePlanOutboxEvent sentEvent = springDataRepository.findById(outboxEventId).orElseThrow();
-        assertThat(sentEvent.getStatus()).isEqualTo(CarePlanOutboxEventStatus.SENT);
+        CarePlanOutboxEvent stillFailed = springDataRepository.findById(outboxEventId).orElseThrow();
+        assertThat(stillFailed.getStatus()).isEqualTo(CarePlanOutboxEventStatus.FAILED);
     }
 
     @Test
