@@ -1,0 +1,178 @@
+package com.spring.careplanservice.careplan.application.facade;
+
+import com.spring.careplanservice.careplan.application.port.CarePlanCompletedEventPort;
+import com.spring.careplanservice.careplan.application.service.command.CarePlanOutboxCommandService;
+import com.spring.careplanservice.careplan.application.service.query.CarePlanOutboxQueryService;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEvent;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEventStatus;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEventType;
+import com.spring.careplanservice.careplan.infrastructure.persistence.repository.SpringDataCarePlanOutboxEventRepository;
+import com.spring.careplanservice.careplan.support.IntegrationTestSupport;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+// care-plan.outbox.relay.enabled=false 로 백그라운드 Relay 스케줄러를 꺼서,
+// 이 테스트가 직접 claim()/relay()/revertStuckProcessing()을 호출하는 순서와
+// 실제 스케줄러 스레드가 같은 row를 동시에 건드리며 생기는 우발적 경합을 배제한다.
+// (다중 인스턴스 경합 자체는 claim_concurrentClaim_onlyOneInstanceWins에서 의도적으로 재현한다)
+@SpringBootTest(properties = "care-plan.outbox.relay.enabled=false")
+class CarePlanOutboxConcurrencyIntegrationTest extends IntegrationTestSupport {
+    /*
+    12번(Outbox 운영 안정성) 검증
+    1) claim()의 낙관적 락(@Version)이 다중 인스턴스 동시 선점을 실제로 막는지
+    2) FAILED -> retryFailed() -> relay()가 실제로 SENT까지 이어지는지
+    3) 오래 방치된 PROCESSING 이벤트를 findStuckProcessing()/revertStuckProcessing()으로
+       복구한 뒤 다시 발행까지 이어지는지
+    를 실제 Postgres(Testcontainers)로 검증한다.
+    */
+
+    @Autowired
+    private SpringDataCarePlanOutboxEventRepository springDataRepository;
+
+    @Autowired
+    private CarePlanOutboxCommandService carePlanOutboxCommandService;
+
+    @Autowired
+    private CarePlanOutboxQueryService carePlanOutboxQueryService;
+
+    @Autowired
+    private CarePlanOutboxRelayFacade carePlanOutboxRelayFacade;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @MockitoBean
+    private CarePlanCompletedEventPort carePlanCompletedEventPort;
+
+    @Test
+    @DisplayName("두 인스턴스가 같은 PENDING 이벤트를 동시에 선점하려 하면 한쪽만 성공하고 다른 쪽은 낙관적 락 예외가 발생한다")
+    void claim_concurrentClaim_onlyOneInstanceWins() {
+        UUID outboxEventId = saveNewPendingEvent();
+
+        TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
+
+        // 두 인스턴스가 거의 동시에 같은 row를 조회했다고 가정 — 서로 다른 트랜잭션에서
+        // 각각 조회하므로 두 복사본 모두 version=0인 상태로 detach 된다.
+        CarePlanOutboxEvent instanceACopy = txTemplate.execute(status ->
+                springDataRepository.findById(outboxEventId).orElseThrow()
+        );
+
+        CarePlanOutboxEvent instanceBCopy = txTemplate.execute(status ->
+                springDataRepository.findById(outboxEventId).orElseThrow()
+        );
+
+        // 인스턴스 A가 먼저 선점(PROCESSING)에 성공해 커밋 -> version이 증가한다.
+        txTemplate.executeWithoutResult(status -> {
+            instanceACopy.startProcessing();
+            springDataRepository.save(instanceACopy);
+        });
+
+        // 인스턴스 B는 오래된(version=0) 복사본을 들고 있으므로,
+        // 뒤늦게 같은 선점을 시도하면 낙관적 락 충돌이 발생해야 한다.
+        assertThatThrownBy(() ->
+                txTemplate.executeWithoutResult(status -> {
+                    instanceBCopy.startProcessing();
+                    springDataRepository.save(instanceBCopy);
+                })
+        ).isInstanceOf(ObjectOptimisticLockingFailureException.class);
+
+        CarePlanOutboxEvent finalState = springDataRepository.findById(outboxEventId).orElseThrow();
+        assertThat(finalState.getStatus()).isEqualTo(CarePlanOutboxEventStatus.PROCESSING);
+    }
+
+    @Test
+    @DisplayName("FAILED 이벤트를 재처리하면 PENDING으로 돌아가고, 이후 relay()가 실제로 SENT까지 전환한다")
+    void retryFailed_thenRelay_reachesSent() {
+        UUID outboxEventId = saveNewPendingEvent();
+
+        // 3회 연속 실패시켜 FAILED 상태로 만든다.
+        carePlanOutboxCommandService.recordFailure(outboxEventId, "1차 실패");
+        carePlanOutboxCommandService.recordFailure(outboxEventId, "2차 실패");
+        carePlanOutboxCommandService.recordFailure(outboxEventId, "3차 실패");
+
+        CarePlanOutboxEvent failedEvent = springDataRepository.findById(outboxEventId).orElseThrow();
+        assertThat(failedEvent.getStatus()).isEqualTo(CarePlanOutboxEventStatus.FAILED);
+
+        // 운영자가 FAILED 목록 조회 API로 확인할 수 있는지
+        assertThat(carePlanOutboxQueryService.findFailed(100))
+                .anyMatch(result -> result.outboxEventId().equals(outboxEventId));
+
+        // 운영자가 재처리를 요청
+        carePlanOutboxCommandService.retryFailed(outboxEventId);
+
+        CarePlanOutboxEvent retriedEvent = springDataRepository.findById(outboxEventId).orElseThrow();
+        assertThat(retriedEvent.getStatus()).isEqualTo(CarePlanOutboxEventStatus.PENDING);
+        assertThat(retriedEvent.getRetryCount()).isEqualTo(0);
+
+        // 재처리 후 다음 폴링(relay)에서 실제로 발행 성공 -> SENT까지 이어지는지 확인
+        // (RabbitMQ 발행 자체는 이 테스트의 관심사가 아니므로 Port는 Mock으로 대체한다)
+        carePlanOutboxRelayFacade.relay();
+
+        CarePlanOutboxEvent sentEvent = springDataRepository.findById(outboxEventId).orElseThrow();
+        assertThat(sentEvent.getStatus()).isEqualTo(CarePlanOutboxEventStatus.SENT);
+    }
+
+    @Test
+    @DisplayName("오래 방치된 PROCESSING 이벤트는 findStuckProcessing/revertStuckProcessing으로 PENDING으로 복구된다")
+    void findStuckProcessing_thenRevert_recoversStuckRow() {
+        UUID outboxEventId = saveNewPendingEvent();
+
+        boolean claimed = carePlanOutboxCommandService.claim(outboxEventId);
+        assertThat(claimed).isTrue();
+
+        // 죽은 인스턴스가 선점한 채 오래 방치된 상황을 흉내내기 위해
+        // updated_at을 JPA Auditing을 거치지 않고 직접 과거로 되돌린다.
+        Instant longAgo = Instant.now().minus(10, ChronoUnit.MINUTES);
+        jdbcTemplate.update(
+                "UPDATE care_plan_schema.p_care_plan_outbox_events SET updated_at = ? WHERE outbox_event_id = ?",
+                java.sql.Timestamp.from(longAgo),
+                outboxEventId
+        );
+
+        var stuckEvents = carePlanOutboxQueryService.findStuckProcessing(
+                Instant.now().minus(1, ChronoUnit.MINUTES),
+                100
+        );
+
+        assertThat(stuckEvents)
+                .anyMatch(result -> result.outboxEventId().equals(outboxEventId));
+
+        carePlanOutboxCommandService.revertStuckProcessing(outboxEventId);
+
+        CarePlanOutboxEvent recovered = springDataRepository.findById(outboxEventId).orElseThrow();
+        assertThat(recovered.getStatus()).isEqualTo(CarePlanOutboxEventStatus.PENDING);
+
+        // 복구된 이벤트는 다음 relay()에서 정상적으로 다시 발행되어야 한다.
+        carePlanOutboxRelayFacade.relay();
+
+        CarePlanOutboxEvent sentEvent = springDataRepository.findById(outboxEventId).orElseThrow();
+        assertThat(sentEvent.getStatus()).isEqualTo(CarePlanOutboxEventStatus.SENT);
+    }
+
+    private UUID saveNewPendingEvent() {
+        CarePlanOutboxEvent event = CarePlanOutboxEvent.create(
+                UUID.randomUUID(),
+                CarePlanOutboxEventType.CARE_PLAN_COMPLETED,
+                "{}"
+        );
+
+        return springDataRepository.save(event).getId();
+    }
+}

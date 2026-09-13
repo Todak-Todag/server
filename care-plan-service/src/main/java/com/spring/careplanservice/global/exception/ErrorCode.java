@@ -135,6 +135,16 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST,
             "완료 이벤트의 carePlanId와 Schedule 수행 결과의 carePlanId가 일치하지 않습니다."
     ),
+
+    CARE_PLAN_OUTBOX_EVENT_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "Outbox 이벤트를 찾을 수 없습니다."
+    ),
+
+    CARE_PLAN_OUTBOX_EVENT_RETRY_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "FAILED 상태의 Outbox 이벤트만 재처리할 수 있습니다."
+    ),
     ;
 
 

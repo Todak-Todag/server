@@ -64,7 +64,7 @@ CREATE TYPE care_plan_schema.care_plan_outbox_event_type AS ENUM (
     );
 
 CREATE TYPE care_plan_schema.care_plan_outbox_event_status AS ENUM (
-    'PENDING', 'SENT', 'FAILED'
+    'PENDING', 'PROCESSING', 'SENT', 'FAILED'
     );
 
 CREATE TABLE IF NOT EXISTS care_plan_schema.p_care_plan_outbox_events
@@ -86,6 +86,9 @@ CREATE TABLE IF NOT EXISTS care_plan_schema.p_care_plan_outbox_events
     last_error_message TEXT,
 
     published_at       TIMESTAMPTZ,
+
+    -- 다중 인스턴스 환경에서 PENDING -> PROCESSING 선점 시 낙관적 락(@Version)에 사용
+    version            BIGINT      NOT NULL DEFAULT 0,
 
     created_at         TIMESTAMPTZ NOT NULL,
     created_by         UUID        NOT NULL,

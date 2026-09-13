@@ -57,6 +57,12 @@ public class CarePlanOutboxEvent extends BaseAuditEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
+    // 다중 인스턴스 환경에서 PENDING -> PROCESSING 선점 시
+    // 낙관적 락으로 동시 선점을 방지하기 위한 버전 컬럼
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
     private CarePlanOutboxEvent(
             UUID aggregateId,
             CarePlanOutboxEventType eventType,
@@ -97,5 +103,34 @@ public class CarePlanOutboxEvent extends BaseAuditEntity {
         if (this.retryCount >= MAX_RETRY_COUNT) {
             this.status = CarePlanOutboxEventStatus.FAILED;
         }
+    }
+
+    public boolean isPending() {
+        return this.status == CarePlanOutboxEventStatus.PENDING;
+    }
+
+    public boolean isFailed() {
+        return this.status == CarePlanOutboxEventStatus.FAILED;
+    }
+
+    // 다중 인스턴스 환경에서 Relay가 발행을 시도하기 전에 선점한다.
+    // 이 메서드 호출 후 저장(save) 시점에 @Version 값이 이미 바뀌어 있으면
+    // 다른 인스턴스가 먼저 선점한 것이므로 낙관적 락 예외가 발생한다.
+    public void startProcessing() {
+        this.status = CarePlanOutboxEventStatus.PROCESSING;
+    }
+
+    // 선점(PROCESSING) 이후 발행/실패 처리 없이 인스턴스가 죽어
+    // 오래도록 멈춰 있는 이벤트를 다음 폴링에서 다시 시도할 수 있도록 되돌린다.
+    public void revertStuckProcessing() {
+        this.status = CarePlanOutboxEventStatus.PENDING;
+    }
+
+    // 운영자가 FAILED 이벤트를 재처리 대상으로 되돌린다.
+    // 호출 전에 FAILED 상태인지(isFailed())는 호출부에서 검증해야 한다.
+    public void retryFromFailed() {
+        this.status = CarePlanOutboxEventStatus.PENDING;
+        this.retryCount = 0;
+        this.lastErrorMessage = null;
     }
 }

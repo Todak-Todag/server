@@ -23,6 +23,7 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
@@ -62,6 +63,11 @@ class CarePlanOutboxRelayFacadeTest {
                 carePlanConfirmedEventPayloadSerializer,
                 carePlanConfirmedEventPort
         );
+
+        // relay()는 findPending() 조회 전에 항상 방치된 PROCESSING 이벤트부터 복구를 시도한다.
+        // 대부분의 테스트에서는 복구 대상이 없는 상황을 다루므로 기본값(빈 리스트)을 그대로 사용한다.
+        // 일부 테스트(예: 복구만 검증하는 테스트)는 claim()까지 도달하지 않으므로 lenient로 둔다.
+        lenient().when(carePlanOutboxCommandService.claim(any())).thenReturn(true);
     }
 
     @Test
@@ -233,5 +239,47 @@ class CarePlanOutboxRelayFacadeTest {
         verify(carePlanConfirmedEventPayloadSerializer, never()).deserialize("completed-payload");
         verify(carePlanOutboxCommandService).markSent(confirmedOutboxEventId);
         verify(carePlanOutboxCommandService).markSent(completedOutboxEventId);
+    }
+
+    @Test
+    @DisplayName("다른 인스턴스가 이미 선점(claim 실패)한 이벤트는 발행을 시도하지 않고 건너뛴다")
+    void relay_claimFails_skipsWithoutPublishing() {
+        CarePlanOutboxEventResult pendingEvent = new CarePlanOutboxEventResult(
+                completedOutboxEventId,
+                carePlanId,
+                CarePlanOutboxEventType.CARE_PLAN_COMPLETED,
+                "{}"
+        );
+
+        given(carePlanOutboxQueryService.findPending(100)).willReturn(List.of(pendingEvent));
+        given(carePlanOutboxCommandService.claim(completedOutboxEventId)).willReturn(false);
+
+        carePlanOutboxRelayFacade.relay();
+
+        verify(carePlanCompletionEventPayloadSerializer, never()).deserialize(any());
+        verify(carePlanCompletedEventPort, never()).publish(any());
+        verify(carePlanOutboxCommandService, never()).markSent(any());
+        verify(carePlanOutboxCommandService, never()).recordFailure(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("relay() 호출 시 오래 방치된 PROCESSING 이벤트를 먼저 PENDING으로 복구한다")
+    void relay_reclaimsStuckProcessingBeforePolling() {
+        UUID stuckOutboxEventId = UUID.randomUUID();
+
+        CarePlanOutboxEventResult stuckEvent = new CarePlanOutboxEventResult(
+                stuckOutboxEventId,
+                carePlanId,
+                CarePlanOutboxEventType.CARE_PLAN_COMPLETED,
+                "{}"
+        );
+
+        given(carePlanOutboxQueryService.findStuckProcessing(any(), eq(100)))
+                .willReturn(List.of(stuckEvent));
+        given(carePlanOutboxQueryService.findPending(100)).willReturn(List.of());
+
+        carePlanOutboxRelayFacade.relay();
+
+        verify(carePlanOutboxCommandService).revertStuckProcessing(stuckOutboxEventId);
     }
 }

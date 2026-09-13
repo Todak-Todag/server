@@ -2,12 +2,14 @@ package com.spring.careplanservice.careplan.application.service.query;
 
 
 import com.spring.careplanservice.careplan.domain.repository.query.CarePlanOutboxEventQueryRepository;
+import com.spring.careplanservice.careplan.application.result.CarePlanOutboxEventAdminResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanOutboxEventResult;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEventStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 @Service
@@ -24,6 +26,32 @@ public class CarePlanOutboxQueryService {
                 )
                 .stream()
                 .map(CarePlanOutboxEventResult::from)
+                .toList();
+    }
+
+    // updatedAt 기준 threshold 이전부터 PROCESSING 상태로 멈춰 있는 이벤트 조회
+    @Transactional(readOnly = true)
+    public List<CarePlanOutboxEventResult> findStuckProcessing(
+            Instant updatedAtBefore,
+            int limit
+    ) {
+        return carePlanOutboxEventQueryRepository
+                .findStuckProcessing(updatedAtBefore, limit)
+                .stream()
+                .map(CarePlanOutboxEventResult::from)
+                .toList();
+    }
+
+    // 운영자 확인용 FAILED 이벤트 목록 조회
+    @Transactional(readOnly = true)
+    public List<CarePlanOutboxEventAdminResult> findFailed(int limit) {
+        return carePlanOutboxEventQueryRepository
+                .findByStatus(
+                        CarePlanOutboxEventStatus.FAILED,
+                        limit
+                )
+                .stream()
+                .map(CarePlanOutboxEventAdminResult::from)
                 .toList();
     }
 }
