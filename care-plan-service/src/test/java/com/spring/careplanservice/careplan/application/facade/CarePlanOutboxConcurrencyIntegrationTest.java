@@ -146,15 +146,16 @@ class CarePlanOutboxConcurrencyIntegrationTest extends IntegrationTestSupport {
                 outboxEventId
         );
 
-        var stuckEvents = carePlanOutboxQueryService.findStuckProcessing(
-                Instant.now().minus(1, ChronoUnit.MINUTES),
-                100
-        );
+        Instant threshold = Instant.now().minus(1, ChronoUnit.MINUTES);
+
+        var stuckEvents = carePlanOutboxQueryService.findStuckProcessing(threshold, 100);
 
         assertThat(stuckEvents)
                 .anyMatch(result -> result.outboxEventId().equals(outboxEventId));
 
-        carePlanOutboxCommandService.revertStuckProcessing(outboxEventId);
+        // revert 시 findStuckProcessing()에 사용한 것과 동일한 threshold를 전달해야
+        // "지금도 여전히 stuck 상태인지"를 재검증할 수 있다.
+        carePlanOutboxCommandService.revertStuckProcessing(outboxEventId, threshold);
 
         CarePlanOutboxEvent recovered = springDataRepository.findById(outboxEventId).orElseThrow();
         assertThat(recovered.getStatus()).isEqualTo(CarePlanOutboxEventStatus.PENDING);
@@ -164,6 +165,41 @@ class CarePlanOutboxConcurrencyIntegrationTest extends IntegrationTestSupport {
 
         CarePlanOutboxEvent sentEvent = springDataRepository.findById(outboxEventId).orElseThrow();
         assertThat(sentEvent.getStatus()).isEqualTo(CarePlanOutboxEventStatus.SENT);
+    }
+
+    @Test
+    @DisplayName("복구(revert) 직전에 다른 인스턴스가 이미 재선점했다면(최신 updatedAt) 되돌리지 않는다 — stuck 복구 race condition 방지")
+    void revertStuckProcessing_reclaimedInTheMeantime_doesNotRevert() {
+        UUID outboxEventId = saveNewPendingEvent();
+
+        boolean claimed = carePlanOutboxCommandService.claim(outboxEventId);
+        assertThat(claimed).isTrue();
+
+        // Relay 스케줄러가 findStuckProcessing() 시점에 계산했던 threshold라고 가정한다.
+        // (실제로는 1분 전이지만, 테스트에서는 "과거 시점"이기만 하면 충분하다)
+        Instant thresholdComputedDuringFind = Instant.now().minusSeconds(30);
+
+        // findStuckProcessing()과 revertStuckProcessing() 호출 사이에,
+        // 다른 인스턴스가 이 row를 정상적으로 복구(PENDING)한 뒤 즉시 재선점(PROCESSING)했다고 가정한다.
+        // -> updated_at이 "방금"으로 갱신된다.
+        jdbcTemplate.update(
+                "UPDATE care_plan_schema.p_care_plan_outbox_events SET status = 'PENDING' WHERE outbox_event_id = ?",
+                outboxEventId
+        );
+        boolean reclaimedByOtherInstance = carePlanOutboxCommandService.claim(outboxEventId);
+        assertThat(reclaimedByOtherInstance).isTrue();
+
+        CarePlanOutboxEvent afterReclaim = springDataRepository.findById(outboxEventId).orElseThrow();
+        assertThat(afterReclaim.getUpdatedAt()).isAfter(thresholdComputedDuringFind);
+
+        // 원래 스레드가 (과거에 계산해 둔) threshold로 뒤늦게 복구를 시도한다.
+        // updatedAt이 threshold보다 최신이므로 이번엔 절대 되돌려서는 안 된다.
+        carePlanOutboxCommandService.revertStuckProcessing(outboxEventId, thresholdComputedDuringFind);
+
+        CarePlanOutboxEvent stillProcessing = springDataRepository.findById(outboxEventId).orElseThrow();
+        assertThat(stillProcessing.getStatus())
+                .as("다른 인스턴스가 이미 재선점해 정상 처리 중인 이벤트를 되돌리면 안 된다")
+                .isEqualTo(CarePlanOutboxEventStatus.PROCESSING);
     }
 
     private UUID saveNewPendingEvent() {

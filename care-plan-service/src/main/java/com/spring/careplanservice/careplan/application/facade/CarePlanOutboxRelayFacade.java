@@ -58,7 +58,8 @@ public class CarePlanOutboxRelayFacade {
         for (CarePlanOutboxEventResult stuckEvent : stuckEvents) {
             try {
                 carePlanOutboxCommandService.revertStuckProcessing(
-                        stuckEvent.outboxEventId()
+                        stuckEvent.outboxEventId(),
+                        threshold
                 );
             } catch (ObjectOptimisticLockingFailureException e) {
                 // 다른 인스턴스가 그 사이 이미 복구했거나 처리를 끝냈으므로 무시한다.

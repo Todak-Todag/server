@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 
@@ -108,8 +109,12 @@ public class CarePlanOutboxCommandService {
     // 선점(PROCESSING) 후 오래도록 방치된 이벤트를 PENDING으로 되돌려
     // 다음 폴링에서 다시 시도할 수 있게 한다. 죽은 인스턴스가 선점한 채
     // 영원히 멈춰 있는 상태를 방지하기 위한 유지보수 동작이다.
+    //
+    // threshold는 findStuckProcessing() 조회에 사용한 것과 동일한 값을 전달해야 한다.
+    // 조회 시점과 이 메서드 호출 시점 사이에 다른 인스턴스가 이미 복구 후 재선점했을 수 있으므로,
+    // 여기서 다시 한 번 "지금도 여전히 PROCESSING이고 threshold보다 오래되었는지"를 재검증한다.
     @Transactional
-    public void revertStuckProcessing(UUID outboxEventId) {
+    public void revertStuckProcessing(UUID outboxEventId, Instant threshold) {
         CarePlanOutboxEvent event = carePlanOutboxEventCommandRepository
                 .findById(outboxEventId)
                 .orElseThrow(() ->
@@ -119,7 +124,7 @@ public class CarePlanOutboxCommandService {
                         )
                 );
 
-        if (event.getStatus() != CarePlanOutboxEventStatus.PROCESSING) {
+        if (!event.isStuckProcessing(threshold)) {
             return;
         }
 

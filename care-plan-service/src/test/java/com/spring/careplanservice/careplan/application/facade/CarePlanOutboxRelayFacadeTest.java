@@ -280,6 +280,6 @@ class CarePlanOutboxRelayFacadeTest {
 
         carePlanOutboxRelayFacade.relay();
 
-        verify(carePlanOutboxCommandService).revertStuckProcessing(stuckOutboxEventId);
+        verify(carePlanOutboxCommandService).revertStuckProcessing(eq(stuckOutboxEventId), any());
     }
 }
