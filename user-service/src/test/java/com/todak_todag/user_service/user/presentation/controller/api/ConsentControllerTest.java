@@ -288,7 +288,7 @@ class ConsentControllerTest {
                     )
                     .andExpect(
                             jsonPath(
-                                    "$.error.errorCode"
+                                    "$.code"
                             )
                                     .value(
                                             "DUPLICATE_CONSENT_DOCUMENT_VERSION"
@@ -345,7 +345,7 @@ class ConsentControllerTest {
                     )
                     .andExpect(
                             jsonPath(
-                                    "$.error.errorCode"
+                                    "$.code"
                             )
                                     .value(
                                             "INVALID_CONSENT_DOCUMENT_VERSION"
@@ -402,7 +402,7 @@ class ConsentControllerTest {
                     )
                     .andExpect(
                             jsonPath(
-                                    "$.error.errorCode"
+                                    "$.code"
                             )
                                     .value(
                                             "CONSENT_ALREADY_AGREED"
@@ -838,7 +838,7 @@ class ConsentControllerTest {
                     )
                     .andExpect(
                             jsonPath(
-                                    "$.error.errorCode"
+                                    "$.code"
                             )
                                     .value(
                                             "CONSENT_NOT_FOUND"
@@ -885,7 +885,7 @@ class ConsentControllerTest {
                     )
                     .andExpect(
                             jsonPath(
-                                    "$.error.errorCode"
+                                    "$.code"
                             )
                                     .value(
                                             "CONSENT_ACCESS_DENIED"
@@ -932,7 +932,7 @@ class ConsentControllerTest {
                     )
                     .andExpect(
                             jsonPath(
-                                    "$.error.errorCode"
+                                    "$.code"
                             )
                                     .value(
                                             "CONSENT_ALREADY_WITHDRAWN"

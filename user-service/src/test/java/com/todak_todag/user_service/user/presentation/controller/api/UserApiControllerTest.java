@@ -119,7 +119,7 @@ class UserApiControllerTest {
 							.header("X-User-Role", "PATIENT"))
 					.andExpect(status().isNotFound())
 					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.error.errorCode").value("REGION_NOT_FOUND"));
+					.andExpect(jsonPath("$.code").value("REGION_NOT_FOUND"));
 		}
 
 		@Test
@@ -171,7 +171,7 @@ class UserApiControllerTest {
 							.header("X-User-Role", "PATIENT"))
 					.andExpect(status().isNotFound())
 					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.error.errorCode").value("USER_NOT_FOUND"));
+					.andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
 		}
 	}
 
@@ -203,7 +203,7 @@ class UserApiControllerTest {
 							.content(VALID_BODY))
 					.andExpect(status().isForbidden())
 					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.error.errorCode").value("AUTH_FORBIDDEN"));
+					.andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
 
 			then(userCreateService).should(never()).createUserPatient(any());
 		}
@@ -313,7 +313,7 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().isConflict())
 					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.error.errorCode").value("USER_INVALID_CURRENT_PASSWORD"));
+					.andExpect(jsonPath("$.code").value("USER_INVALID_CURRENT_PASSWORD"));
 		}
 
 		@Test
@@ -496,7 +496,7 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().isConflict())
 					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.error.errorCode").value("USER_INVALID_CURRENT_PASSWORD"));
+					.andExpect(jsonPath("$.code").value("USER_INVALID_CURRENT_PASSWORD"));
 
 			then(cookieProvider).should(never()).addCookie(any(), any(), any(), any());
 		}
@@ -520,7 +520,7 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().isNotFound())
 					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.error.errorCode").value("USER_NOT_FOUND"));
+					.andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
 		}
 	}
 }
