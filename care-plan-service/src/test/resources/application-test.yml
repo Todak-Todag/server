@@ -3,6 +3,16 @@ spring:
     config:
       enabled: false
 
+  rabbitmq:
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1000
+          multiplier: 2
+
   datasource:
     driver-class-name: org.postgresql.Driver
 

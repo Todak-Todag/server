@@ -20,6 +20,16 @@ spring:
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
+    # 수신 재시도 3회, 소진 시 원본 큐로 재큐잉하지 않고 DLQ로 이동
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1000
+          multiplier: 2
+
     properties:
       hibernate:
         format_sql: true
