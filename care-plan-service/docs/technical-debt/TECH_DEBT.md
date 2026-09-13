@@ -49,48 +49,7 @@ HikariCP `maximum-pool-size`가 10으로 제한되어 있는 상황에서, 외�
 
 ---
 
-## 3. RabbitMQ 컨슈머 재시도/DLQ 정책 부재
-
-### 우선순위
-HIGH
-
-### 대상
-- `global/config/RabbitMqConfig.java` (DLX/DLQ 바인딩 없음)
-- `careplan/infrastructure/messaging/CarePlanEventConsumer.java`
-- `application*.yml` (`spring.rabbitmq.listener.simple.retry` 관련 설정 전무)
-
-### 현재 구조
-`carePlanScheduleCompletedQueue`는 Dead Letter Exchange 없이 단순 `Queue(name, durable=true)`로만 선언되어 있다. `spring.rabbitmq.listener.*` 재시도 설정도 어디에도 없어 Spring AMQP 기본 동작(예외 발생 시 즉시 재큐잉)이 그대로 적용된다.
-
-### 문제 또는 개선 이유
-`CarePlanEventConsumer.consumeCarePlanCompleted()`가 `CarePlanCommandService.completeCarePlan()`을 호출하는 과정에서 `CARE_PLAN_NOT_FOUND` 등 `BusinessException`을 던지거나, `scheduleResultQueryPort.findById()` 호출이 실패하면 예외가 리스너까지 전파된다. 이 경우 메시지가 즉시 재큐잉되어 동일한 실패가 반복되는 poison message 루프가 발생할 수 있고, 해당 큐를 처리하는 컨슈머 스레드가 계속 같은 메시지 재처리에 묶여 다른 메시지 처리가 지연된다(head-of-line blocking).
-
-### 개선 방향
-`spring.rabbitmq.listener.simple.retry.enabled=true` + `max-attempts` / `initial-interval` 등 backoff를 설정하고, 재시도 소진 시 메시지를 DLQ로 보내도록 Dead Letter Exchange를 큐에 바인딩한다(`RabbitMqConfig`에 DLX Exchange/Queue 추가). DLQ에 쌓인 메시지는 운영자가 확인 후 재처리하도록 한다.
-
----
-
-## 4. 이벤트 발행 실패를 감지할 수단 없음
-
-### 우선순위
-MEDIUM
-
-### 대상
-- `careplan/infrastructure/messaging/CarePlanEventPublisher.java`
-- `global/config/RabbitMqConfig.java` (`publisher-confirm-type`, `publisher-returns` 미설정)
-
-### 현재 구조
-`AFTER_COMMIT` 시점에 `rabbitTemplate.convertAndSend()`를 한 번 호출하고 끝난다. DB 롤백과 이벤트 발행 순서 불일치는 이미 `TransactionPhase.AFTER_COMMIT`으로 잘 방지되어 있다(이 부분은 문제 아님). 다만 브로커로의 실제 전달 자체가 실패(네트워크 순단, 라우팅 실패 등)하는 경우를 감지할 confirm/return 콜백이 없다.
-
-### 문제 또는 개선 이유
-`convertAndSend()` 호출 자체는 커넥션이 살아있으면 예외 없이 반환되므로, 브로커가 메시지를 실제로 받았는지 애플리케이션이 알 방법이 없다. 발행이 조용히 유실되면 Care Plan은 CONFIRMED로 남지만 provider-service 매칭 등 후속 처리가 트리거되지 않아 정합성 문제가 발생하고, 원인 추적도 어렵다.
-
-### 개선 방향
-`spring.rabbitmq.publisher-confirm-type=correlated`, `publisher-returns=true`를 설정하고 `RabbitTemplate`에 `ConfirmCallback`/`ReturnCallback`을 등록해 실패 시 로그를 남긴다. 현재 트래픽 규모에서 Outbox 패턴까지 도입하는 것은 과도하며, confirm 콜백 + 알림/모니터링 정도로 충분하다.
-
----
-
-## 5. Care Plan 생성/서비스 선택 시 provideServiceId 존재 여부 미검증
+## 3. Care Plan 생성/서비스 선택 시 provideServiceId 존재 여부 미검증
 
 ### 우선순위
 MEDIUM
@@ -111,7 +70,7 @@ MEDIUM
 
 ---
 
-## 6. 동시 요청 시 중복 생성 가능 (exists 체크 + DB 유니크 제약 부재)
+## 4. 동시 요청 시 중복 생성 가능 (exists 체크 + DB 유니크 제약 부재)
 
 ### 우선순위
 MEDIUM
@@ -132,7 +91,7 @@ MEDIUM
 
 ---
 
-## 7. 이벤트 소비 멱등성이 상태 가드에 우연히 의존
+## 5. 이벤트 소비 멱등성이 상태 가드에 우연히 의존
 
 ### 우선순위
 LOW
@@ -149,3 +108,30 @@ LOW
 
 ### 개선 방향
 지금 별도 처리 이력 테이블을 추가하는 것은 과설계이므로 보류하되, 완료 이벤트 처리에 새로운 부수효과가 추가될 때는 반드시 멱등성을 재검토해야 한다는 점을 기록으로 남긴다.
+
+---
+
+## 6. Outbox FAILED 재처리 및 보관 정책 미정
+
+### 우선순위
+MEDIUM
+
+### 대상
+- `CarePlanOutboxCommandService.recordFailure()`
+- `CarePlanOutboxQueryService.findPending()` / `CarePlanOutboxRelayFacade.relay()`
+- `p_care_plan_outbox_events` 테이블 (`care_plan_schema`)
+
+### 현재 구조
+Outbox 발행이 실패하면 `recordFailure()`가 `retryCount`를 올리며 3회째 실패 시 FAILED로 전환한다. `FAILED` 상태는 `findPending()`(따라서 `CarePlanOutboxRelayFacade.relay()`의 자동 재시도 대상)에서 제외되며, row 자체는 삭제되지 않고 `p_care_plan_outbox_events` 테이블에 그대로 보존된다. 최종 실패 시점에는 `outboxEventId`/`eventType`/`aggregateId`/`retryCount`/`lastErrorMessage`를 담은 ERROR 로그가 남는다.
+
+현재 `FAILED` 이벤트를 되돌리는 수동/자동 재처리 수단이 없고, `SENT`/`FAILED`를 포함한 Outbox row에 대한 보관 기간·삭제(정리) 정책도 없다.
+
+### 문제 또는 개선 이유
+`FAILED`로 전환된 이벤트는 로그로만 확인 가능할 뿐 되살릴 방법이 DB 직접 조작 외에는 없다. 또한 처리 완료(`SENT`)된 row까지 포함해 Outbox 테이블에 데이터가 무기한 누적되므로, 장기적으로 테이블/인덱스 크기가 계속 커질 수 있다.
+
+### 개선 방향
+- `FAILED` 이벤트 수동/자동 재처리 방식 검토
+- `FAILED` 운영 알림/모니터링 검토
+- `SENT`/`FAILED` 데이터 보관 기간 정의
+- 오래된 Outbox row Bulk Delete 또는 배치 정리 정책 검토
+- 실제 운영 중 필요성이 확인될 때 별도 이슈로 구현

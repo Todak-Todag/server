@@ -6,12 +6,14 @@ import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpd
 import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
 import com.spring.careplanservice.careplan.application.event.CarePlanCompletionEventAppender;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEventAppender;
 import com.spring.careplanservice.careplan.application.event.ScheduleStatus;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
+import com.spring.careplanservice.careplan.application.result.ScheduleResultFindResult;
 import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
@@ -30,7 +32,6 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -72,9 +73,6 @@ class CarePlanCommandServiceTest {
     private ServicePreferenceQueryRepository servicePreferenceQueryRepository;
 
     @Mock
-    private ApplicationEventPublisher applicationEventPublisher;
-
-    @Mock
     private UserQueryPort userQueryPort;
 
     @Mock
@@ -82,6 +80,9 @@ class CarePlanCommandServiceTest {
 
     @Mock
     private CarePlanCompletionEventAppender carePlanCompletionEventAppender;
+
+    @Mock
+    private CarePlanConfirmedEventAppender carePlanConfirmedEventAppender;
 
     @Mock
     private ServicePreferenceCommandRepository servicePreferenceCommandRepository;
@@ -331,6 +332,9 @@ class CarePlanCommandServiceTest {
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
 
+            given(scheduleResultQueryPort.findById(serviceResultId))
+                    .willReturn(new ScheduleResultFindResult(serviceResultId, carePlanId));
+
             CarePlanCompletedEvent event = new CarePlanCompletedEvent(
                     carePlanId,
                     serviceResultId,
@@ -361,6 +365,9 @@ class CarePlanCommandServiceTest {
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
+
+            given(scheduleResultQueryPort.findById(serviceResultId))
+                    .willReturn(new ScheduleResultFindResult(serviceResultId, carePlanId));
 
             CarePlanCompletedEvent event = new CarePlanCompletedEvent(
                     carePlanId,
@@ -458,6 +465,9 @@ class CarePlanCommandServiceTest {
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
 
+            given(scheduleResultQueryPort.findById(serviceResultId))
+                    .willReturn(new ScheduleResultFindResult(serviceResultId, carePlanId));
+
             CarePlanCompletedEvent event = new CarePlanCompletedEvent(
                     carePlanId,
                     serviceResultId,
@@ -479,6 +489,9 @@ class CarePlanCommandServiceTest {
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.empty());
 
+            given(scheduleResultQueryPort.findById(serviceResultId))
+                    .willReturn(new ScheduleResultFindResult(serviceResultId, carePlanId));
+
             CarePlanCompletedEvent event = new CarePlanCompletedEvent(
                     carePlanId,
                     serviceResultId,
@@ -491,6 +504,72 @@ class CarePlanCommandServiceTest {
 
             verify(scheduleResultQueryPort).findById(serviceResultId);
             verify(carePlanCommandRepository).findById(carePlanId);
+        }
+
+        @Test
+        @DisplayName("Schedule 수행 결과의 carePlanId가 이벤트의 carePlanId와 일치하면 Care Plan 완료 처리")
+        void completeCarePlan_carePlanIdMatches_success() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+
+            given(carePlanCommandRepository.findById(carePlanId))
+                    .willReturn(Optional.of(carePlan));
+
+            given(scheduleResultQueryPort.findById(serviceResultId))
+                    .willReturn(new ScheduleResultFindResult(serviceResultId, carePlanId));
+
+            CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    carePlanId,
+                    serviceResultId,
+                    ScheduleStatus.COMPLETED
+            );
+
+            carePlanCommandService.completeCarePlan(event);
+
+            assertThat(carePlan.getStatus())
+                    .isEqualTo(CarePlanStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("Schedule 수행 결과의 carePlanId가 이벤트의 carePlanId와 다르면 예외를 던지고 Care Plan은 COMPLETED로 전이되지 않는다")
+        void completeCarePlan_carePlanIdMismatch_throwsException() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+
+            UUID otherCarePlanId = UUID.randomUUID();
+
+            given(scheduleResultQueryPort.findById(serviceResultId))
+                    .willReturn(new ScheduleResultFindResult(serviceResultId, otherCarePlanId));
+
+            CarePlanCompletedEvent event = new CarePlanCompletedEvent(
+                    carePlanId,
+                    serviceResultId,
+                    ScheduleStatus.COMPLETED
+            );
+
+            assertThatThrownBy(() ->
+                    carePlanCommandService.completeCarePlan(event)
+            ).isInstanceOf(BusinessException.class);
+
+            // carePlanId 불일치는 Care Plan을 조회하기 전에 걸러지므로
+            // carePlanCommandRepository는 아예 호출되지 않고, 완료 이벤트도 적재되지 않는다
+            verify(scheduleResultQueryPort).findById(serviceResultId);
+            verify(carePlanCommandRepository, never()).findById(any());
+            verify(carePlanCompletionEventAppender, never()).append(any());
         }
     }
 
@@ -528,7 +607,7 @@ class CarePlanCommandServiceTest {
 
             verify(carePlanCommandRepository).findById(carePlanId);
             verify(userQueryPort).findById(patientId);
-            verify(applicationEventPublisher).publishEvent(any(CarePlanConfirmedEvent.class));
+            verify(carePlanConfirmedEventAppender).append(any(CarePlanConfirmedEvent.class));
         }
 
         @Test

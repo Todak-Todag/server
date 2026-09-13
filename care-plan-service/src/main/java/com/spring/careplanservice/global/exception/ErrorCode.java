@@ -130,6 +130,11 @@ public enum ErrorCode {
             HttpStatus.BAD_REQUEST,
             "Care Plan 완료 이벤트 값이 유효하지 않습니다."
     ),
+
+    CARE_PLAN_COMPLETED_EVENT_CARE_PLAN_MISMATCH(
+            HttpStatus.BAD_REQUEST,
+            "완료 이벤트의 carePlanId와 Schedule 수행 결과의 carePlanId가 일치하지 않습니다."
+    ),
     ;
 
 

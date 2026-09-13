@@ -10,6 +10,7 @@ import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
+import com.spring.careplanservice.careplan.application.result.ScheduleResultFindResult;
 import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
@@ -21,7 +22,6 @@ import com.spring.careplanservice.global.common.UserRole;
 import com.spring.careplanservice.global.exception.BusinessException;
 import com.spring.careplanservice.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,10 +43,10 @@ public class CarePlanCommandService {
     private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
     private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
     private final ServicePreferenceCommandRepository servicePreferenceCommandRepository;
-    private final ApplicationEventPublisher applicationEventPublisher;
     private final UserQueryPort userQueryPort;
     private final ScheduleResultQueryPort scheduleResultQueryPort;
     private final CarePlanCompletionEventAppender carePlanCompletionEventAppender;
+    private final CarePlanConfirmedEventAppender carePlanConfirmedEventAppender;
 
     @Transactional
     public CarePlanCreateResult createCarePlan(
@@ -126,7 +126,7 @@ public class CarePlanCommandService {
                     userFindResult.regionId()
             );
 
-            applicationEventPublisher.publishEvent(
+            carePlanConfirmedEventAppender.append(
                     carePlanConfirmedEvent
             );
         }
@@ -172,10 +172,16 @@ public class CarePlanCommandService {
         // Schedule-Service 에서 수신한 완료 이벤트의 payload 유효성 검증
         validateCompletedEvent(carePlanCompletedEvent);
 
-        // serviceResultId가 존재하는 경우 실제 Schedule 수행 결과인지 내부 API로 검증
+        // serviceResultId가 존재하는 경우 실제 Schedule 수행 결과인지 내부 API로 검증하고,
+        // 그 수행 결과가 실제로 이 이벤트의 carePlanId에 속하는지 교차 검증한다
         if (carePlanCompletedEvent.serviceResultId() != null) {
-            scheduleResultQueryPort.findById(
+            ScheduleResultFindResult scheduleResultFindResult = scheduleResultQueryPort.findById(
                     carePlanCompletedEvent.serviceResultId()
+            );
+
+            validateCarePlanId(
+                    carePlanCompletedEvent,
+                    scheduleResultFindResult
             );
         }
 
@@ -338,6 +344,20 @@ public class CarePlanCommandService {
         if (event.serviceResultId() == null) {
             throw new BusinessException(
                     ErrorCode.CARE_PLAN_COMPLETED_EVENT_INVALID
+            );
+        }
+    }
+
+    // serviceResultId로 조회한 Schedule 수행 결과가 실제로 이 이벤트가 주장하는
+    // carePlanId에 속하는지 검증한다. 서로 다른 Care Plan의 수행 결과가 실려온 경우
+    // 완료 처리를 차단한다.
+    private void validateCarePlanId(
+            CarePlanCompletedEvent event,
+            ScheduleResultFindResult scheduleResultFindResult
+    ) {
+        if (!event.carePlanId().equals(scheduleResultFindResult.carePlanId())) {
+            throw new BusinessException(
+                    ErrorCode.CARE_PLAN_COMPLETED_EVENT_CARE_PLAN_MISMATCH
             );
         }
     }

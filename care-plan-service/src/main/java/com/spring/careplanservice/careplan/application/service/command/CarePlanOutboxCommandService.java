@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.UUID;
 
 
@@ -70,10 +71,71 @@ public class CarePlanOutboxCommandService {
 
         if (event.getStatus() == CarePlanOutboxEventStatus.FAILED) {
             log.error(
-                    "[CarePlan] Outbox 이벤트 최종 발행 실패 outboxEventId={} retryCount={}",
+                    "[CarePlan] Outbox 이벤트 최종 발행 실패 outboxEventId={} eventType={} aggregateId={} retryCount={} lastErrorMessage={}",
                     event.getId(),
-                    event.getRetryCount()
+                    event.getEventType(),
+                    event.getAggregateId(),
+                    event.getRetryCount(),
+                    event.getLastErrorMessage()
             );
         }
+    }
+
+    // Relay가 발행을 시도하기 전에 PENDING -> PROCESSING으로 선점을 시도한다.
+    // 이미 다른 인스턴스가 선점(또는 처리 완료)했다면 false를 반환한다.
+    // save() 시점에 다른 인스턴스가 먼저 선점해 @Version이 이미 바뀌어 있다면
+    // ObjectOptimisticLockingFailureException이 발생하며, 이 트랜잭션 밖(호출부)으로 전파된다.
+    @Transactional
+    public boolean claim(UUID outboxEventId) {
+        CarePlanOutboxEvent event = carePlanOutboxEventCommandRepository
+                .findById(outboxEventId)
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "존재하지 않는 CarePlan Outbox 이벤트입니다. outboxEventId="
+                                        + outboxEventId
+                        )
+                );
+
+        if (!event.isPending()) {
+            return false;
+        }
+
+        event.startProcessing();
+
+        carePlanOutboxEventCommandRepository.save(event);
+
+        return true;
+    }
+
+    // 선점(PROCESSING) 후 오래도록 방치된 이벤트를 PENDING으로 되돌려
+    // 다음 폴링에서 다시 시도할 수 있게 한다. 죽은 인스턴스가 선점한 채
+    // 영원히 멈춰 있는 상태를 방지하기 위한 유지보수 동작이다.
+    //
+    // threshold는 findStuckProcessing() 조회에 사용한 것과 동일한 값을 전달해야 한다.
+    // 조회 시점과 이 메서드 호출 시점 사이에 다른 인스턴스가 이미 복구 후 재선점했을 수 있으므로,
+    // 여기서 다시 한 번 "지금도 여전히 PROCESSING이고 threshold보다 오래되었는지"를 재검증한다.
+    @Transactional
+    public void revertStuckProcessing(UUID outboxEventId, Instant threshold) {
+        CarePlanOutboxEvent event = carePlanOutboxEventCommandRepository
+                .findById(outboxEventId)
+                .orElseThrow(() ->
+                        new IllegalStateException(
+                                "존재하지 않는 CarePlan Outbox 이벤트입니다. outboxEventId="
+                                        + outboxEventId
+                        )
+                );
+
+        if (!event.isStuckProcessing(threshold)) {
+            return;
+        }
+
+        event.revertStuckProcessing();
+
+        carePlanOutboxEventCommandRepository.save(event);
+
+        log.warn(
+                "[CarePlan] 방치된 PROCESSING Outbox 이벤트를 PENDING으로 복구 outboxEventId={}",
+                event.getId()
+        );
     }
 }

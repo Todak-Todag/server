@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
 import java.util.List;
 
 @Repository
@@ -22,6 +23,18 @@ public class CarePlanOutboxEventQueryRepositoryImpl implements CarePlanOutboxEve
     ) {
         return springDataRepository.findByStatusOrderByCreatedAtAsc(
                 status,
+                PageRequest.of(0, limit)
+        );
+    }
+
+    @Override
+    public List<CarePlanOutboxEvent> findStuckProcessing(
+            Instant updatedAtBefore,
+            int limit
+    ) {
+        return springDataRepository.findByStatusAndUpdatedAtBeforeOrderByUpdatedAtAsc(
+                CarePlanOutboxEventStatus.PROCESSING,
+                updatedAtBefore,
                 PageRequest.of(0, limit)
         );
     }
