@@ -235,7 +235,7 @@ class UserAdminApiControllerTest {
 									"""))
 					.andExpect(status().isConflict())
 					.andExpect(jsonPath("$.success").value(false))
-					.andExpect(jsonPath("$.error.errorCode").value("USER_MODIFY_STATE"));
+					.andExpect(jsonPath("$.code").value("USER_MODIFY_STATE"));
 		}
 	}
 
@@ -302,7 +302,7 @@ class UserAdminApiControllerTest {
 									}
 									"""))
 					.andExpect(status().isConflict())
-					.andExpect(jsonPath("$.error.errorCode").value("USER_SUSPEND_MODIFY_STATE"));
+					.andExpect(jsonPath("$.code").value("USER_SUSPEND_MODIFY_STATE"));
 		}
 	}
 }

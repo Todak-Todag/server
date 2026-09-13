@@ -320,7 +320,7 @@ class ConsentDocumentControllerTest {
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.success")
                             .value(false))
-                    .andExpect(jsonPath("$.error.errorCode")
+                    .andExpect(jsonPath("$.code")
                             .value("CONSENT_DOCUMENT_NOT_FOUND"));
         }
 
@@ -352,7 +352,7 @@ class ConsentDocumentControllerTest {
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.success")
                             .value(false))
-                    .andExpect(jsonPath("$.error.errorCode")
+                    .andExpect(jsonPath("$.code")
                             .value("CONSENT_DOCUMENT_ALREADY_DELETED"));
         }
     }
@@ -533,7 +533,7 @@ class ConsentDocumentControllerTest {
                                     .value(false)
                     )
                     .andExpect(
-                            jsonPath("$.error.errorCode")
+                            jsonPath("$.code")
                                     .value(
                                             "CONSENT_DOCUMENT_ALREADY_EXISTS"
                                     )
@@ -665,7 +665,7 @@ class ConsentDocumentControllerTest {
                     )
                     .andExpect(status().isNotFound())
                     .andExpect(
-                            jsonPath("$.error.errorCode")
+                            jsonPath("$.code")
                                     .value(
                                             ConsentDocumentErrorCode
                                                     .CONSENT_DOCUMENT_NOT_FOUND
@@ -710,7 +710,7 @@ class ConsentDocumentControllerTest {
                     )
                     .andExpect(status().isConflict())
                     .andExpect(
-                            jsonPath("$.error.errorCode")
+                            jsonPath("$.code")
                                     .value(
                                             ConsentDocumentErrorCode
                                                     .CONSENT_DOCUMENT_VERSION_ALREADY_EXISTS
