@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 
 import com.todak_todag.api_gateway.authentication.ClientContext;
+import com.todak_todag.api_gateway.token.InternalTokenIssuer;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
@@ -20,6 +21,10 @@ public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
   private static final String USER_ID_HEADER = "X-User-Id";
 	
 	private static final String USER_ROLE_HEADER = "X-User-Role";
+	
+	private static final String GATEWAY_TOKEN_HEADER = "X-Gateway-Token";
+	
+	private final InternalTokenIssuer tokenIssuer;
 	
 	@Override
 	public int getOrder() {
@@ -43,17 +48,7 @@ public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
 	}
 	
 	private ServerWebExchange addClientHeaders(ServerWebExchange sanitizedExchange, ClientContext clientContext) {
-		ServerHttpRequest request = sanitizedExchange.getRequest().mutate()
-				.headers(headers -> {
-					headers.set(USER_ID_HEADER, clientContext.userId());
-					
-					headers.set(USER_ROLE_HEADER, clientContext.role());
-				})
-				.build();
 		
-		return sanitizedExchange.mutate()
-				.request(request)
-				.build();
 	}
 
 	private ServerWebExchange removeClientHeaders(ServerWebExchange exchange) {
