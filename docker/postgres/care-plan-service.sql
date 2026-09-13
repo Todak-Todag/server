@@ -58,6 +58,11 @@ CREATE TABLE IF NOT EXISTS care_plan_schema.p_care_plan_service_preferences
     deleted_by            UUID
 );
 
+CREATE TYPE care_plan_schema.care_plan_outbox_event_type AS ENUM (
+    'CARE_PLAN_CONFIRMED',
+    'CARE_PLAN_COMPLETED'
+    );
+
 CREATE TYPE care_plan_schema.care_plan_outbox_event_status AS ENUM (
     'PENDING', 'SENT', 'FAILED'
     );
@@ -67,6 +72,9 @@ CREATE TABLE IF NOT EXISTS care_plan_schema.p_care_plan_outbox_events
     outbox_event_id    UUID PRIMARY KEY,
 
     aggregate_id       UUID        NOT NULL,
+
+    event_type         care_plan_schema.care_plan_outbox_event_type
+                                   NOT NULL,
 
     payload            TEXT        NOT NULL,
 

@@ -30,6 +30,11 @@ public class CarePlanOutboxEvent extends BaseAuditEntity {
     @Column(name = "aggregate_id", nullable = false, updatable = false)
     private UUID aggregateId;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "event_type", nullable = false, updatable = false)
+    private CarePlanOutboxEventType eventType;
+
     @Column(
             name = "payload",
             nullable = false,
@@ -54,9 +59,11 @@ public class CarePlanOutboxEvent extends BaseAuditEntity {
 
     private CarePlanOutboxEvent(
             UUID aggregateId,
+            CarePlanOutboxEventType eventType,
             String payload
     ) {
         this.aggregateId = aggregateId;
+        this.eventType = eventType;
         this.payload = payload;
         this.status = CarePlanOutboxEventStatus.PENDING;
         this.retryCount = 0;
@@ -64,10 +71,12 @@ public class CarePlanOutboxEvent extends BaseAuditEntity {
 
     public static CarePlanOutboxEvent create(
             UUID aggregateId,
+            CarePlanOutboxEventType eventType,
             String payload
     ) {
         return new CarePlanOutboxEvent(
                 aggregateId,
+                eventType,
                 payload
         );
     }

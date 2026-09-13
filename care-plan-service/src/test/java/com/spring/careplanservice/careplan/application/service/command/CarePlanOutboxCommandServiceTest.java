@@ -2,6 +2,7 @@ package com.spring.careplanservice.careplan.application.service.command;
 
 import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEvent;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEventStatus;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEventType;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanOutboxEventCommandRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,6 +40,7 @@ public class CarePlanOutboxCommandServiceTest {
     void markSent_success() {
         CarePlanOutboxEvent event = CarePlanOutboxEvent.create(
                 UUID.randomUUID(),
+                CarePlanOutboxEventType.CARE_PLAN_COMPLETED,
                 "{}"
         );
 
@@ -57,6 +59,7 @@ public class CarePlanOutboxCommandServiceTest {
     void recordFailure_retry() {
         CarePlanOutboxEvent event = CarePlanOutboxEvent.create(
                 UUID.randomUUID(),
+                CarePlanOutboxEventType.CARE_PLAN_COMPLETED,
                 "{}"
         );
 
@@ -79,6 +82,7 @@ public class CarePlanOutboxCommandServiceTest {
     void recordFailure_maxRetry_failed() {
         CarePlanOutboxEvent event = CarePlanOutboxEvent.create(
                 UUID.randomUUID(),
+                CarePlanOutboxEventType.CARE_PLAN_COMPLETED,
                 "{}"
         );
 

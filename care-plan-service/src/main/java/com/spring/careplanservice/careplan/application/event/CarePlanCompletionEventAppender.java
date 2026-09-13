@@ -2,6 +2,7 @@ package com.spring.careplanservice.careplan.application.event;
 
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEvent;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanOutboxEventType;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanOutboxEventCommandRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -34,6 +35,7 @@ public class CarePlanCompletionEventAppender {
         carePlanOutboxEventCommandRepository.save(
                 CarePlanOutboxEvent.create(
                         carePlan.getId(),
+                        CarePlanOutboxEventType.CARE_PLAN_COMPLETED,
                         payload
                 )
         );
