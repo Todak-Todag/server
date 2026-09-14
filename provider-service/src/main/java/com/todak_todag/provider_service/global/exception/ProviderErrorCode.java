@@ -24,9 +24,7 @@ public enum ProviderErrorCode implements ErrorCode {
     // 409
     PROVIDE_SERVICE_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 서비스 종류입니다."),
     SERVICE_OFFERING_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 제공 서비스입니다."),
-    SERVICE_OFFERING_SCHEDULE_EXISTS(HttpStatus.CONFLICT, "이미 확정된 서비스 일정이 존재해 삭제할 수 없습니다."),
     PROVIDE_WORK_TIME_OVERLAP(HttpStatus.CONFLICT, "같은 요일에 시간이 겹치는 제공 가능 일정이 이미 존재합니다."),
-    PROVIDE_WORK_SCHEDULE_EXISTS(HttpStatus.CONFLICT, "이미 확정된 서비스 일정이 존재해 변경할 수 없습니다."),
 
     // 503
     EXTERNAL_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "일시적으로 서비스를 이용할 수 없습니다. 잠시 후 다시 시도해주세요.");

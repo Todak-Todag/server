@@ -19,19 +19,6 @@ public class ScheduleAdapter implements SchedulePort {
     private final ScheduleClient scheduleClient;
 
     @Override
-    public boolean existsConfirmedSchedule(UUID serviceOfferingId) {
-        ScheduleClient.ServiceScheduleListResponse response = scheduleClient
-                .findSchedules(List.of(serviceOfferingId), LocalDate.now())
-                .data();
-
-        if (response == null || response.content() == null) {
-            throw new BusinessException(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
-        }
-
-        return !response.content().isEmpty();
-    }
-
-    @Override
     public List<ScheduleSlot> findSchedules(List<UUID> serviceOfferingIds, LocalDate startDate) {
         if (serviceOfferingIds.isEmpty()) {
             return List.of();

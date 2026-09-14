@@ -3,7 +3,6 @@ package com.todak_todag.provider_service.provider.presentation.controller.api;
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
-import com.todak_todag.provider_service.provider.application.facade.ServiceOfferingFacade;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
 import com.todak_todag.provider_service.provider.application.service.command.ProvideWorkCommandService;
@@ -26,6 +25,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 
 @Import(SecurityConfig.class)
 @WebMvcTest(ProvideWorkApiController.class)
@@ -47,9 +48,6 @@ class ProvideWorkApiControllerTest {
 
     @MockitoBean
     private ProvideWorkCommandService provideWorkCommandService;
-
-    @MockitoBean
-    private ServiceOfferingFacade serviceOfferingFacade;
 
     private String body(String day, String startedAt, String finishedAt) {
         return """
@@ -187,7 +185,7 @@ class ProvideWorkApiControllerTest {
     void update_success() throws Exception {
         UUID provideWorkId = UUID.randomUUID();
 
-        given(serviceOfferingFacade.updateProvideWork(any()))
+        given(provideWorkCommandService.update(any()))
                 .willReturn(new ProvideWorkUpdateResult(provideWorkId));
 
         mockMvc.perform(patch(UPDATE_URL, serviceOfferingId, provideWorkId)
@@ -216,7 +214,7 @@ class ProvideWorkApiControllerTest {
     @Test
     @DisplayName("존재하지 않는 제공 가능 일정이면 404")
     void update_notFound() throws Exception {
-        given(serviceOfferingFacade.updateProvideWork(any()))
+        given(provideWorkCommandService.update(any()))
                 .willThrow(new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND));
 
         mockMvc.perform(patch(UPDATE_URL, serviceOfferingId, UUID.randomUUID())
@@ -226,21 +224,6 @@ class ProvideWorkApiControllerTest {
                         .content(body("2", "14:00", "18:00")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PROVIDE_WORK_NOT_FOUND"));
-    }
-
-    @Test
-    @DisplayName("확정된 일정이 있으면 409")
-    void update_scheduleExists() throws Exception {
-        given(serviceOfferingFacade.updateProvideWork(any()))
-                .willThrow(new BusinessException(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS));
-
-        mockMvc.perform(patch(UPDATE_URL, serviceOfferingId, UUID.randomUUID())
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(body("2", "14:00", "18:00")))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("PROVIDE_WORK_SCHEDULE_EXISTS"));
     }
 
     @Test
@@ -278,7 +261,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("삭제 시 존재하지 않는 제공 가능 일정이면 404")
     void delete_notFound() throws Exception {
         doThrow(new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND))
-                .when(serviceOfferingFacade).deleteProvideWork(any());
+                .when(provideWorkCommandService).delete(any());
 
         mockMvc.perform(delete(DELETE_URL, serviceOfferingId, UUID.randomUUID())
                         .header("X-User-Id", UUID.randomUUID().toString())
@@ -288,15 +271,46 @@ class ProvideWorkApiControllerTest {
     }
 
     @Test
-    @DisplayName("삭제 시 확정된 일정이 있으면 409")
-    void delete_scheduleExists() throws Exception {
-        doThrow(new BusinessException(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS))
-                .when(serviceOfferingFacade).deleteProvideWork(any());
+    @DisplayName("시각 형식이 HH:mm이 아니면 400")
+    void create_invalidTimeFormat() throws Exception {
+        mockMvc.perform(post(BASE_URL, serviceOfferingId)
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body("1", "9시", "13:00")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    }
 
-        mockMvc.perform(delete(DELETE_URL, serviceOfferingId, UUID.randomUUID())
+    @Test
+    @DisplayName("JSON이 깨지면 400")
+    void create_brokenJson() throws Exception {
+        mockMvc.perform(post(BASE_URL, serviceOfferingId)
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"day\": 1, "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+    }
+
+    @Test
+    @DisplayName("지원하지 않는 메서드면 405")
+    void methodNotAllowed() throws Exception {
+        mockMvc.perform(put(BASE_URL, serviceOfferingId)
                         .header("X-User-Id", UUID.randomUUID().toString())
                         .header("X-User-Role", "SERVICE_PROVIDER"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("PROVIDE_WORK_SCHEDULE_EXISTS"));
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
+    }
+
+    @Test
+    @DisplayName("없는 경로면 404")
+    void notFound() throws Exception {
+        mockMvc.perform(get("/api/v1/not-exists")
+                        .header("X-User-Id", UUID.randomUUID().toString())
+                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }
 }
