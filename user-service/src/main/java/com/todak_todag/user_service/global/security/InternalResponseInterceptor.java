@@ -31,17 +31,31 @@ public class InternalResponseInterceptor implements HandlerInterceptor {
 	@Override
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 		String requestApiKey = request.getHeader(InternalHeader.INTERNAL_KEY);
-		
-		if(requestApiKey == null || requestApiKey.isBlank() || !matches(requestApiKey)) {
+
+		// 헤더 자체가 없는 것과 키가 틀린 것은 대응이 완전히 다르므로 분리해서 남긴다.
+		// 헤더 없음 : 호출 측 서비스의 설정 누락일 가능성이 높다.
+		if(requestApiKey == null || requestApiKey.isBlank()) {
 			log.warn(
-					"[User] Internal API 헤더 누락 uri={}, remoteAddr={}",
+					"[User] 내부 API 키 헤더 없이 내부 전용 경로가 호출되었습니다. uri={}, remoteAddr={}",
 					request.getRequestURI(),
 					request.getRemoteAddr()
 			);
-			
+
 			throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
 		}
-		
+
+		// 키 불일치 : 게이트웨이가 /internal/** 을 denyAll 로 막고 있으므로,
+		//            이 요청은 게이트웨이를 우회해 서비스 포트로 직접 들어온 것이다.
+		if(!matches(requestApiKey)) {
+			log.warn(
+					"[User] 잘못된 내부 API 키로 내부 전용 경로가 호출되었습니다. uri={}, remoteAddr={}",
+					request.getRequestURI(),
+					request.getRemoteAddr()
+			);
+
+			throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+		}
+
 		return true;
 	}
 	

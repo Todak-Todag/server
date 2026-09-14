@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
+import com.todak_todag.user_service.global.support.MaskingUtil;
 import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 
 import lombok.extern.slf4j.Slf4j;
@@ -55,7 +56,9 @@ public class MasterAccountInitializer implements CommandLineRunner {
 
 		userCreateService.createUserMaster(userId, username, password, name, MASTER_PHONE);
 
-		log.info("[User] 마스터 계정 확인 완료 username={}", username);
+		// 최고 권한 계정의 아이디는 자격증명의 절반이라 원본을 남기지 않는다.
+		// 설정을 잘못 넣었을 때 구분할 수 있을 만큼만 남긴다.
+		log.info("[User] 마스터 계정 확인 완료 username={}", MaskingUtil.maskUsername(username));
 	}
 
 }

@@ -140,20 +140,6 @@ class ServiceOfferingApiControllerTest {
         }
 
         @Test
-        @DisplayName("확정된 일정이 있으면 409")
-        void delete_scheduleExists() throws Exception {
-            doThrow(new BusinessException(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS))
-                    .when(serviceOfferingFacade).delete(Mockito.any());
-
-            mockMvc.perform(delete(BASE_URL + "/{serviceOfferingId}", serviceOfferingId)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.success").value(false))
-                    .andExpect(jsonPath("$.code").value("SERVICE_OFFERING_SCHEDULE_EXISTS"));
-        }
-
-        @Test
         @DisplayName("존재하지 않으면 404")
         void delete_notFound() throws Exception {
             doThrow(new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND))

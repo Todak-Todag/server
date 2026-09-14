@@ -6,13 +6,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.Map;
 
@@ -69,6 +72,25 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(CommonErrorCode.INVALID_PARAMETER));
     }
 
+    // 깨진 JSON, "HH:mm"이 아닌 시각처럼 본문을 객체로 바꾸지 못한 경우
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleNotReadable(HttpMessageNotReadableException e) {
+        log.warn("[Provider] 요청 본문 파싱 실패 message={}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.of(CommonErrorCode.INVALID_PARAMETER));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException e) {
+        log.warn("[Provider] 없는 경로 요청 path={}", e.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ErrorResponse.of(CommonErrorCode.NOT_FOUND));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException e) {
+        log.warn("[Provider] 지원하지 않는 메서드 method={}", e.getMethod());
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(ErrorResponse.of(CommonErrorCode.METHOD_NOT_ALLOWED));
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
         log.warn("[Provider] 접근 권한 없음 message={}", e.getMessage());
@@ -79,7 +101,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException e) {
         String constraintName = extractConstraintName(e);
-        ErrorCode errorCode = CONSTRAINT_ERROR_CODES.get(constraintName);
+        // Map.of는 get(null)에서 NPE를 던지므로 이름이 없으면 조회하지 않는다
+        ErrorCode errorCode = (constraintName == null) ? null : CONSTRAINT_ERROR_CODES.get(constraintName);
 
         // 매핑되지 않은 제약 위반은 예상하지 못한 상황이다
         // 409로 뭉뚱그리면 원인을 숨기게 되므로 500으로 두고 원문을 남긴다
