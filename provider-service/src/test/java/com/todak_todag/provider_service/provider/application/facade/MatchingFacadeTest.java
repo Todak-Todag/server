@@ -15,6 +15,15 @@ import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
+import com.todak_todag.provider_service.provider.domain.entity.OutboxEventType;
+import com.todak_todag.provider_service.provider.domain.entity.ProviderOutboxEvent;
+import com.todak_todag.provider_service.provider.domain.repository.query.OutboxEventQueryRepository;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
+
+import java.time.Instant;
+
+import static org.mockito.ArgumentMatchers.eq;
 import feign.FeignException;
 import feign.Request;
 import feign.Response;
@@ -67,6 +76,12 @@ class MatchingFacadeTest {
     @Mock
     private MatchingEventPort matchingEventPort;
 
+    @Mock
+    private OutboxEventQueryRepository outboxEventQueryRepository;
+
+    // 적재 결과 payload를 실제로 직렬화·역직렬화해야 해서 실제 매퍼를 쓴다
+    private final ObjectMapper objectMapper = JsonMapper.builder().build();
+
     private MatchingFacade matchingFacade;
 
     private final UUID carePlanId = UUID.randomUUID();
@@ -84,7 +99,9 @@ class MatchingFacadeTest {
                 provideWorkQueryRepository,
                 new MatchingService(),
                 schedulePort,
-                matchingEventPort
+                matchingEventPort,
+                outboxEventQueryRepository,
+                objectMapper
         );
     }
 
@@ -115,6 +132,29 @@ class MatchingFacadeTest {
 
     private CarePlanConfirmedEvent.Preference preference(UUID id, LocalDate date, TimeSlot timeSlot) {
         return new CarePlanConfirmedEvent.Preference(id, date, timeSlot);
+    }
+
+    // 이전 수신에서 이미 적재된 매칭 결과
+    private ProviderOutboxEvent matchedResult(UUID preferenceId, UUID offeringId, LocalDate date, String startedAt) {
+        ProviderMatchedEvent matched = new ProviderMatchedEvent(
+                carePlanId, regionId, preferenceId, provideServiceId,
+                offeringId, date, date.atTime(LocalTime.parse(startedAt)), Instant.now()
+        );
+
+        return ProviderOutboxEvent.of(OutboxEventType.PROVIDER_MATCHED, preferenceId, objectMapper.writeValueAsString(matched));
+    }
+
+    private ProviderOutboxEvent failedResult(UUID preferenceId, LocalDate date) {
+        ProviderMatchFailedEvent failed = new ProviderMatchFailedEvent(
+                carePlanId, regionId, preferenceId, provideServiceId,
+                date, TimeSlot.MORNING, ProviderMatchFailedEvent.NO_AVAILABLE_PROVIDER, Instant.now()
+        );
+
+        return ProviderOutboxEvent.of(OutboxEventType.PROVIDER_MATCH_FAILED, preferenceId, objectMapper.writeValueAsString(failed));
+    }
+
+    private ProviderRematchedEvent rematchEvent(UUID preferenceId, LocalDate date) {
+        return new ProviderRematchedEvent(carePlanId, regionId, provideServiceId, preferenceId, date, TimeSlot.MORNING);
     }
 
     @Test
@@ -293,7 +333,7 @@ class MatchingFacadeTest {
 
         matchingFacade.rematch(new ProviderRematchedEvent(
                 carePlanId, regionId, provideServiceId, preferenceId, THURSDAY, TimeSlot.MORNING
-        ));
+        ), false);
 
         ArgumentCaptor<ProviderMatchedEvent> captor = ArgumentCaptor.forClass(ProviderMatchedEvent.class);
         verify(matchingEventPort).publishMatched(captor.capture());
@@ -314,7 +354,7 @@ class MatchingFacadeTest {
 
         matchingFacade.rematch(new ProviderRematchedEvent(
                 carePlanId, regionId, provideServiceId, UUID.randomUUID(), THURSDAY, null
-        ));
+        ), false);
 
         ArgumentCaptor<ProviderMatchedEvent> captor = ArgumentCaptor.forClass(ProviderMatchedEvent.class);
         verify(matchingEventPort).publishMatched(captor.capture());
@@ -335,7 +375,7 @@ class MatchingFacadeTest {
 
         assertThatThrownBy(() -> matchingFacade.rematch(new ProviderRematchedEvent(
                 carePlanId, regionId, provideServiceId, UUID.randomUUID(), THURSDAY, TimeSlot.MORNING
-        )))
+        ), false))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
                 .isEqualTo(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE);
@@ -356,7 +396,7 @@ class MatchingFacadeTest {
 
         assertThatThrownBy(() -> matchingFacade.rematch(new ProviderRematchedEvent(
                 carePlanId, regionId, provideServiceId, UUID.randomUUID(), THURSDAY, TimeSlot.MORNING
-        ))).isInstanceOf(RetryableException.class);
+        ), false)).isInstanceOf(RetryableException.class);
 
         verify(matchingEventPort, never()).publishMatched(any());
         verify(matchingEventPort, never()).publishMatchFailed(any());
@@ -376,7 +416,7 @@ class MatchingFacadeTest {
 
         assertThatCode(() -> matchingFacade.rematch(new ProviderRematchedEvent(
                 carePlanId, regionId, provideServiceId, UUID.randomUUID(), THURSDAY, TimeSlot.MORNING
-        ))).doesNotThrowAnyException();
+        ), false)).doesNotThrowAnyException();
     }
 
     // 후보 제공자 1명 + 목요일 09:00~13:00 근무표
@@ -408,7 +448,7 @@ class MatchingFacadeTest {
 
         assertThatCode(() -> matchingFacade.rematch(new ProviderRematchedEvent(
                 carePlanId, regionId, provideServiceId, UUID.randomUUID(), THURSDAY, TimeSlot.MORNING
-        ))).doesNotThrowAnyException();
+        ), false)).doesNotThrowAnyException();
     }
 
     @Test
@@ -529,5 +569,76 @@ class MatchingFacadeTest {
         // 방문간호를 09:00에 배정했으므로 같은 제공자의 방문요양은 10:00으로 밀린다
         assertThat(captor.getAllValues().get(0).startedAt()).isEqualTo(THURSDAY.atTime(9, 0));
         assertThat(captor.getAllValues().get(1).startedAt()).isEqualTo(THURSDAY.atTime(10, 0));
+    }
+
+    @Test
+    @DisplayName("이미 결과가 적재된 희망 일정은 건너뛰고, 그 배정 시간을 피해 나머지를 배정한다")
+    void match_skipsProcessedPreference_andKeepsItsSlot() {
+        // 재수신 전에 첫 희망 일정만 09:00으로 적재됐고, 아직 Schedule에는 저장되지 않은 상황
+        UUID processedPreferenceId = UUID.randomUUID();
+        UUID newPreferenceId = UUID.randomUUID();
+
+        given(outboxEventQueryRepository.findAllByAggregateIdIn(any()))
+                .willReturn(List.of(matchedResult(processedPreferenceId, offeringIdA, THURSDAY, "09:00")));
+        givenMatchableCandidate();
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of());
+
+        matchingFacade.match(event(
+                preference(processedPreferenceId, THURSDAY, TimeSlot.MORNING),
+                preference(newPreferenceId, THURSDAY, TimeSlot.MORNING)
+        ));
+
+        ArgumentCaptor<ProviderMatchedEvent> captor = ArgumentCaptor.forClass(ProviderMatchedEvent.class);
+        verify(matchingEventPort, times(1)).publishMatched(captor.capture());
+
+        assertThat(captor.getValue().servicePreferenceId()).isEqualTo(newPreferenceId);
+        // 복원한 09:00 점유를 피해 10:00으로 배정된다
+        assertThat(captor.getValue().startedAt()).isEqualTo(THURSDAY.atTime(10, 0));
+    }
+
+    @Test
+    @DisplayName("재전달된 재매칭은 같은 날짜 결과가 최근 적재됐으면 건너뛴다")
+    void rematch_redelivered_recentSameDate_skips() {
+        UUID preferenceId = UUID.randomUUID();
+
+        given(outboxEventQueryRepository.findAllByAggregateIdAndCreatedAtAfter(eq(preferenceId), any()))
+                .willReturn(List.of(failedResult(preferenceId, THURSDAY)));
+
+        matchingFacade.rematch(rematchEvent(preferenceId, THURSDAY), true);
+
+        verify(schedulePort, never()).findSchedules(anyList(), any());
+        verify(matchingEventPort, never()).publishMatched(any());
+        verify(matchingEventPort, never()).publishMatchFailed(any());
+    }
+
+    @Test
+    @DisplayName("재전달된 재매칭이어도 같은 날짜 결과가 없으면 처리한다")
+    void rematch_redelivered_differentDate_processes() {
+        UUID preferenceId = UUID.randomUUID();
+
+        given(outboxEventQueryRepository.findAllByAggregateIdAndCreatedAtAfter(eq(preferenceId), any()))
+                .willReturn(List.of(failedResult(preferenceId, THURSDAY.plusDays(1))));
+        givenMatchableCandidate();
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of());
+
+        matchingFacade.rematch(rematchEvent(preferenceId, THURSDAY), true);
+
+        verify(matchingEventPort).publishMatched(any());
+    }
+
+    @Test
+    @DisplayName("재전달이 아닌 재매칭은 적재 이력을 보지 않고 처리한다")
+    void rematch_notRedelivered_ignoresHistory() {
+        // 같은 날짜로 다시 요청한 정상 재시도는 새 메시지라 그대로 처리돼야 한다
+        givenMatchableCandidate();
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of());
+
+        matchingFacade.rematch(rematchEvent(UUID.randomUUID(), THURSDAY), false);
+
+        verify(outboxEventQueryRepository, never()).findAllByAggregateIdAndCreatedAtAfter(any(), any());
+        verify(matchingEventPort).publishMatched(any());
     }
 }
