@@ -4,6 +4,7 @@ import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAt
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,6 +22,13 @@ public interface ServiceMatchingAttemptCommandRepository {
     // 케어플랜에 아직 해소되지 않은 매칭 실패가 몇 건인지 — CarePlanCompleted 발행 조건 판단용
     // "미해소" = FAILED 이력이 있는데 그 희망 일정으로 생성된 일정 레코드가 아직 하나도 없는 경우
     long countUnresolvedFailed(UUID carePlanId);
+
+    // 위 countUnresolvedFailed와 같은 대상을 실체로 조회 — 보정 스윕이 EXPIRED로 종결 처리할 대상
+    List<ServiceMatchingAttempt> findUnresolvedFailed(UUID carePlanId);
+
+    // 보정 스윕 대상 케어플랜 ID — 마지막 활동일(일정/매칭시도 date의 최댓값)이 lastActivityThreshold 이하이면서
+    // 미해소 FAILED가 남아있는 케어플랜. 한 번에 가져올 상한을 limit으로 걸게 됨
+    List<UUID> findSweepTargetCarePlanIds(LocalDate lastActivityThreshold, int limit);
 
     // 동일한 ProviderMatched를 이미 기록했는지 (중복 수신 방어용)
     // 같은 매칭 결과를 가리키는 값들의 조합을 대체 키로 사용

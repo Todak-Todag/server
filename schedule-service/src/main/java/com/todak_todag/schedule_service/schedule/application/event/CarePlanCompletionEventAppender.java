@@ -4,6 +4,7 @@ import com.todak_todag.schedule_service.schedule.application.port.CarePlanComple
 import com.todak_todag.schedule_service.schedule.application.service.command.ScheduleOutboxCommandService;
 import com.todak_todag.schedule_service.schedule.domain.entity.CarePlanServiceResult;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
+import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.CarePlanCompletionLockRepository;
 import com.todak_todag.schedule_service.schedule.domain.repository.command.CarePlanServiceResultCommandRepository;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 // CarePlanCompleted 이벤트의 "발행할지 말지"를 판단하고, 발행하기로 했다면 아웃박스에 적재
@@ -76,6 +78,45 @@ public class  CarePlanCompletionEventAppender {
         ServiceSchedule lastSchedule = serviceScheduleCommandRepository.findLastSchedule(carePlanId)
                 .orElse(handledSchedule);
 
+        append(carePlanId, lastSchedule);
+    }
+
+    // 보정 스윕(CarePlanCompletionSweepFacade)이 호출하는 진입점
+    //
+    // "이 케어플랜에서 더 일어날 일이 없다"는 판정을 호출 측 조회 조건이 맡음 — 일정/매칭시도의 마지막
+    // date로부터 유예기간이 지났는지(CarePlanCompletionSweepFacade.GRACE_PERIOD_DAYS)
+    // 즉 미해소 FAILED가 있어도 활동 기간이 끝나면 강제로 완료 처리한다는 규칙
+    //
+    // 락/멱등/적재는 실시간 경로와 같은 코드를 지나 동일한 안전장치를 통과
+    @Transactional
+    public void appendForSweep(UUID carePlanId) {
+        carePlanCompletionLockRepository.lockForCompletionCheck(carePlanId);
+
+        if (hasUnfinishedSchedule(carePlanId)) {
+            return;
+        }
+
+        if (alreadyAppended(carePlanId)) {
+            return;
+        }
+
+        // 조회 시점에는 일정이 있었어도 락을 잡는 사이 사라질 수 있어 여기서 다시 확인
+        // 실을 status가 없으므로 발행하지 않음 (조회 조건에서 이미 일정 0건 케어플랜은 제외)
+        Optional<ServiceSchedule> lastSchedule = serviceScheduleCommandRepository.findLastSchedule(carePlanId);
+        if (lastSchedule.isEmpty()) {
+            log.warn("[Schedule] 마지막 일정이 없어 보정 스윕에서 CarePlanCompleted를 건너뜁니다 carePlanId={}", carePlanId);
+            return;
+        }
+
+        // 끝내 재매칭되지 않은 실패 이력을 EXPIRED로 종결
+        expireUnresolvedFailures(carePlanId);
+
+        append(carePlanId, lastSchedule.get());
+    }
+
+    // 발행 확정 이후의 공통 처리 — 페이로드 구성부터 아웃박스 적재까지
+    // 실시간 경로와 스윕 경로가 같은 적재 코드를 타야 버그 2의 유니크 제약 처리도 한 곳에서만 관리
+    private void append(UUID carePlanId, ServiceSchedule lastSchedule) {
         // carePlanId도 페이로드 기준 일정(lastSchedule)에서 읽어와 serviceResultId/status와 출처를 일치
         CarePlanCompletedEvent event = new CarePlanCompletedEvent(
                 lastSchedule.getCarePlanId(),
@@ -104,6 +145,24 @@ public class  CarePlanCompletionEventAppender {
                 "[Schedule] CarePlanCompleted 이벤트 아웃박스 적재 carePlanId={} serviceResultId={} status={} lastServiceScheduleId={}",
                 carePlanId, event.serviceResultId(), event.status(), lastSchedule.getId()
         );
+    }
+
+    // 끝내 해소되지 않은 FAILED 이력을 EXPIRED로 전환
+    // 판정에 쓰는 countUnresolvedFailed와 같은 조건으로 조회하므로, 이 전환 이후 그 케어플랜의 미해소 실패는 0건
+    private void expireUnresolvedFailures(UUID carePlanId) {
+        List<ServiceMatchingAttempt> unresolvedFailures =
+                serviceMatchingAttemptCommandRepository.findUnresolvedFailed(carePlanId);
+
+        for (ServiceMatchingAttempt unresolvedFailure : unresolvedFailures) {
+            unresolvedFailure.expire();
+        }
+
+        if (!unresolvedFailures.isEmpty()) {
+            log.info(
+                    "[Schedule] 재매칭되지 않은 매칭 실패를 만료 처리했습니다 carePlanId={} count={}",
+                    carePlanId, unresolvedFailures.size()
+            );
+        }
     }
 
     // 페이로드에 실을 serviceResultId 결정

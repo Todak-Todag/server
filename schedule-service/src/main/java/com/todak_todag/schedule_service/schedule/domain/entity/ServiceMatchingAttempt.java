@@ -117,4 +117,14 @@ public class ServiceMatchingAttempt extends BaseAuditableEntity {
                 failedAt
         );
     }
+
+    // 재매칭이 끝내 시도되지 않은 실패 이력을 보정 스윕이 종결 처리
+    // 이 전환으로 countUnresolvedFailed 집계에서 빠져 CarePlanCompleted 판정을 더는 막지 않음
+    public void expire() {
+        if (this.status != MatchingAttemptStatus.FAILED) {
+            throw new IllegalStateException("FAILED 상태의 매칭 시도만 만료 처리할 수 있습니다.");
+        }
+
+        this.status = MatchingAttemptStatus.EXPIRED;
+    }
 }

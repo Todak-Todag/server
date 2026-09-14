@@ -78,7 +78,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_schedule_outbox_events_care_plan_completed
     WHERE event_type = 'CarePlanCompleted';
 
 CREATE TYPE schedule_schema.service_matching_attempts_status AS ENUM (
-    'MATCHED', 'FAILED'
+    'MATCHED', 'FAILED', 'EXPIRED'
 );
 
 CREATE TYPE schedule_schema.service_matching_attempts_preferred_time_slot AS ENUM (

@@ -199,6 +199,67 @@ class ServiceMatchingAttemptQueryRepositoryImplTest extends PostgresTestSupport 
     }
 
     @Nested
+    @DisplayName("status=EXPIRED 조회")
+    class expiredSearchTest {
+
+        @Test
+        void 만료_처리된_내역만_반환한다() {
+            // given
+            // 보정 스윕이 종결시킨 이력 — 일정 레코드가 없는 상태 그대로 EXPIRED로 변경
+            UUID expiredPreferenceId = UUID.randomUUID();
+            UUID stillFailedPreferenceId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceMatchingAttempt expired = persistFailedAttempt(expiredPreferenceId, date);
+            expired.expire();
+            persistFailedAttempt(stillFailedPreferenceId, date);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceMatchingAttempt> result = serviceMatchingAttemptQueryRepository.search(
+                    List.of(expiredPreferenceId, stillFailedPreferenceId),
+                    MatchingAttemptStatus.EXPIRED,
+                    false,
+                    PAGEABLE
+            );
+
+            // then
+            assertThat(result.getContent()).extracting(ServiceMatchingAttempt::getId)
+                    .containsExactly(expired.getId());
+        }
+
+        @Test
+        void 만료_처리된_내역은_FAILED_조회에서_빠진다() {
+            // given
+            // 스윕이 종결한 건이 사용자에게 계속 "재매칭 필요"로 보이지 않아야 함
+            UUID expiredPreferenceId = UUID.randomUUID();
+            UUID stillFailedPreferenceId = UUID.randomUUID();
+            LocalDate date = LocalDate.now().plusDays(1);
+
+            ServiceMatchingAttempt expired = persistFailedAttempt(expiredPreferenceId, date);
+            expired.expire();
+            ServiceMatchingAttempt stillFailed = persistFailedAttempt(stillFailedPreferenceId, date);
+
+            entityManager.flush();
+            entityManager.clear();
+
+            // when
+            Page<ServiceMatchingAttempt> result = serviceMatchingAttemptQueryRepository.search(
+                    List.of(expiredPreferenceId, stillFailedPreferenceId),
+                    MatchingAttemptStatus.FAILED,
+                    true,
+                    PAGEABLE
+            );
+
+            // then
+            assertThat(result.getContent()).extracting(ServiceMatchingAttempt::getId)
+                    .containsExactly(stillFailed.getId());
+        }
+    }
+
+    @Nested
     @DisplayName("소유권 필터링")
     class ownershipTest {
 

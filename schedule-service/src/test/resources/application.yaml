@@ -52,6 +52,11 @@ schedule:
     relay:
       enabled: false
 
+  # 보정 스윕도 테스트 중 임의로 돌지 않게 끔 — 필요한 테스트는 Facade를 직접 호출
+  care-plan:
+    completion-sweep:
+      enabled: false
+
 management:
   endpoints:
     web:

@@ -45,6 +45,19 @@ class MatchingAttemptSearchQueryTest {
         }
 
         @Test
+        void EXPIRED도_조회_가능한_필터로_그대로_사용한다() {
+            // given
+            UUID userId = UUID.randomUUID();
+
+            // when
+            MatchingAttemptSearchQuery query =
+                    MatchingAttemptSearchQuery.of(userId, MatchingAttemptStatus.EXPIRED, PAGEABLE);
+
+            // then
+            assertThat(query.status()).isEqualTo(MatchingAttemptStatus.EXPIRED);
+        }
+
+        @Test
         void userId와_pageable은_그대로_전달된다() {
             // given
             UUID userId = UUID.randomUUID();
@@ -87,6 +100,20 @@ class MatchingAttemptSearchQueryTest {
 
             // then
             assertThat(excludeAlreadyScheduled).isTrue();
+        }
+
+        @Test
+        void EXPIRED_조회면_일정_미생성_조건을_적용하지_않는다() {
+            // given
+            // EXPIRED는 보정 스윕이 종결시킨 시점에 이미 결말난 이력이라 "해소된 실패"를 감출 이유가 없다
+            MatchingAttemptSearchQuery query =
+                    MatchingAttemptSearchQuery.of(UUID.randomUUID(), MatchingAttemptStatus.EXPIRED, PAGEABLE);
+
+            // when
+            boolean excludeAlreadyScheduled = query.excludeAlreadyScheduled();
+
+            // then
+            assertThat(excludeAlreadyScheduled).isFalse();
         }
 
         @Test
