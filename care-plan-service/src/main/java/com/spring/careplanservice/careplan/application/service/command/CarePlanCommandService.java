@@ -4,12 +4,17 @@ package com.spring.careplanservice.careplan.application.service.command;
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
-import com.spring.careplanservice.careplan.application.event.*;
+import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
+import com.spring.careplanservice.careplan.application.event.CarePlanCompletionEventAppender;
+import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEventAppender;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.application.result.ScheduleResultFindResult;
+import com.spring.careplanservice.careplan.application.support.CarePlanCompletedEventValidator;
+import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
@@ -46,6 +51,9 @@ public class CarePlanCommandService {
     private final ScheduleResultQueryPort scheduleResultQueryPort;
     private final CarePlanCompletionEventAppender carePlanCompletionEventAppender;
     private final CarePlanConfirmedEventAppender carePlanConfirmedEventAppender;
+
+    private final CarePlanCompletedEventValidator carePlanCompletedEventValidator;
+    private final CarePlanOwnerValidator carePlanOwnerValidator;
 
     @Transactional
     public CarePlanCreateResult createCarePlan(
@@ -175,7 +183,9 @@ public class CarePlanCommandService {
             CarePlanCompletedEvent carePlanCompletedEvent
     ) {
         // Schedule-Service 에서 수신한 완료 이벤트의 payload 유효성 검증
-        validateCompletedEvent(carePlanCompletedEvent);
+        carePlanCompletedEventValidator.validatePayload(
+                carePlanCompletedEvent
+        );
 
         // serviceResultId가 존재하는 경우 실제 Schedule 수행 결과인지 내부 API로 검증하고,
         // 그 수행 결과가 실제로 이 이벤트의 carePlanId에 속하는지 교차 검증한다
@@ -184,7 +194,7 @@ public class CarePlanCommandService {
                     carePlanCompletedEvent.serviceResultId()
             );
 
-            validateCarePlanId(
+            carePlanCompletedEventValidator.validateCarePlanId(
                     carePlanCompletedEvent,
                     scheduleResultFindResult
             );
@@ -248,11 +258,10 @@ public class CarePlanCommandService {
     private void validateRequester(
             CarePlanCreateCommand carePlanCreateCommand
     ) {
-        if (carePlanCreateCommand.userRole() == UserRole.PATIENT
-                && !carePlanCreateCommand.userId().equals(carePlanCreateCommand.patientId())) {
-
-            throw new BusinessException(
-                    ErrorCode.AUTH_FORBIDDEN
+        if (carePlanCreateCommand.userRole() == UserRole.PATIENT) {
+            carePlanOwnerValidator.validate(
+                    carePlanCreateCommand.userId(),
+                    carePlanCreateCommand.patientId()
             );
         }
     }
@@ -323,35 +332,6 @@ public class CarePlanCommandService {
                     );
                 })
                 .toList();
-    }
-
-    // TODO : validate 분리 시급
-    private void validateCompletedEvent(
-            CarePlanCompletedEvent event
-    ) {
-        if (event.status() == ScheduleStatus.CANCELED) {
-            return;
-        }
-
-        if (event.serviceResultId() == null) {
-            throw new BusinessException(
-                    ErrorCode.CARE_PLAN_COMPLETED_EVENT_INVALID
-            );
-        }
-    }
-
-    // serviceResultId로 조회한 Schedule 수행 결과가 실제로 이 이벤트가 주장하는
-    // carePlanId에 속하는지 검증한다. 서로 다른 Care Plan의 수행 결과가 실려온 경우
-    // 완료 처리를 차단한다.
-    private void validateCarePlanId(
-            CarePlanCompletedEvent event,
-            ScheduleResultFindResult scheduleResultFindResult
-    ) {
-        if (!event.carePlanId().equals(scheduleResultFindResult.carePlanId())) {
-            throw new BusinessException(
-                    ErrorCode.CARE_PLAN_COMPLETED_EVENT_CARE_PLAN_MISMATCH
-            );
-        }
     }
 
     private void validateStatusUpdateRole(

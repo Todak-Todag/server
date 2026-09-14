@@ -7,6 +7,8 @@ import com.spring.careplanservice.careplan.application.event.*;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.*;
+import com.spring.careplanservice.careplan.application.support.CarePlanCompletedEventValidator;
+import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
@@ -19,10 +21,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -78,6 +77,12 @@ class CarePlanCommandServiceTest {
 
     @Mock
     private ServicePreferenceCommandRepository servicePreferenceCommandRepository;
+
+    @Spy
+    private CarePlanCompletedEventValidator carePlanCompletedEventValidator = new CarePlanCompletedEventValidator();
+
+    @Spy
+    private CarePlanOwnerValidator carePlanOwnerValidator = new CarePlanOwnerValidator();
 
     @Nested
     @DisplayName("Care Plan 생성")
