@@ -381,9 +381,5 @@ public class CarePlanCommandService {
                 && userRole != UserRole.SERVICE_PROVIDER) {
             throw new BusinessException(ErrorCode.AUTH_FORBIDDEN);
         }
-
-        if (nextStatus == CarePlanStatus.COMPLETED) {
-            throw new BusinessException(ErrorCode.CARE_PLAN_BAD_REQUEST);
-        }
     }
 }

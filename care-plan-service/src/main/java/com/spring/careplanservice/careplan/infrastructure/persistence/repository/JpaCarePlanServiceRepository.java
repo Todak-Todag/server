@@ -12,10 +12,9 @@ import java.util.UUID;
 public interface JpaCarePlanServiceRepository extends JpaRepository<CarePlanService, UUID> {
     Optional<CarePlanService> findByIdAndDeletedAtIsNull(UUID id);
 
-    boolean existsByCarePlanIdAndProvideServiceIdAndCreatedByAndDeletedAtIsNull(
+    boolean existsByCarePlanIdAndProvideServiceIdAndDeletedAtIsNull(
             UUID carePlanId,
-            UUID provideServiceId,
-            UUID createdBy
+            UUID provideServiceId
     );
 
     List<CarePlanService> findAllByCarePlanIdAndDeletedAtIsNull(

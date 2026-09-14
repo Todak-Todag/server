@@ -81,10 +81,9 @@ class CarePlanServiceCommandServiceTest {
             );
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
-            given(carePlanServiceCommandRepository.existsByCarePlanIdAndProvideServiceIdAndCreatedBy(
+            given(carePlanServiceCommandRepository.existsByCarePlanIdAndProvideServiceId(
                     carePlanId,
-                    provideServiceId,
-                    patientId
+                    provideServiceId
             )).willReturn(false);
             given(carePlanServiceCommandRepository.save(any(CarePlanService.class))).willAnswer(invocation -> invocation.getArgument(0));
 
@@ -160,13 +159,42 @@ class CarePlanServiceCommandServiceTest {
             );
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
-            given(carePlanServiceCommandRepository.existsByCarePlanIdAndProvideServiceIdAndCreatedBy(
+            given(carePlanServiceCommandRepository.existsByCarePlanIdAndProvideServiceId(
                     carePlanId,
-                    provideServiceId,
-                    patientId
+                    provideServiceId
             )).willReturn(true);
 
             assertThatThrownBy(() -> carePlanServiceCommandService.selectCarePlanService(carePlanServiceSelectCommand))
+                    .isInstanceOf(BusinessException.class);
+
+            verify(carePlanServiceCommandRepository, never()).save(any(CarePlanService.class));
+        }
+
+        @Test
+        @DisplayName("Care Plan이 UNDER_REVIEW 상태가 아니면 서비스 선택 불가")
+        void selectCarePlanService_notUnderReview() {
+            CarePlanServiceSelectCommand command =
+                    new CarePlanServiceSelectCommand(
+                            patientId,
+                            carePlanId,
+                            provideServiceId
+                    );
+
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 2),
+                    LocalDate.of(2026, 10, 1),
+                    null
+            );
+
+            carePlan.updateStatus(
+                    CarePlanStatus.CONFIRMED
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> carePlanServiceCommandService.selectCarePlanService(command))
                     .isInstanceOf(BusinessException.class);
 
             verify(carePlanServiceCommandRepository, never()).save(any(CarePlanService.class));

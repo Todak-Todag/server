@@ -11,10 +11,9 @@ public interface CarePlanServiceCommandRepository {
 
     List<CarePlanService> saveAll(List<CarePlanService> carePlanServices);
 
-    boolean existsByCarePlanIdAndProvideServiceIdAndCreatedBy(
+    boolean existsByCarePlanIdAndProvideServiceId(
             UUID carePlanId,
-            UUID provideServiceId,
-            UUID createdBy
+            UUID provideServiceId
     );
 
     List<CarePlanService> findAllByCarePlanId(UUID carePlanId);
