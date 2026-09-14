@@ -1,5 +1,6 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import static com.todak_todag.user_service.support.AuthenticatedRequestSupport.asUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -92,8 +93,7 @@ class UserApiControllerTest {
 
 			// when & then
 			mockMvc.perform(get(URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT"))
+					.with(asUser(USER_ID, UserRole.PATIENT)))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.success").value(true))
 					.andExpect(jsonPath("$.code").value(200))
@@ -115,8 +115,7 @@ class UserApiControllerTest {
 
 			// when & then
 			mockMvc.perform(get(URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT"))
+							.with(asUser(USER_ID, UserRole.PATIENT)))
 					.andExpect(status().isNotFound())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value("REGION_NOT_FOUND"));
@@ -140,8 +139,7 @@ class UserApiControllerTest {
 
 			// when & then
 			mockMvc.perform(get(URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "MASTER"))
+							.with(asUser(USER_ID, UserRole.MASTER)))
 					.andExpect(status().isOk())
 					.andExpect(jsonPath("$.data.province").doesNotExist())
 					.andExpect(jsonPath("$.data.district").doesNotExist())
@@ -167,8 +165,7 @@ class UserApiControllerTest {
 
 			// when & then
 			mockMvc.perform(get(URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT"))
+							.with(asUser(USER_ID, UserRole.PATIENT)))
 					.andExpect(status().isNotFound())
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
@@ -197,8 +194,7 @@ class UserApiControllerTest {
 		void createPatientTest_fail_forbiddenRole() throws Exception {
 			// when & then
 			mockMvc.perform(post(PATIENT_URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", UserRole.PATIENT.name())
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content(VALID_BODY))
 					.andExpect(status().isForbidden())
@@ -223,8 +219,7 @@ class UserApiControllerTest {
 
 			// when & then
 			mockMvc.perform(patch(PASSWORD_URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -243,8 +238,7 @@ class UserApiControllerTest {
 		void passwordUpdateTest_fail_invalidPattern() throws Exception {
 			// when & then
 			mockMvc.perform(patch(PASSWORD_URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -262,8 +256,7 @@ class UserApiControllerTest {
 		void passwordUpdateTest_fail_blankCurrentPassword() throws Exception {
 			// when & then
 			mockMvc.perform(patch(PASSWORD_URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -302,8 +295,7 @@ class UserApiControllerTest {
 
 			// when & then
 			mockMvc.perform(patch(PASSWORD_URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -324,8 +316,7 @@ class UserApiControllerTest {
 
 			// when
 			mockMvc.perform(patch(PASSWORD_URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -349,8 +340,7 @@ class UserApiControllerTest {
 
 			// when
 			mockMvc.perform(patch(PASSWORD_URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -378,8 +368,7 @@ class UserApiControllerTest {
 
 			// when
 			mockMvc.perform(patch(PASSWORD_URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -406,8 +395,7 @@ class UserApiControllerTest {
 
 			// when & then
 			mockMvc.perform(delete(URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -429,8 +417,7 @@ class UserApiControllerTest {
 
 			// when
 			mockMvc.perform(delete(URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -448,8 +435,7 @@ class UserApiControllerTest {
 		void userDeleteTest_fail_blankCurrentPassword() throws Exception {
 			// when & then
 			mockMvc.perform(delete(URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -486,8 +472,7 @@ class UserApiControllerTest {
 
 			// when & then
 			mockMvc.perform(delete(URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -510,8 +495,7 @@ class UserApiControllerTest {
 
 			// when & then
 			mockMvc.perform(delete(URI)
-							.header("X-User-Id", USER_ID.toString())
-							.header("X-User-Role", "PATIENT")
+							.with(asUser(USER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
