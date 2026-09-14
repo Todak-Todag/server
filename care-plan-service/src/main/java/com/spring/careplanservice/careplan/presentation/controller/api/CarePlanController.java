@@ -12,7 +12,6 @@ import com.spring.careplanservice.careplan.application.result.CarePlanSearchResu
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
 import com.spring.careplanservice.careplan.application.service.query.CarePlanQueryService;
-import com.spring.careplanservice.careplan.application.service.query.ServicePreferenceQueryService;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanCreateRequest;
 import com.spring.careplanservice.careplan.presentation.request.CarePlanStatusUpdateRequest;
@@ -141,7 +140,9 @@ public class CarePlanController implements CarePlanApiSpec {
                 carePlanId
         );
 
-        CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand);
+        CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanFacade.updateCarePlanStatus(
+                carePlanStatusUpdateCommand
+        );
 
         return ResponseEntity.ok(
                 ApiResponse.success(
