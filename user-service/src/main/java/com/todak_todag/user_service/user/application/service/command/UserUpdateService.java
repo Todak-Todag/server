@@ -26,7 +26,9 @@ import com.todak_todag.user_service.user.domain.repository.query.AuthQueryReposi
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
@@ -49,6 +51,11 @@ public class UserUpdateService {
 		
 		// 2. 현재 비밀번호 검증
 		if(!passwordEncoder.matches(command.currentPassword(), user.getPasswordHash())) {
+			log.warn(
+					"[User] 현재 비밀번호와 일치하지 않은 회원탈퇴 요청이 들어왔습니다. userId={}",
+					user.getId()
+			);
+
 			throw new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
 		}
 		
@@ -61,19 +68,32 @@ public class UserUpdateService {
 		
 		if(loginSession != null) {
 			loginSession.logout();
+		} else {
+			log.warn(
+					"[User] 회원탈퇴 요청자의 현재 로그인 세션이 존재하지 않습니다. userId={}",
+					user.getId()
+			);
 		}
 		
 		// 5. 저장된 액세스 토큰 삭제
 		tokenStorePort.revokeAllSessions(user.getId());
+
+		log.info("[User] 회원탈퇴 완료 userId={}", user.getId());
 	}
 	
 	public UserUpdateResult userUpdate(UserUpdateCommand command) {
 		// 0. regionId가 넘어오지 않았는데 address 가 존재하는 경우 빠른 실패 시키기 위해 Validator 밖에서 처리
+		
 		//    공백 문자열은 changeMyInfo / AddressValidator 와 동일하게 '미입력' 으로 취급한다.
 		if(command.regionId() == null
 				&& command.address() != null
 				&& !command.address().isBlank()
 		) {
+			log.info(
+					"[User] 지역 정보 없이 주소만 담긴 회원정보 변경이 시도되었습니다. userId={}",
+					command.requesterId()
+			);
+
 			throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION);
 		}
 		
@@ -93,7 +113,13 @@ public class UserUpdateService {
 				command.regionId(),
 				command.address()
 		);
-		
+
+		log.info(
+				"[User] 회원정보 변경 완료 userId={}, regionId={}",
+				user.getId(),
+				user.getRegionId()
+		);
+
 		return new UserUpdateResult(
 				user.getId(),
 				user.getName(),
@@ -111,6 +137,11 @@ public class UserUpdateService {
 		// 2. 기존 비번과 새 비번 일치 검증
 		String currentPasswordHash = user.getPasswordHash();
 		if(!passwordEncoder.matches(command.currentPassword(), currentPasswordHash)) {
+			log.warn(
+					"[User] 기존 비밀번호와 일치하지 않은 비밀번호 변경 요청이 들어왔습니다. userId={}",
+					command.requesterId()
+			);
+
 			throw new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
 		}
 		
@@ -127,11 +158,18 @@ public class UserUpdateService {
 		// 6. 로그인 세션을 만료 시킨다.
 		if(loginSession != null) {
 			loginSession.logout();
+		} else {
+			log.warn(
+					"[User] 비밀번호 변경 요청 사용자의 현재 로그인 세션이 존재하지 않습니다. userId={}",
+					command.requesterId()
+			);
 		}
-		
+
 		// 7. 로그인 세션을 만료 시킨 후 Redis 에도 반영한다.
 		tokenStorePort.revokeAllSessions(user.getId());
-		
+
+		log.info("[User] 비밀번호 변경 완료 userId={}", user.getId());
+
 		return user.getId();
 	}
 	
@@ -153,13 +191,27 @@ public class UserUpdateService {
 
 			// 2-3. 지역이 다르면 권한이 없다.
 			if(!Objects.equals(admin.getRegionId(), target.getRegionId())) {
+				log.warn(
+						"[User] 회원가입 승인/거절 시 운영자 지역 권한 밖의 요청이 들어왔습니다. adminUserId={}, targetUserId={}",
+						command.requesterId(),
+						target.getId()
+				);
+
 				throw new BusinessException(CommonErrorCode.AUTH_FORBIDDEN);
 			}
 		}
-		
+
 		// 3. 대상 유저에게 승인 또는 거절한다.
 		target.approvalOrReject(command.accept(), command.rejectReason());
-		
+
+		log.info(
+				"[User] 회원가입 승인/거절 처리 완료 targetUserId={}, requesterId={}, requesterRole={}, accept={}",
+				target.getId(),
+				command.requesterId(),
+				requesterRole,
+				command.accept()
+		);
+
 		return new UserApprovalResult(
 				target.getId(),
 				target.getRole(),
@@ -178,6 +230,12 @@ public class UserUpdateService {
 		
 		// 4. 3번 IF문을 안타면 MASTER 이며 일시 정지를 진행한다.
 		if(!user.isApprove()) {
+			log.info(
+					"[User] 이미 이용 가능 상태가 아닌 사용자에 대한 정지가 시도되었습니다. targetUserId={}, status={}",
+					user.getId(),
+					user.getStatus()
+			);
+
 			throw new BusinessException(UserErrorCode.USER_SUSPEND_MODIFY_STATE);
 		}
 		
@@ -186,6 +244,12 @@ public class UserUpdateService {
 			
 			// 3-1. ADMIN 은 ADMIN 을 정지시킬 수 없다.
 			if(Objects.equals(user.getRole(), UserRole.ADMIN)) {
+				log.warn(
+						"[User] 운영자가 다른 운영자의 정지를 시도했습니다. adminUserId={}, targetUserId={}",
+						command.requesterId(),
+						user.getId()
+				);
+
 				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
 			}
 			
@@ -194,6 +258,12 @@ public class UserUpdateService {
 					.orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST));
 			
 			if(!Objects.equals(user.getRegionId(), requesterAdmin.getRegionId())) {
+				log.warn(
+						"[User] 운영자가 담당 지역 밖 사용자의 정지를 시도했습니다. adminUserId={}, targetUserId={}",
+						command.requesterId(),
+						user.getId()
+				);
+
 				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
 			}
 		}
@@ -211,7 +281,14 @@ public class UserUpdateService {
 		
 		// 6. Redis 에 저장된 대상 사용자의 AccessToken 전체 무효화
 		tokenStorePort.revokeAllSessions(user.getId());
-		
+
+		log.info(
+				"[User] 사용자 정지 완료 targetUserId={}, requesterId={}, requesterRole={}",
+				user.getId(),
+				command.requesterId(),
+				requesterRole
+		);
+
 		return user.getId();
 	}
 	
