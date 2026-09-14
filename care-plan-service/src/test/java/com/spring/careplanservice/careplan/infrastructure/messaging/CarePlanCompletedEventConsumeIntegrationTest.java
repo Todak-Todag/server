@@ -72,8 +72,8 @@ class CarePlanCompletedEventConsumeIntegrationTest extends IntegrationTestSuppor
                 "방문간호 필요"
         );
 
-        carePlan.updateStatus(CarePlanStatus.CONFIRMED);
-        carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+        carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+        carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
         CarePlan savedCarePlan = carePlanCommandRepository.save(carePlan);
 
@@ -155,8 +155,8 @@ class CarePlanCompletedEventConsumeIntegrationTest extends IntegrationTestSuppor
                 "방문간호 필요"
         );
 
-        carePlan.updateStatus(CarePlanStatus.CONFIRMED);
-        carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+        carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+        carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
         CarePlan savedCarePlan = carePlanCommandRepository.save(carePlan);
 
@@ -193,8 +193,8 @@ class CarePlanCompletedEventConsumeIntegrationTest extends IntegrationTestSuppor
                 "방문간호 필요"
         );
 
-        carePlan.updateStatus(CarePlanStatus.CONFIRMED);
-        carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+        carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+        carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
         CarePlan savedCarePlan = carePlanCommandRepository.save(carePlan);
 

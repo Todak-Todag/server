@@ -319,7 +319,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -353,7 +354,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -387,7 +389,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -452,7 +455,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -509,7 +513,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -540,7 +545,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             UUID otherCarePlanId = UUID.randomUUID();
 
@@ -611,10 +617,7 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(
-                    CarePlanStatus.CONFIRMED
-            );
-
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
             CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
                     userId,
                     UserRole.SERVICE_PROVIDER,
@@ -677,9 +680,7 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(
-                    CarePlanStatus.CONFIRMED
-            );
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
 
             CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
                     userId,
@@ -711,9 +712,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(
-                    CarePlanStatus.IN_PROGRESS
-            );
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
                     userId,
@@ -829,7 +829,8 @@ class CarePlanCommandServiceTest {
                     LocalDate.of(2026, 9, 30),
                     null
             );
-            carePlan.updateStatus(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             CarePlanDeleteCommand carePlanDeleteCommand = new CarePlanDeleteCommand(
                     userId,

@@ -188,7 +188,7 @@ class CarePlanServiceCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(
+            carePlan.transitionTo(
                     CarePlanStatus.CONFIRMED
             );
 
@@ -357,7 +357,7 @@ class CarePlanServiceCommandServiceTest {
                     LocalDate.of(2026, 10, 1),
                     null
             );
-            carePlan.updateStatus(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
 
             CarePlanServiceCancelCommand command = new CarePlanServiceCancelCommand(
                     patientId,
