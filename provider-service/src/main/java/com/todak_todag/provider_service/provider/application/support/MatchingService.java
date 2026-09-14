@@ -29,6 +29,11 @@ public class MatchingService {
     // 제공자가 이미 배정받은 시간 구간
     // 한 제공자가 여러 서비스 종류를 제공할 수 있어, 겹침과 부하는 제공 서비스가 아니라 제공자 단위로 본다
     public record OccupiedSlot(UUID providerId, LocalDate date, LocalTime startedAt, LocalTime finishedAt) {
+
+        // 적재된 매칭 결과처럼 시작 시각만 아는 경우
+        public static OccupiedSlot startingAt(UUID providerId, LocalDate date, LocalTime startedAt) {
+            return new OccupiedSlot(providerId, date, startedAt, startedAt.plusHours(SERVICE_HOURS));
+        }
     }
 
     private record Candidate(UUID serviceOfferingId, UUID providerId, LocalTime startedAt, long scheduleCount) {
