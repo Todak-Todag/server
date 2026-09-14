@@ -6,13 +6,14 @@ import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCom
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.event.*;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
-import com.spring.careplanservice.careplan.application.port.UserQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
 import com.spring.careplanservice.careplan.application.result.ScheduleResultFindResult;
-import com.spring.careplanservice.careplan.application.result.UserFindResult;
-import com.spring.careplanservice.careplan.domain.entity.*;
+import com.spring.careplanservice.careplan.domain.entity.CarePlan;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanServicePreference;
+import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.ServicePreferenceCommandRepository;
@@ -25,7 +26,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +43,6 @@ public class CarePlanCommandService {
     private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
     private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
     private final ServicePreferenceCommandRepository servicePreferenceCommandRepository;
-    private final UserQueryPort userQueryPort;
     private final ScheduleResultQueryPort scheduleResultQueryPort;
     private final CarePlanCompletionEventAppender carePlanCompletionEventAppender;
     private final CarePlanConfirmedEventAppender carePlanConfirmedEventAppender;
@@ -97,12 +96,17 @@ public class CarePlanCommandService {
 
     @Transactional
     public CarePlanStatusUpdateResult updateCarePlanStatus(
-            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand
+            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand,
+            UUID regionId
     ) {
+        // 외부 호출과 실제 상태 변경 사이에 Care Plan 상태가 변경될 수 있으므로
+        // 쓰기 트랜잭션 진입 후 Care Plan을 다시 조회한다.
         CarePlan carePlan = carePlanCommandRepository
                 .findById(carePlanStatusUpdateCommand.carePlanId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.CARE_PLAN_NOT_FOUND));
 
+        // 외부 호출 전에 조회했던 상태를 신뢰하지 않고,
+        // 실제 변경 직전에 현재 상태 기준으로 상태 전이를 다시 검증한다.
         validateStatusTransition(
                 carePlan,
                 carePlanStatusUpdateCommand.status()
@@ -117,15 +121,15 @@ public class CarePlanCommandService {
         );
 
         if (carePlan.getStatus() == CarePlanStatus.CONFIRMED) {
-            UserFindResult userFindResult = userQueryPort.findById(
-                    carePlan.getPatientId()
-            );
-
+            // User Service에서 조회한 regionId를 사용해 Confirmed 이벤트를 구성한다.
+            // 외부 호출 자체는 이미 트랜잭션 진입 전에 완료된 상태다.
             CarePlanConfirmedEvent carePlanConfirmedEvent = createCarePlanConfirmedEvent(
                     carePlan.getId(),
-                    userFindResult.regionId()
+                    regionId
             );
 
+            // 상태 변경과 Outbox 저장을 동일 트랜잭션으로 처리해
+            // DB 상태 변경과 이벤트 발행 준비 데이터의 원자성을 유지한다.
             carePlanConfirmedEventAppender.append(
                     carePlanConfirmedEvent
             );

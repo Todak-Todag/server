@@ -82,6 +82,20 @@ public class CarePlanQueryService {
         return CarePlanFindResult.from(carePlan);
     }
 
+    public UUID findPatientId(
+            UUID carePlanId
+    ) {
+        // CONFIRMED 상태 변경 전 외부 User Service 조회에 필요한 patientId만 가져온다.
+        // 실제 상태 변경 시에는 CommandService 에서 Care Plan을 다시 조회하고 검증한다.
+        CarePlan carePlan = carePlanQueryRepository
+                .findById(
+                        carePlanId
+                )
+                .orElseThrow(this::carePlanIdNotFound);
+
+        return carePlan.getPatientId();
+    }
+
     public Page<CarePlanSearchResult> searchCarePlan(
             CarePlanSearchQuery carePlanSearchQuery
     ) {

@@ -5,9 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
+import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEventAppender;
 import com.spring.careplanservice.careplan.application.port.CarePlanConfirmedEventPort;
-import com.spring.careplanservice.careplan.application.port.UserQueryPort;
-import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
 import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
@@ -26,7 +25,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -34,7 +33,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.BDDMockito.given;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSupport {
     /*
@@ -75,8 +75,8 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
     @Autowired
     private AmqpAdmin amqpAdmin;
 
-    @MockitoBean
-    private UserQueryPort userQueryPort;
+    @MockitoSpyBean
+    private CarePlanConfirmedEventAppender carePlanConfirmedEventAppender;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -101,7 +101,6 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
     void carePlanConfirmedOutboxEvent_created_success() throws Exception {
         CarePlan savedCarePlan = createUnderReviewCarePlanWithService();
 
-        given(userQueryPort.findById(patientId)).willReturn(new UserFindResult(patientId, UserRole.PATIENT, regionId));
 
         CarePlanStatusUpdateCommand command = new CarePlanStatusUpdateCommand(
                 userId,
@@ -110,7 +109,10 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
                 CarePlanStatus.CONFIRMED
         );
 
-        carePlanCommandService.updateCarePlanStatus(command);
+        carePlanCommandService.updateCarePlanStatus(
+                command,
+                regionId
+        );
 
         CarePlan updatedCarePlan = carePlanCommandRepository.findById(savedCarePlan.getId()).orElseThrow();
         assertThat(updatedCarePlan.getStatus()).isEqualTo(CarePlanStatus.CONFIRMED);
@@ -126,11 +128,9 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
     }
 
     @Test
-    @DisplayName("CONFIRMED 처리 도중 예외가 발생하면 Care Plan 상태 변경과 Outbox 적재가 함께 롤백된다")
+    @DisplayName("CONFIRMED 처리 중 예외가 발생하면 Care Plan 상태 변경과 Outbox 적재가 함께 롤백된다")
     void updateCarePlanStatus_rollsBackTogetherWithOutbox_whenTransactionFails() {
         CarePlan savedCarePlan = createUnderReviewCarePlanWithService();
-
-        given(userQueryPort.findById(patientId)).willThrow(new RuntimeException("user-service 호출 실패"));
 
         CarePlanStatusUpdateCommand command = new CarePlanStatusUpdateCommand(
                 userId,
@@ -139,14 +139,29 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
                 CarePlanStatus.CONFIRMED
         );
 
-        assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(command))
-                .isInstanceOf(RuntimeException.class);
+        // 실제 Outbox 저장 로직까지 수행한 뒤 예외를 발생시켜
+        // 동일 트랜잭션의 상태 변경과 Outbox 적재가 함께 롤백되는지 검증한다.
+        doAnswer(invocation -> {
+            invocation.callRealMethod();
+            throw new RuntimeException("Outbox 적재 후 테스트 예외");
+        }).when(carePlanConfirmedEventAppender).append(any(CarePlanConfirmedEvent.class));
 
-        CarePlan carePlanAfterFailure = carePlanCommandRepository.findById(savedCarePlan.getId()).orElseThrow();
+        assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
+                command,
+                regionId
+        )).isInstanceOf(RuntimeException.class);
+        CarePlan carePlanAfterFailure = carePlanCommandRepository
+                .findById(savedCarePlan.getId())
+                .orElseThrow();
+
         assertThat(carePlanAfterFailure.getStatus()).isEqualTo(CarePlanStatus.UNDER_REVIEW);
 
-        boolean outboxEventCreated = springDataCarePlanOutboxEventRepository.findAll().stream()
-                .anyMatch(event -> event.getAggregateId().equals(savedCarePlan.getId()));
+        boolean outboxEventCreated = springDataCarePlanOutboxEventRepository
+                .findAll()
+                .stream()
+                .anyMatch(event ->
+                        event.getAggregateId().equals(savedCarePlan.getId())
+                );
 
         assertThat(outboxEventCreated).isFalse();
     }
