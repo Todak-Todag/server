@@ -811,6 +811,11 @@ class CarePlanCommandServiceTest {
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
 
+            assertThatThrownBy(() -> carePlanCommandService.deleteCarePlan(carePlanDeleteCommand
+            )).isInstanceOf(BusinessException.class);
+
+            verify(carePlanCommandRepository).findById(carePlanId);
+
             verify(carePlanServiceCommandRepository, never()).findAllByCarePlanId(any(UUID.class));
         }
 
