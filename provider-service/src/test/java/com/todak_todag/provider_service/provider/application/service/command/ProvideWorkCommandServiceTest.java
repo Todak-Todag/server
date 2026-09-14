@@ -11,7 +11,7 @@ import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ProvideWorkCommandRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
-import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
+import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -53,7 +53,7 @@ class ProvideWorkCommandServiceTest {
     private ProvideWorkQueryRepository provideWorkQueryRepository;
 
     @Mock
-    private ServiceOfferingQueryRepository serviceOfferingQueryRepository;
+    private ServiceOfferingCommandRepository serviceOfferingCommandRepository;
 
     @InjectMocks
     private ProvideWorkCommandService provideWorkCommandService;
@@ -99,7 +99,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = ownedOffering();
             ProvideWork saved = savedProvideWork();
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId)).willReturn(List.of());
             given(provideWorkCommandRepository.save(any(ProvideWork.class))).willReturn(saved);
 
@@ -117,7 +117,7 @@ class ProvideWorkCommandServiceTest {
             ProvideWork saved = savedProvideWork();
             ProvideWork existing = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(existing));
             given(provideWorkCommandRepository.save(any(ProvideWork.class))).willReturn(saved);
@@ -135,7 +135,7 @@ class ProvideWorkCommandServiceTest {
             ProvideWork saved = savedProvideWork();
             ProvideWork morning = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(morning));
             given(provideWorkCommandRepository.save(any(ProvideWork.class))).willReturn(saved);
@@ -154,7 +154,7 @@ class ProvideWorkCommandServiceTest {
         @Test
         @DisplayName("존재하지 않는 제공 서비스면 SERVICE_OFFERING_NOT_FOUND")
         void notFound() {
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.empty());
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> provideWorkCommandService.create(
                     command(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0))))
@@ -172,7 +172,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
             given(offering.isOwnedBy(providerId)).willReturn(false);
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
 
             assertThatThrownBy(() -> provideWorkCommandService.create(
                     command(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0))))
@@ -190,7 +190,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = ownedOffering();
             ProvideWork existing = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(existing));
 
@@ -209,7 +209,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = ownedOffering();
             ProvideWork existing = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(10, 0), LocalTime.of(11, 0));
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(existing));
 
@@ -227,7 +227,7 @@ class ProvideWorkCommandServiceTest {
         void invalidTimeRange() {
             ServiceOffering offering = ownedOffering();
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId)).willReturn(List.of());
 
             assertThatThrownBy(() -> provideWorkCommandService.create(
@@ -244,7 +244,7 @@ class ProvideWorkCommandServiceTest {
         void invalidTimeRange_same() {
             ServiceOffering offering = ownedOffering();
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId)).willReturn(List.of());
 
             assertThatThrownBy(() -> provideWorkCommandService.create(
@@ -267,7 +267,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = ownedOffering();
             ProvideWork provideWork = existingProvideWork(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(provideWork));
@@ -287,7 +287,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = ownedOffering();
             ProvideWork provideWork = existingProvideWork(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(provideWork));
@@ -307,7 +307,7 @@ class ProvideWorkCommandServiceTest {
             ProvideWork other = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(13, 0), LocalTime.of(18, 0));
             ReflectionTestUtils.setField(other, "id", UUID.randomUUID());
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(target));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(target, other));
@@ -324,7 +324,7 @@ class ProvideWorkCommandServiceTest {
         @Test
         @DisplayName("존재하지 않는 제공 서비스면 SERVICE_OFFERING_NOT_FOUND")
         void update_offeringNotFound() {
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.empty());
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> provideWorkCommandService.update(
                     updateCommand(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0))))
@@ -341,7 +341,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
             given(offering.isOwnedBy(providerId)).willReturn(false);
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
 
             assertThatThrownBy(() -> provideWorkCommandService.update(
                     updateCommand(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0))))
@@ -357,7 +357,7 @@ class ProvideWorkCommandServiceTest {
         void update_provideWorkNotFound() {
             ServiceOffering offering = ownedOffering();
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> provideWorkCommandService.update(
@@ -374,7 +374,7 @@ class ProvideWorkCommandServiceTest {
             ProvideWork otherOfferingWork =
                     ProvideWork.of(UUID.randomUUID(), MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(otherOfferingWork));
 
             assertThatThrownBy(() -> provideWorkCommandService.update(
@@ -392,7 +392,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = ownedOffering();
             ProvideWork provideWork = existingProvideWork(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(provideWork));
@@ -420,7 +420,7 @@ class ProvideWorkCommandServiceTest {
             given(provideWork.getId()).willReturn(provideWorkId);
             given(provideWork.getServiceOfferingId()).willReturn(serviceOfferingId);
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
 
             provideWorkCommandService.delete(deleteCommand());
@@ -431,7 +431,7 @@ class ProvideWorkCommandServiceTest {
         @Test
         @DisplayName("존재하지 않는 제공 서비스면 SERVICE_OFFERING_NOT_FOUND")
         void delete_offeringNotFound() {
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.empty());
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> provideWorkCommandService.delete(deleteCommand()))
                     .isInstanceOf(BusinessException.class)
@@ -447,7 +447,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
             given(offering.isOwnedBy(providerId)).willReturn(false);
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
 
             assertThatThrownBy(() -> provideWorkCommandService.delete(deleteCommand()))
                     .isInstanceOf(BusinessException.class)
@@ -462,7 +462,7 @@ class ProvideWorkCommandServiceTest {
         void delete_provideWorkNotFound() {
             ServiceOffering offering = ownedOffering();
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> provideWorkCommandService.delete(deleteCommand()))
@@ -479,7 +479,7 @@ class ProvideWorkCommandServiceTest {
 
             given(provideWork.getServiceOfferingId()).willReturn(UUID.randomUUID());
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
 
             assertThatThrownBy(() -> provideWorkCommandService.delete(deleteCommand()))
