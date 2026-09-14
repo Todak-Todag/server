@@ -7,7 +7,6 @@ import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpd
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
 import com.spring.careplanservice.careplan.application.port.CarePlanConfirmedEventPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
-import com.spring.careplanservice.careplan.application.result.UserFindResult;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
 import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
@@ -101,7 +100,6 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
     void carePlanConfirmedOutboxEvent_created_success() throws Exception {
         CarePlan savedCarePlan = createUnderReviewCarePlanWithService();
 
-        given(userQueryPort.findById(patientId)).willReturn(new UserFindResult(patientId, UserRole.PATIENT, regionId));
 
         CarePlanStatusUpdateCommand command = new CarePlanStatusUpdateCommand(
                 userId,
@@ -110,7 +108,10 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
                 CarePlanStatus.CONFIRMED
         );
 
-        carePlanCommandService.updateCarePlanStatus(command);
+        carePlanCommandService.updateCarePlanStatus(
+                command,
+                regionId
+        );
 
         CarePlan updatedCarePlan = carePlanCommandRepository.findById(savedCarePlan.getId()).orElseThrow();
         assertThat(updatedCarePlan.getStatus()).isEqualTo(CarePlanStatus.CONFIRMED);
@@ -139,8 +140,10 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
                 CarePlanStatus.CONFIRMED
         );
 
-        assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(command))
-                .isInstanceOf(RuntimeException.class);
+        assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
+                command,
+                regionId
+        )).isInstanceOf(RuntimeException.class);
 
         CarePlan carePlanAfterFailure = carePlanCommandRepository.findById(savedCarePlan.getId()).orElseThrow();
         assertThat(carePlanAfterFailure.getStatus()).isEqualTo(CarePlanStatus.UNDER_REVIEW);

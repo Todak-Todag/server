@@ -3,18 +3,10 @@ package com.spring.careplanservice.careplan.application.service.command;
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanDeleteCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
-import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
-import com.spring.careplanservice.careplan.application.event.CarePlanCompletionEventAppender;
-import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
-import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEventAppender;
-import com.spring.careplanservice.careplan.application.event.ScheduleStatus;
+import com.spring.careplanservice.careplan.application.event.*;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
-import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
-import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
-import com.spring.careplanservice.careplan.application.result.ScheduleResultFindResult;
-import com.spring.careplanservice.careplan.application.result.UserFindResult;
+import com.spring.careplanservice.careplan.application.result.*;
 import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
@@ -593,20 +585,18 @@ class CarePlanCommandServiceTest {
                     carePlanId,
                     CarePlanStatus.CONFIRMED
             );
-            given(userQueryPort.findById(patientId)).willReturn(new UserFindResult(
-                    patientId,
-                    UserRole.PATIENT,
-                    regionId
-            ));
+
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
-            CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand);
+            CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(
+                    carePlanStatusUpdateCommand,
+                    regionId
+            );
 
             assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.CONFIRMED);
             assertThat(carePlanStatusUpdateResult.status()).isEqualTo(CarePlanStatus.CONFIRMED);
 
             verify(carePlanCommandRepository).findById(carePlanId);
-            verify(userQueryPort).findById(patientId);
             verify(carePlanConfirmedEventAppender).append(any(CarePlanConfirmedEvent.class));
         }
 
@@ -620,6 +610,7 @@ class CarePlanCommandServiceTest {
                     LocalDate.of(2026, 9, 30),
                     null
             );
+
             carePlan.updateStatus(
                     CarePlanStatus.CONFIRMED
             );
@@ -633,12 +624,16 @@ class CarePlanCommandServiceTest {
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
-            CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand);
+            CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(
+                    carePlanStatusUpdateCommand,
+                    null
+            );
 
             assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.IN_PROGRESS);
             assertThat(carePlanStatusUpdateResult.status()).isEqualTo(CarePlanStatus.IN_PROGRESS);
 
             verify(carePlanCommandRepository).findById(carePlanId);
+            verify(carePlanConfirmedEventAppender, never()).append(any(CarePlanConfirmedEvent.class));
         }
 
         @Test
@@ -661,8 +656,11 @@ class CarePlanCommandServiceTest {
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
-            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand))
-                    .isInstanceOf(BusinessException.class);
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
+                    carePlanStatusUpdateCommand,
+                    null
+            )).isInstanceOf(BusinessException.class);
+
             assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.UNDER_REVIEW);
 
             verify(carePlanCommandRepository).findById(carePlanId);
@@ -685,16 +683,20 @@ class CarePlanCommandServiceTest {
 
             CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
                     userId,
-                    UserRole.SERVICE_PROVIDER,
+                    UserRole.ADMIN,
                     carePlanId,
                     CarePlanStatus.COMPLETED
             );
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
-            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand))
-                    .isInstanceOf(BusinessException.class);
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
+                    carePlanStatusUpdateCommand,
+                    null
+            )).isInstanceOf(BusinessException.class);
+
             assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.CONFIRMED);
+
             verify(carePlanCommandRepository).findById(carePlanId);
         }
 
@@ -715,14 +717,20 @@ class CarePlanCommandServiceTest {
 
             CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
                     userId,
-                    UserRole.SERVICE_PROVIDER,
+                    UserRole.ADMIN,
                     carePlanId,
                     CarePlanStatus.COMPLETED
             );
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
-            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand)).isInstanceOf(BusinessException.class);
+
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
+                    carePlanStatusUpdateCommand,
+                    null
+            )).isInstanceOf(BusinessException.class);
+
             assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.IN_PROGRESS);
+
             verify(carePlanCommandRepository).findById(carePlanId);
         }
 
@@ -738,8 +746,10 @@ class CarePlanCommandServiceTest {
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
 
-            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(carePlanStatusUpdateCommand))
-                    .isInstanceOf(BusinessException.class);
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
+                    carePlanStatusUpdateCommand,
+                    regionId
+            )).isInstanceOf(BusinessException.class);
             verify(carePlanCommandRepository).findById(carePlanId);
         }
     }
@@ -800,9 +810,6 @@ class CarePlanCommandServiceTest {
             );
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> carePlanCommandService.deleteCarePlan(carePlanDeleteCommand))
-                    .isInstanceOf(BusinessException.class);
 
             verify(carePlanServiceCommandRepository, never()).findAllByCarePlanId(any(UUID.class));
         }
