@@ -2,26 +2,26 @@ server:
   port: 19004
 
 spring:
-  config:
-    activate:
-      on-profile: prod
-
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
-    username: ${POSTGRES_USERNAME:postgres}
-    password: ${POSTGRES_PASSWORD:postgres}
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
 
   rabbitmq:
-    host: ${RABBITMQ_HOST:rabbitmq}
+    host: ${RABBITMQ_HOST}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
 
-    # 수신 재시도 — 3회, DLQ 미운용
-    # DLQ가 없으므로 3회 후 메시지는 폐기
     listener:
       simple:
+        # DLQ 미운용 — 3회 후 폐기
+        default-requeue-rejected: false
         retry:
           enabled: true
           max-retries: 3
@@ -33,12 +33,13 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
+        format_sql: false
         default_schema: schedule_schema
         default_batch_fetch_size: 100
 
-        # TODO: Flyway/Liquibase 도입 후 제거
-        hbm2ddl:
-          create_namespaces: true
+  flyway:
+    schemas: schedule_schema
+    default-schema: schedule_schema
 
 internal:
   key: ${INTERNAL_API_KEY}
@@ -57,7 +58,11 @@ springdoc:
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+      defaultZone: ${EUREKA_SERVER_URL}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
 
 logging:
   level:

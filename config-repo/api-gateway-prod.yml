@@ -2,7 +2,8 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      port: ${REDIS_PORT:6379}
+      timeout: 3s
 
 internal:
   key: ${INTERNAL_API_KEY}
@@ -22,10 +23,12 @@ authentication:
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_SERVER_HOST:localhost}:8761/eureka/
+      defaultZone: ${EUREKA_SERVER_URL}
+    register-with-eureka: true
+    fetch-registry: true
   instance:
     prefer-ip-address: true
 
 logging:
   level:
-    com.todak_todag.api_gateway: info
+    com.todak_todag.api_gateway: info       # local: debug

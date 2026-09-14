@@ -2,20 +2,20 @@ server:
   port: 19000
 
 spring:
-  config:
-    activate:
-      on-profile: prod
-
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
-    username: ${POSTGRES_USERNAME:postgres}
-    password: ${POSTGRES_PASSWORD:postgres}
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
 
   data:
     redis:
       host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      port: ${REDIS_PORT:6379}
       timeout: 3s
 
   jpa:
@@ -25,8 +25,13 @@ spring:
       ddl-auto: validate
     properties:
       hibernate:
+        format_sql: false
         default_schema: user_schema
         default_batch_fetch_size: 100
+
+  flyway:
+    schemas: user_schema
+    default-schema: user_schema
 
 internal:
   key: ${INTERNAL_API_KEY}
@@ -39,12 +44,10 @@ jwt:
   refresh:
     expiration: ${REFRESH_EXPIRATION:7d}
     max-age: ${REFRESH_EXPIRATION:7d}
-  http-only: true
-  secure: true
+  http-only: true          # local: false
+  secure: true             # local: false — HTTPS 필수
 
 authentication:
-  user:
-    redis-key-prefix: ${USER_KEY_PREFIX}
   access-token:
     redis-key-prefix: ${ACCESS_KEY_PREFIX}
     cookie-name: ${ACCESS_COOKIE_NAME}
@@ -60,7 +63,11 @@ master:
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+      defaultZone: ${EUREKA_SERVER_URL}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
 
 logging:
   level:

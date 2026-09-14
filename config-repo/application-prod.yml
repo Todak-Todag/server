@@ -9,17 +9,31 @@ management:
 
   endpoint:
     health:
-      show-details: never
+      show-details: never          # local: always
+
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
   tracing:
     sampling:
-      probability: 0.1
-
+      probability: 0.1             # local: 1.0
     export:
       zipkin:
         endpoint: http://${ZIPKIN_HOST}:9411/api/v2/spans
+
+spring:
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    out-of-order: false
+    clean-disabled: true           # 운영 스키마 전체 삭제 방지 — 반드시
 
 logging:
   pattern:
     correlation: "[service=${spring.application.name:},traceId=%X{traceId:-},spanId=%X{spanId:-}] "
   include-application-name: false
+  level:
+    root: info
