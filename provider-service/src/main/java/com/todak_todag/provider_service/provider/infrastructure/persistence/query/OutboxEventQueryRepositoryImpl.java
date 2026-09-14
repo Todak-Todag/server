@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,5 +29,15 @@ public class OutboxEventQueryRepositoryImpl implements OutboxEventQueryRepositor
     @Override
     public Optional<ProviderOutboxEvent> findById(UUID outboxEventId) {
         return jpaOutboxEventRepository.findById(outboxEventId);
+    }
+
+    @Override
+    public List<ProviderOutboxEvent> findAllByAggregateIdIn(Collection<UUID> aggregateIds) {
+        return jpaOutboxEventRepository.findAllByAggregateIdIn(aggregateIds);
+    }
+
+    @Override
+    public List<ProviderOutboxEvent> findAllByAggregateIdAndCreatedAtAfter(UUID aggregateId, Instant createdAt) {
+        return jpaOutboxEventRepository.findAllByAggregateIdAndCreatedAtAfter(aggregateId, createdAt);
     }
 }
