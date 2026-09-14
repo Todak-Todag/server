@@ -6,6 +6,9 @@ import com.todak_todag.provider_service.provider.infrastructure.persistence.JpaS
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+import java.util.UUID;
+
 @Repository
 @RequiredArgsConstructor
 public class ServiceOfferingCommandRepositoryImpl implements ServiceOfferingCommandRepository {
@@ -15,5 +18,10 @@ public class ServiceOfferingCommandRepositoryImpl implements ServiceOfferingComm
     @Override
     public ServiceOffering save(ServiceOffering serviceOffering) {
         return jpaServiceOfferingRepository.save(serviceOffering);
+    }
+
+    @Override
+    public Optional<ServiceOffering> findByIdForUpdate(UUID serviceOfferingId) {
+        return jpaServiceOfferingRepository.findWithLockById(serviceOfferingId);
     }
 }
