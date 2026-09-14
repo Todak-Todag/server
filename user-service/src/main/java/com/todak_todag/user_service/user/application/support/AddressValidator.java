@@ -27,37 +27,37 @@ public class AddressValidator {
 	        .orElseThrow(() -> new BusinessException(RegionErrorCode.REGION_NOT_FOUND));
 			
 			if(!region.isActive()) {
-				log.warn(
-						"[User] AddressValidator. 활성 지역이 아닌 regionId 입니다. regionId={}",
-						region.getId().toString()
+				log.info(
+						"[User] 서비스하지 않는 지역으로 회원정보 변경이 시도되었습니다. regionId={}",
+						region.getId()
 				);
-				
+
 				throw new BusinessException(CommonErrorCode.REGION_NOT_SUPPORTED);
 			}
-			
+
 			if(userUpdate.address() != null && !userUpdate.address().isBlank()) {
 				boolean containsProvince = userUpdate.address().contains(region.getProvince());
 				boolean containsDistrict = userUpdate.address().contains(region.getDistrict());
-				
+
 				if(!containsProvince || !containsDistrict) {
-					log.warn(
-							"[User] AddressValidator. 상세 주소가 regionId에 대응하지 않습니다. regionId={}",
-							userUpdate.regionId().toString()
+					log.info(
+							"[User] 지역과 대응하지 않는 상세 주소로 회원정보 변경이 시도되었습니다. regionId={}",
+							userUpdate.regionId()
 					);
-					
+
 					throw new BusinessException(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
 				}
 			}
-			
+
 			return;
 		}
-		
+
 		if(userUpdate.address() != null && !userUpdate.address().isBlank()) {
-			log.warn(
-					"[User] AddressValidator. 지역 정보가 없을 때 상세 주소를 입력할 수 없습니다. userId={}",
-					userUpdate.requesterId().toString()
+			log.info(
+					"[User] 지역 정보 없이 상세 주소만으로 회원정보 변경이 시도되었습니다. userId={}",
+					userUpdate.requesterId()
 			);
-			
+
 			throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION);
 		}
 	}
@@ -65,23 +65,23 @@ public class AddressValidator {
 	public void patientAddressValidate(UserPatientCreateCommand createPatient) {
 		if (createPatient.regionId() == null) {
 	    if (createPatient.address() != null && !createPatient.address().isBlank()) {
-	    	log.warn(
-						"[User] AddressValidator. 지역 정보가 없을 때 상세 주소를 입력할 수 없습니다. requesterUserId={}",
-						createPatient.requesterId().toString()
+	    	log.info(
+						"[User] 지역 정보 없이 상세 주소만으로 퇴원 예정자 등록이 시도되었습니다. requesterId={}",
+						createPatient.requesterId()
 				);
-	    	
+
 	    	// "지역 정보가 없을 때는 주소를 입력할 수 없습니다."
 	    	throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION);
 	    }
 	    return;
 		}
-		
+
 		if (createPatient.address() == null || createPatient.address().isBlank()) {
-			log.warn(
-					"[User] AddressValidator. 지역 정보가 지정된 퇴원 예정자 등록 요청 시 주소 정보가 필수입니다. requesterUserId={}",
-					createPatient.requesterId().toString()
+			log.info(
+					"[User] 지역 정보는 있으나 상세 주소 없이 퇴원 예정자 등록이 시도되었습니다. requesterId={}",
+					createPatient.requesterId()
 			);
-			
+
 			// "지역 정보가 지정된 경우 주소는 필수입니다."
 			throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATINET_ADDRESS);
 		}
@@ -93,12 +93,12 @@ public class AddressValidator {
 		boolean containsDistrict = createPatient.address().contains(region.getDistrict());
 		
 		if(!containsProvince || !containsDistrict) {
-			log.warn(
-					"[User] AddressValidator. 퇴원 예정자 등록 요청의 상세 주소가 regionId에 대응하지 않습니다. userId={}, regionId={}",
-					createPatient.requesterId().toString(),
-					createPatient.regionId().toString()
+			log.info(
+					"[User] 지역과 대응하지 않는 상세 주소로 퇴원 예정자 등록이 시도되었습니다. requesterId={}, regionId={}",
+					createPatient.requesterId(),
+					createPatient.regionId()
 			);
-			
+
 			// "주소에 선택한 지역 정보(시/도, 시/군/구)가 올바르게 포함되어 있지 않습니다."
 			throw new BusinessException(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
 		}

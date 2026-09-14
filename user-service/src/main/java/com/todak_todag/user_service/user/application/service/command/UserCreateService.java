@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.global.support.MaskingUtil;
 import com.todak_todag.user_service.user.application.command.UserAdminCreateCommand;
 import com.todak_todag.user_service.user.application.command.UserPatientCreateCommand;
 import com.todak_todag.user_service.user.application.command.UserSignupCommand;
@@ -20,7 +21,6 @@ import com.todak_todag.user_service.user.application.result.UserPatientCreatedRe
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
 import com.todak_todag.user_service.user.application.support.ConsentDocumentValidator;
-import com.todak_todag.user_service.user.application.support.MaskingUtil;
 import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
@@ -58,22 +58,22 @@ public class UserCreateService {
 		// 요청에 지역ID 존재하면 regionId 검증
 		if(signup.regionId() != null) {
 			if(!regionQueryRepo.existsAvailableRegion(signup.regionId())) {
-				log.warn(
-						"[User] 존재하지 않는 지역으로 회원가입 요청이 들어왔습니다. regionId={}",
-						signup.regionId().toString()
+				log.info(
+						"[User] 존재하지 않는 지역으로 회원가입이 시도되었습니다. regionId={}",
+						signup.regionId()
 				);
-				
+
 				throw new BusinessException(RegionErrorCode.REGION_NOT_FOUND);
 			}
 		}
-		
+
 		// Username 중복 검증 : 가벼운 작업 위로
 		if(userQueryRepo.duplicateUsername(signup.username())) {
-			log.warn(
-					"[User] Username 이 중복된 회원가입 요청이 들어왔습니다. username={}",
+			log.info(
+					"[User] 중복된 아이디로 회원가입이 시도되었습니다. username={}",
 					MaskingUtil.maskUsername(signup.username())
 			);
-			
+
 			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 		}
 		
@@ -102,7 +102,15 @@ public class UserCreateService {
 				.toList();
 		
 		consentCommandRepo.saveAll(consents);
-		
+
+		log.info(
+				"[User] 회원가입 완료 userId={}, role={}, regionId={}, agreedConsents={}",
+				user.getId(),
+				user.getRole(),
+				user.getRegionId(),
+				consents.size()
+		);
+
 		return new UserSignupCreatedResult(user.getId(), user.getName());
 	}
 	
@@ -112,11 +120,11 @@ public class UserCreateService {
 		
 		// Username 중복 검증
 		if(userQueryRepo.duplicateUsername(createAdmin.username())) {
-			log.warn(
-					"[User] Username 이 중복된 운영자 등록 요청이 들어왔습니다. username={}",
+			log.info(
+					"[User] 중복된 아이디로 운영자 등록이 시도되었습니다. username={}",
 					MaskingUtil.maskUsername(createAdmin.username())
 			);
-			
+
 			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 		}
 		
@@ -132,7 +140,14 @@ public class UserCreateService {
 		);
 		
 		User user = userCommandRepo.save(admin);
-		
+
+		// 권한이 높은 계정의 생성은 감사 대상이라 성공도 남긴다.
+		log.info(
+				"[User] 운영자 계정 생성 완료 userId={}, regionId={}",
+				user.getId(),
+				user.getRegionId()
+		);
+
 		return new UserAdminCreatedResult(user.getId(), user.getName(), region.getProvince(), region.getDistrict());
 	}
 	
@@ -142,11 +157,11 @@ public class UserCreateService {
 		
 		// 2. 중복 username 검증
 		if(userQueryRepo.duplicateUsername(createPatient.username())) {
-			log.warn(
-					"[User] Username 이 중복된 퇴원 예정자 등록 요청이 들어왔습니다. username={}",
+			log.info(
+					"[User] 중복된 아이디로 퇴원 예정자 등록이 시도되었습니다. username={}",
 					MaskingUtil.maskUsername(createPatient.username())
 			);
-			
+
 			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 		}
 		
@@ -165,7 +180,14 @@ public class UserCreateService {
 		
 		// 5. 저장
 		User saved = userCommandRepo.save(patient);
-		
+
+		log.info(
+				"[User] 퇴원 예정자 등록 완료 userId={}, requesterId={}, regionId={}",
+				saved.getId(),
+				createPatient.requesterId(),
+				saved.getRegionId()
+		);
+
 		return new UserPatientCreatedResult(
 				saved.getId(),
 				createPatient.requesterId(),
@@ -186,6 +208,8 @@ public class UserCreateService {
 		User master = User.createMaster(userId, username, passwordHash, name, phone);
 
 		userCommandRepo.save(master);
+
+		log.info("[User] 마스터 계정 최초 생성 완료 userId={}", userId);
 	}
 	
 }

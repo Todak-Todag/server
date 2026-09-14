@@ -1,4 +1,4 @@
-package com.todak_todag.user_service.user.application.support;
+package com.todak_todag.user_service.global.support;
 
 public final class MaskingUtil {
 
