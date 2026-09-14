@@ -57,7 +57,7 @@ schedule/
 | service_offering_id | UUID |  | 논리 참조 → p_provide_service_offerings | O | 매칭된 제공자별 서비스 ID (실패 시 `null`) |
 | date | LocalDate |  |  | X | 매칭을 시도한 날짜 |
 | preferred_time_slot | ENUM |  |  | O | `MORNING` / `AFTERNOON` (성공 이벤트에는 없어 `null`) |
-| status | ENUM |  |  | X | `MATCHED` / `FAILED` |
+| status | ENUM |  |  | X | `MATCHED` / `FAILED` / `EXPIRED` |
 | failure_reason | TEXT |  |  | O | 매칭 실패 사유 |
 | matched_at | Instant |  |  | O | 매칭 성공 일시 |
 | failed_at | Instant |  |  | O | 매칭 실패 일시 |
@@ -147,7 +147,15 @@ schedule/
 
 ### `p_service_matching_attempts.status`
 
-`MATCHED` / `FAILED` 두 가지뿐이며, 이력 레코드이므로 생성 이후 전이하지 않는다.
+기본적으로 이력 레코드라 생성 이후 전이하지 않는다. 유일한 예외가 `FAILED → EXPIRED`다.
+
+| 상태 | 의미 |
+| --- | --- |
+| `MATCHED` | 매칭 성공 이력 |
+| `FAILED` | 매칭 실패 이력 |
+| `EXPIRED` | 끝내 재매칭되지 않은 채 Care Plan 활동 기간이 끝나, 보정 스윕이 종결 처리한 실패 이력 (11번) |
+- `EXPIRED`로 전환하는 주체는 `CarePlanCompletionEventAppender.appendForSweep`뿐이며, `CarePlanCompleted`를 적재하는 같은 트랜잭션 안에서 전환한다.
+- 전환 대상은 11번 매칭 기준과 같은 조건(일정 레코드가 아직 없는 `FAILED`)이다.
 
 ### `p_schedule_outbox_events.status`
 
@@ -205,7 +213,7 @@ schedule/
 
 ### 4.5 재매칭 시도 — 16번
 
-- 요청 주체는 퇴원 예정자이며, 대상 매칭 시도의 `status`가 `FAILED`일 때만 재시도할 수 있다(409).
+- 요청 주체는 퇴원 예정자이며, 대상 매칭 시도의 `status`가 `FAILED`일 때만 재시도할 수 있다(409). `MATCHED`와 보정 스윕이 종결시킨 `EXPIRED`가 모두 여기서 걸린다.
 - **동기적으로는 아무 레코드도 쓰지 않고** `ProviderReMatched`만 아웃박스에 적재하므로 `202 ACCEPTED`로 응답한다. 새 매칭 시도 이력은 결과 이벤트를 수신할 때 생성된다.
 - 같은 `matchingAttemptId`로 이미 아웃박스에 `ProviderReMatched`가 적재됐다면 409 `MATCHING_ATTEMPT_RETRY_ALREADY_REQUESTED`. (동기 상태 변경이 없어 `status`로는 "재시도 중"을 표현할 수 없기 때문에 아웃박스를 판별 키로 쓴다.)
 - 희망 날짜는 Care Plan의 `startDate`~`finishDate` 범위 안이어야 한다(400). Internal API 응답에 `startDate`가 없어 **`startDate = finishDate - 29일`(30일 고정 기간)** 로 역산한다.
@@ -214,7 +222,8 @@ schedule/
 
 - 요청 주체는 퇴원 예정자다.
 - Care Plan이 `CONFIRMED`가 아니면(재매칭이 의미 없으므로) 빈 페이지를 반환한다.
-- `status` 미지정 시 기본값은 `FAILED`이며, **`FAILED` 조회일 때만** "해당 `servicePreferenceId`로 생성된 일정이 아직 하나도 없는" 조건을 함께 적용한다. 매칭 시도는 누적되므로 나중에 성공해 해소된 과거 실패를 이 조건으로 걸러낸다.
+- `status` 필터는 `MATCHED`/`FAILED`/`EXPIRED`를 받으며 미지정 시 기본값은 `FAILED`다. **`FAILED` 조회일 때만** "해당 `servicePreferenceId`로 생성된 일정이 아직 하나도 없는" 조건을 함께 적용한다. 매칭 시도는 누적되므로 나중에 성공해 해소된 과거 실패를 이 조건으로 걸러낸다.
+- `EXPIRED`에는 그 조건을 걸지 않는다. 종결 시점에 이미 결말이 난 이력이라 감출 대상이 없어서이며, `MATCHED`와 같은 이유다.
 - 같은 조건을 11번 완료 판정의 **매칭 기준**이 사용한다 (5.2절). 이 API에 실패 건이 보이면 그 케어플랜은 아직 완료로 판정되지 않는다.
 
 ### 4.7 조회 권한 공통 규칙
@@ -277,7 +286,7 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
 
 1. 해당 케어플랜에 **아직 해소되지 않은 것이 하나도 없다.** 아래 두 기준은 OR로 결합해 하나라도 걸리면 미완료다.
   - **일정 기준**: `status`가 `SCHEDULED`/`RESCHEDULING`이거나, `COMPLETED`/`NO_SHOW`인데 수행 결과가 아직 없는 일정이 0건
-  - **매칭 기준**: `status = FAILED`인데 그 `service_preference_id`로 일정 레코드가 아직 하나도 없는 매칭 시도가 0건 (= 초기 매칭 실패가 아직 재매칭으로 해소되지 않음). 초기 매칭 실패는 일정 레코드를 남기지 않아(14번) 이 기준이 없으면 그 서비스가 판정에서 빠져 조기 발행된다.
+  - **매칭 기준**: `status = FAILED`인데 그 `service_preference_id`로 일정 레코드가 아직 하나도 없는 매칭 시도가 0건 (= 초기 매칭 실패가 아직 재매칭으로 해소되지 않음). 초기 매칭 실패는 일정 레코드를 남기지 않아(14번) 이 기준이 없으면 그 서비스가 판정에서 빠져 조기 발행된다. 보정 스윕이 종결시킨 `EXPIRED`는 `FAILED`가 아니므로 여기서 자연히 빠진다.
 2. 해당 케어플랜으로 `CarePlanCompleted`가 **아직 적재된 적이 없다** (`aggregate_id = carePlanId` 기준 멱등).
 
 판정~적재 구간은 `pg_advisory_xact_lock(carePlanId 해시)`으로 케어플랜 단위 직렬화한다. 락이 없으면 마지막 두 일정이 동시에 끝났을 때 양쪽 모두 서로를 미완료로 읽고 조기 반환해 이벤트가 영영 적재되지 않을 수 있다. DB 쪽 불변식으로 `p_schedule_outbox_events`에 `aggregate_id` 부분 유니크 인덱스(`WHERE event_type = 'CarePlanCompleted'`)를 둔다.
@@ -285,6 +294,13 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
 페이로드 기준이 되는 "마지막 일정"은 트리거가 된 일정이 아니라 `finished_at DESC, created_at DESC` 정렬로 다시 조회하며, `CHANGED`와 논리 삭제 건은 제외한다.
 
 **페이로드**: `carePlanId`, `serviceResultId`(마지막 일정의 결과, `CANCELED`면 `null`), `status`(마지막 일정의 상태)
+
+**보정 스윕** — 07번/04번은 사용자·제공자의 행동이 있어야 판정이 돌아가므로, 초기 매칭 실패를 끝내 재매칭하지 않으면 이벤트가 영영 발행되지 않는다. 이를 막기 위해 `CarePlanCompletionSweepScheduler`(cron, 1일 1회 새벽 4시) → `CarePlanCompletionSweepFacade`가 활동이 끝난 케어플랜을 찾아 `appendForSweep`으로 발행한다.
+
+- **종료 판정**은 위 매칭 기준이 아니라 **일정/매칭 시도 `date`의 최댓값 + 14일 경과**로 한다. 매칭 기준을 쓰면 스윕 대상(미해소 `FAILED`가 남은 케어플랜)이 조건상 전부 걸러져 스윕이 성립하지 않기 때문이다. `finishDate`는 자체 DB에 없고 `carePlanId`로 조회할 Internal API도 없어(5.5절) 대상마다 호출하면 N회 호출이 되므로 자체 `date`로 대신 판정한다.
+- **일정 기준은 그대로 지킨다.** 진행 중인 일정이 있으면 페이로드 `status`가 허용값을 벗어난다.
+- 일정 레코드가 0건인 케어플랜(전 서비스 초기 매칭 실패)은 마지막 일정이 없어 대상에서 제외된다 — 미해결 과제.
+- 발행과 같은 트랜잭션에서 방치된 `FAILED`를 `EXPIRED`로 종결시킨다. 락/멱등/적재는 실시간 경로와 같은 코드를 탄다.
 
 ### 5.3 수신(Consume) 이벤트
 
