@@ -96,4 +96,12 @@ public class CarePlan extends BaseAuditEntity {
 
         return true;
     }
+
+    public boolean canModify() {
+        return this.status == CarePlanStatus.UNDER_REVIEW;
+    }
+
+    public boolean canDelete() {
+        return this.status == CarePlanStatus.UNDER_REVIEW;
+    }
 }
