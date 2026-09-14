@@ -17,7 +17,7 @@ public interface ServiceOfferingInternalApiSpec {
             summary = "제공 서비스 제공자 조회",
             description = """
                     Schedule-Service가 서비스 일정의 담당 제공자를 확인할 때 호출한다.
-                    논리 삭제된 제공 서비스는 조회되지 않는다.
+                    논리 삭제된 제공 서비스도 조회한다. 삭제 이전에 잡힌 일정의 담당 제공자는 바뀌지 않기 때문이다.
                     """
     )
     @ApiResponses({

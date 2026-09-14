@@ -42,8 +42,13 @@ public class ServiceOfferingQueryRepositoryImpl implements ServiceOfferingQueryR
     }
 
     @Override
-    public List<UUID> findIdsByProviderId(UUID providerId) {
-        return jpaServiceOfferingRepository.findIdsByProviderId(providerId);
+    public Optional<UUID> findProviderIdIncludingDeleted(UUID serviceOfferingId) {
+        return jpaServiceOfferingRepository.findProviderIdIncludingDeleted(serviceOfferingId);
+    }
+
+    @Override
+    public List<UUID> findIdsByProviderIdIncludingDeleted(UUID providerId) {
+        return jpaServiceOfferingRepository.findIdsByProviderIdIncludingDeleted(providerId);
     }
 
     @Override
