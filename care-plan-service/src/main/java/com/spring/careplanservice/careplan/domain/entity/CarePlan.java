@@ -97,11 +97,23 @@ public class CarePlan extends BaseAuditEntity {
         return true;
     }
 
-    public boolean canModify() {
+    // Care Plan 삭제 가능 여부
+    public boolean allowsDeletion() {
         return this.status == CarePlanStatus.UNDER_REVIEW;
     }
 
-    public boolean canDelete() {
+    // 서비스 선택 가능 여부
+    public boolean allowsServiceSelection() {
+        return this.status == CarePlanStatus.UNDER_REVIEW;
+    }
+
+    // 서비스 취소 가능 여부
+    public boolean allowsServiceCancellation() {
+        return this.status == CarePlanStatus.UNDER_REVIEW;
+    }
+
+    // 희망 일정 변경 가능 여부
+    public boolean allowsPreferenceChange() {
         return this.status == CarePlanStatus.UNDER_REVIEW;
     }
 }
