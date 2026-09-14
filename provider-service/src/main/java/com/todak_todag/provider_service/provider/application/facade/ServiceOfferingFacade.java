@@ -3,19 +3,14 @@ package com.todak_todag.provider_service.provider.application.facade;
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
-import com.todak_todag.provider_service.provider.application.command.ProvideWorkDeleteCommand;
-import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
-import com.todak_todag.provider_service.provider.application.port.SchedulePort;
 import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
-import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
-import com.todak_todag.provider_service.provider.application.service.command.ProvideWorkCommandService;
 import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
@@ -36,9 +31,7 @@ public class ServiceOfferingFacade {
     private final ProvideServiceQueryRepository provideServiceQueryRepository;
     private final ServiceOfferingCommandService serviceOfferingCommandService;
     private final ServiceOfferingQueryService serviceOfferingQueryService;
-    private final ProvideWorkCommandService provideWorkCommandService;
     private final UserPort userPort;
-    private final SchedulePort schedulePort;
 
     // 제공 서비스 등록
     // 불필요한 외부 호출을 막기 위해 404·409 검증을 먼저 수행한 뒤 User-Service를 호출한다
@@ -64,6 +57,7 @@ public class ServiceOfferingFacade {
 
     // 제공 서비스 삭제
     // ADMIN은 담당 지역이면 삭제할 수 있고, 제공자는 본인 소유만 삭제할 수 있다
+    // 삭제는 "이제부터 새 매칭을 받지 않는다"는 의미라 확정 일정이 있어도 막지 않는다
     public void delete(ServiceOfferingDeleteCommand command) {
         ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
                 .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
@@ -72,10 +66,6 @@ public class ServiceOfferingFacade {
             validateRegionAccess(command.userId(), command.userRole(), serviceOffering.getRegionId());
         } else if (!serviceOffering.isOwnedBy(command.userId())) {
             throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
-        }
-
-        if (schedulePort.existsConfirmedSchedule(serviceOffering.getId())) {
-            throw new BusinessException(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS);
         }
 
         serviceOfferingCommandService.delete(command);
@@ -98,42 +88,6 @@ public class ServiceOfferingFacade {
         }
 
         return serviceOfferingQueryService.search(query);
-    }
-
-    // 제공 가능 일정 수정
-    // 소유자 검증을 먼저 수행해 권한 없는 요청이 Schedule-Service를 호출하지 않도록 한다
-    public ProvideWorkUpdateResult updateProvideWork(ProvideWorkUpdateCommand command) {
-        ServiceOffering serviceOffering = findOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
-
-        if (schedulePort.existsConfirmedSchedule(serviceOffering.getId())) {
-            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS);
-        }
-
-        return provideWorkCommandService.update(command);
-    }
-
-    // 제공 가능 일정 삭제
-    // 소유자 검증을 먼저 수행해 권한 없는 요청이 Schedule-Service를 호출하지 않도록 한다
-    public void deleteProvideWork(ProvideWorkDeleteCommand command) {
-        ServiceOffering serviceOffering = findOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
-
-        if (schedulePort.existsConfirmedSchedule(serviceOffering.getId())) {
-            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS);
-        }
-
-        provideWorkCommandService.delete(command);
-    }
-
-    // 제공 서비스를 조회하고 요청자가 소유자인지 검증한다
-    private ServiceOffering findOwnedServiceOffering(UUID serviceOfferingId, UUID requesterId) {
-        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(serviceOfferingId)
-                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
-
-        if (!serviceOffering.isOwnedBy(requesterId)) {
-            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
-        }
-
-        return serviceOffering;
     }
 
     // MASTER는 지역 제한 없이 전체 조회 가능
