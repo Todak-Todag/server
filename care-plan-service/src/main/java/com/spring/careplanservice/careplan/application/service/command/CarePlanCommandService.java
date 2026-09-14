@@ -107,18 +107,19 @@ public class CarePlanCommandService {
 
         // 외부 호출 전에 조회했던 상태를 신뢰하지 않고,
         // 실제 변경 직전에 현재 상태 기준으로 상태 전이를 다시 검증한다.
-        validateStatusTransition(
-                carePlan,
-                carePlanStatusUpdateCommand.status()
-        );
-
         validateStatusUpdateRole(
                 carePlanStatusUpdateCommand
         );
 
-        carePlan.updateStatus(
+        boolean transitioned = carePlan.transitionTo(
                 carePlanStatusUpdateCommand.status()
         );
+
+        if (!transitioned) {
+            throw new BusinessException(
+                    ErrorCode.CARE_PLAN_INVALID_STATUS_TRANSITION
+            );
+        }
 
         if (carePlan.getStatus() == CarePlanStatus.CONFIRMED) {
             // User Service에서 조회한 regionId를 사용해 Confirmed 이벤트를 구성한다.
@@ -256,29 +257,17 @@ public class CarePlanCommandService {
         }
     }
 
-    // 현재 Care Plan 상태에서 요청한 다음 상태로의 전이가 허용되는지 검증
-    // 허용되지 않는 상태 전이라면 비즈니스 예외 발생
-    private void validateStatusTransition(
-            CarePlan carePlan,
-            CarePlanStatus nextStatus
-    ) {
-        if (!carePlan.canTransitionTo(nextStatus)) {
-            throw new BusinessException(
-                    ErrorCode.CARE_PLAN_INVALID_STATUS_TRANSITION
-            );
-        }
-    }
-
     // 삭제 가능한 상태(UNDER_REVIEW)인지 검사
     private void validateDeletable(
             CarePlan carePlan
     ) {
-        if (!carePlan.allowsDeletion()) {
+        if (!carePlan.isUnderReview()) {
             throw new BusinessException(
                     ErrorCode.CARE_PLAN_DELETE_NOT_ALLOWED
             );
         }
     }
+
     private CarePlanConfirmedEvent createCarePlanConfirmedEvent(
             UUID carePlanId,
             UUID regionId
