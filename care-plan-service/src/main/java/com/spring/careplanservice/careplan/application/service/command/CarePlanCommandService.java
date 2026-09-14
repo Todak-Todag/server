@@ -273,13 +273,12 @@ public class CarePlanCommandService {
     private void validateDeletable(
             CarePlan carePlan
     ) {
-        if (!carePlan.isUnderReview()) {
+        if (!carePlan.allowsDeletion()) {
             throw new BusinessException(
                     ErrorCode.CARE_PLAN_DELETE_NOT_ALLOWED
             );
         }
     }
-
     private CarePlanConfirmedEvent createCarePlanConfirmedEvent(
             UUID carePlanId,
             UUID regionId
