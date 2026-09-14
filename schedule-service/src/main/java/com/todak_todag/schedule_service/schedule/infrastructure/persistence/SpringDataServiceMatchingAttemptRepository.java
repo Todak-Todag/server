@@ -2,12 +2,14 @@ package com.todak_todag.schedule_service.schedule.infrastructure.persistence;
 
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -58,5 +60,72 @@ public interface SpringDataServiceMatchingAttemptRepository extends JpaRepositor
     long countUnresolvedByStatus(
             @Param("carePlanId") UUID carePlanId,
             @Param("status") MatchingAttemptStatus status
+    );
+
+    // 위 countUnresolvedByStatus와 같은 대상을 세지 않고 실체로 가져옴 — 보정 스윕이 EXPIRED로 종결 처리할 대상
+    // where 절이 어긋나면 "판정에는 걸리는데 종결은 안 되는" 건이 생겨 스윕이 매일 같은 케어플랜을 다시 잡으므로 두 쿼리의 조건은 반드시 동일하게 유지
+    @Query("""
+            select attempt
+            from ServiceMatchingAttempt attempt
+            where attempt.carePlanId = :carePlanId
+              and attempt.deletedAt is null
+              and attempt.status = :status
+              and not exists (
+                  select 1
+                  from ServiceSchedule schedule
+                  where schedule.servicePreferenceId = attempt.servicePreferenceId
+                    and schedule.deletedAt is null
+              )
+            """)
+    List<ServiceMatchingAttempt> findUnresolvedByStatus(
+            @Param("carePlanId") UUID carePlanId,
+            @Param("status") MatchingAttemptStatus status
+    );
+
+    // 보정 스윕 대상 케어플랜 ID 조회 — "활동이 끝난 지 유예기간이 지났는데 미해소 매칭 실패가 남아있는" 케어플랜
+    //
+    // 조건을 하나씩 보면
+    //   (1) status = FAILED + 일정 레코드 없음 → 재매칭이 끝내 시도되지 않은 초기 매칭 실패가 남아있음
+    //   (2) 케어플랜에 일정이 1건 이상 있다 → CarePlanCompleted 페이로드의 status/serviceResultId를 채울 "마지막 일정"이 존재해야 함
+    //                                  전 서비스가 초기 매칭에 실패해 일정이 0건인 케어플랜은 실을 값이 없으므로 여기서 제외
+    //   (3) 일정/매칭시도의 마지막 date가 모두 임계일 이하 → 이 케어플랜에서 더 일어날 일이 없음
+    //
+    // GREATEST(max(일정.date), max(시도.date)) <= 임계일 을 두 개의 비교로 나눠 쓴 것이라 의미는 같음
+    // (2) 덕분에 일정 쪽 max는 항상 non-null이고, 매칭시도 쪽은 이 쿼리의 출발점이라 역시 non-null
+    @Query("""
+            select distinct attempt.carePlanId
+            from ServiceMatchingAttempt attempt
+            where attempt.deletedAt is null
+              and attempt.status = :status
+              and not exists (
+                  select 1
+                  from ServiceSchedule schedule
+                  where schedule.servicePreferenceId = attempt.servicePreferenceId
+                    and schedule.deletedAt is null
+              )
+              and exists (
+                  select 1
+                  from ServiceSchedule anySchedule
+                  where anySchedule.carePlanId = attempt.carePlanId
+                    and anySchedule.deletedAt is null
+              )
+              and (
+                  select max(scheduleDate.date)
+                  from ServiceSchedule scheduleDate
+                  where scheduleDate.carePlanId = attempt.carePlanId
+                    and scheduleDate.deletedAt is null
+              ) <= :lastActivityThreshold
+              and (
+                  select max(attemptDate.date)
+                  from ServiceMatchingAttempt attemptDate
+                  where attemptDate.carePlanId = attempt.carePlanId
+                    and attemptDate.deletedAt is null
+              ) <= :lastActivityThreshold
+            order by attempt.carePlanId
+            """)
+    List<UUID> findSweepTargetCarePlanIds(
+            @Param("status") MatchingAttemptStatus status,
+            @Param("lastActivityThreshold") LocalDate lastActivityThreshold,
+            Pageable pageable
     );
 }

@@ -5,10 +5,12 @@ import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAt
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceMatchingAttemptCommandRepository;
 import com.todak_todag.schedule_service.schedule.infrastructure.persistence.SpringDataServiceMatchingAttemptRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -73,5 +75,20 @@ public class ServiceMatchingAttemptCommandRepositoryImpl implements ServiceMatch
     public long countUnresolvedFailed(UUID carePlanId) {
         return springDataServiceMatchingAttemptRepository
                 .countUnresolvedByStatus(carePlanId, MatchingAttemptStatus.FAILED);
+    }
+
+    @Override
+    public List<ServiceMatchingAttempt> findUnresolvedFailed(UUID carePlanId) {
+        return springDataServiceMatchingAttemptRepository
+                .findUnresolvedByStatus(carePlanId, MatchingAttemptStatus.FAILED);
+    }
+
+    @Override
+    public List<UUID> findSweepTargetCarePlanIds(LocalDate lastActivityThreshold, int limit) {
+        return springDataServiceMatchingAttemptRepository.findSweepTargetCarePlanIds(
+                MatchingAttemptStatus.FAILED,
+                lastActivityThreshold,
+                PageRequest.of(0, limit)
+        );
     }
 }
