@@ -48,16 +48,18 @@ public class ServiceOfferingQueryService {
                 ));
     }
 
+    // 삭제 이전에 잡힌 일정의 담당 제공자는 삭제 뒤에도 바뀌지 않으므로 삭제 이력까지 조회한다
     public ServiceOfferingProviderResult findProvider(UUID serviceOfferingId) {
-        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(serviceOfferingId)
+        UUID providerId = serviceOfferingQueryRepository.findProviderIdIncludingDeleted(serviceOfferingId)
                 .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
 
-        return new ServiceOfferingProviderResult(serviceOffering.getProviderId());
+        return new ServiceOfferingProviderResult(providerId);
     }
 
+    // 삭제 이전 일정·결과가 제공자 목록에서 빠지지 않도록 삭제 이력까지 포함한다
     public ServiceOfferingIdsResult findIdsByProvider(UUID providerId) {
         return new ServiceOfferingIdsResult(
-                serviceOfferingQueryRepository.findIdsByProviderId(providerId));
+                serviceOfferingQueryRepository.findIdsByProviderIdIncludingDeleted(providerId));
     }
 
     private UUID resolveTargetProviderId(ServiceOfferingSearchQuery query) {
