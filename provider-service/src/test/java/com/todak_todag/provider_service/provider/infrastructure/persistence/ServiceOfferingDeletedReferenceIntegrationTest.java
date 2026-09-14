@@ -7,6 +7,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,6 +70,31 @@ class ServiceOfferingDeletedReferenceIntegrationTest extends ContainerTestSuppor
         assertThat(serviceOfferingQueryRepository.findById(deleted.getId())).isEmpty();
         assertThat(serviceOfferingQueryRepository
                 .findAllByRegionIdAndProvideServiceId(regionId, provideServiceId))
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("제공자별 제공 서비스 → 제공자 매핑에 삭제 건은 포함하고 다른 제공자는 제외한다")
+    void findOfferingProviderIds_includesDeleted() {
+        ServiceOffering deleted = saveDeleted();
+        ServiceOffering active = jpaServiceOfferingRepository
+                .saveAndFlush(ServiceOffering.of(providerId, UUID.randomUUID(), regionId));
+        ServiceOffering other = jpaServiceOfferingRepository
+                .saveAndFlush(ServiceOffering.of(UUID.randomUUID(), provideServiceId, regionId));
+
+        Map<UUID, UUID> result =
+                serviceOfferingQueryRepository.findOfferingProviderIdsIncludingDeleted(List.of(providerId));
+
+        assertThat(result)
+                .containsEntry(deleted.getId(), providerId)
+                .containsEntry(active.getId(), providerId)
+                .doesNotContainKey(other.getId());
+    }
+
+    @Test
+    @DisplayName("제공자 목록이 비어 있으면 조회하지 않고 빈 매핑을 반환한다")
+    void findOfferingProviderIds_emptyProviders() {
+        assertThat(serviceOfferingQueryRepository.findOfferingProviderIdsIncludingDeleted(List.of()))
                 .isEmpty();
     }
 }
