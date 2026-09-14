@@ -1,7 +1,5 @@
 package com.todak_todag.user_service.user.application.service.command;
 
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.log;
-
 import java.util.Objects;
 import java.util.UUID;
 
@@ -22,7 +20,6 @@ import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.application.result.UserUpdateResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
-import com.todak_todag.user_service.user.application.support.MaskingUtil;
 import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
