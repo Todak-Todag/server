@@ -1,7 +1,6 @@
 package com.todak_todag.provider_service.provider.application.support;
 
 import com.todak_todag.provider_service.global.common.TimeSlot;
-import com.todak_todag.provider_service.provider.application.port.ScheduleSlot;
 import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import org.springframework.stereotype.Component;
@@ -23,16 +22,22 @@ public class MatchingService {
 
     // finishedAt을 함께 담아 소요 시간 계산을 이 클래스 안으로 모은다
     // Facade가 plusHours(1)을 따로 하면 SERVICE_HOURS와 두 곳으로 흩어짐
-    public record Match(UUID serviceOfferingId, LocalTime startedAt, LocalTime finishedAt) {
+    // providerId를 함께 돌려줘 Facade가 방금 배정한 시간을 제공자 점유로 누적할 수 있게 한다
+    public record Match(UUID serviceOfferingId, UUID providerId, LocalTime startedAt, LocalTime finishedAt) {
     }
 
-    private record Candidate(UUID serviceOfferingId, LocalTime startedAt, long scheduleCount) {
+    // 제공자가 이미 배정받은 시간 구간
+    // 한 제공자가 여러 서비스 종류를 제공할 수 있어, 겹침과 부하는 제공 서비스가 아니라 제공자 단위로 본다
+    public record OccupiedSlot(UUID providerId, LocalDate date, LocalTime startedAt, LocalTime finishedAt) {
+    }
+
+    private record Candidate(UUID serviceOfferingId, UUID providerId, LocalTime startedAt, long scheduleCount) {
     }
 
     public Optional<Match> match(
             List<ServiceOffering> candidates,
             Map<UUID, List<ProvideWork>> worksByOffering,
-            List<ScheduleSlot> occupied,
+            List<OccupiedSlot> occupied,
             LocalDate date,
             TimeSlot preferredTimeSlot
     ) {
@@ -48,6 +53,7 @@ public class MatchingService {
                         .thenComparing(Candidate::startedAt))
                 .map(candidate -> new Match(
                         candidate.serviceOfferingId(),
+                        candidate.providerId(),
                         candidate.startedAt(),
                         candidate.startedAt().plusHours(SERVICE_HOURS)
                 ));
@@ -56,16 +62,16 @@ public class MatchingService {
     private Optional<Candidate> toCandidate(
             ServiceOffering offering,
             Map<UUID, List<ProvideWork>> worksByOffering,
-            List<ScheduleSlot> occupied,
+            List<OccupiedSlot> occupied,
             LocalDate date,
             int day,
             LocalTime slotStart,
             LocalTime slotEnd
     ) {
-        List<ScheduleSlot> occupiedOnDate = occupied.stream()
-                .filter(slot -> slot.serviceOfferingId().equals(offering.getId()))
+        List<OccupiedSlot> occupiedOnDate = occupied.stream()
+                .filter(slot -> offering.getProviderId().equals(slot.providerId()))
                 .filter(slot -> slot.date().equals(date))
-                .sorted(Comparator.comparing(ScheduleSlot::startedAt))
+                .sorted(Comparator.comparing(OccupiedSlot::startedAt))
                 .toList();
 
         return worksByOffering.getOrDefault(offering.getId(), List.of()).stream()
@@ -75,15 +81,16 @@ public class MatchingService {
                 .min(Comparator.naturalOrder())
                 .map(startedAt -> new Candidate(
                         offering.getId(),
+                        offering.getProviderId(),
                         startedAt,
-                        countSchedules(occupied, offering.getId())
+                        countSchedules(occupied, offering.getProviderId())
                 ));
     }
 
     // 제공 가능 시간과 희망 시간대의 교집합에서, 기존 일정을 뺀 뒤 1시간이 들어가는 첫 시각을 찾는다
     private Optional<LocalTime> earliestStart(
             ProvideWork work,
-            List<ScheduleSlot> occupiedOnDate,
+            List<OccupiedSlot> occupiedOnDate,
             LocalTime slotStart,
             LocalTime slotEnd
     ) {
@@ -92,7 +99,7 @@ public class MatchingService {
 
         LocalTime cursor = rangeStart;
 
-        for (ScheduleSlot slot : occupiedOnDate) {
+        for (OccupiedSlot slot : occupiedOnDate) {
             if (!slot.finishedAt().isAfter(cursor)) {
                 continue;
             }
@@ -120,9 +127,10 @@ public class MatchingService {
         return !end.isAfter(limit) && !end.isAfter(rangeEnd);
     }
 
-    private long countSchedules(List<ScheduleSlot> occupied, UUID serviceOfferingId) {
+    // 같은 제공자가 다른 서비스 종류로 맡은 일정까지 부하로 센다
+    private long countSchedules(List<OccupiedSlot> occupied, UUID providerId) {
         return occupied.stream()
-                .filter(slot -> slot.serviceOfferingId().equals(serviceOfferingId))
+                .filter(slot -> providerId.equals(slot.providerId()))
                 .count();
     }
 

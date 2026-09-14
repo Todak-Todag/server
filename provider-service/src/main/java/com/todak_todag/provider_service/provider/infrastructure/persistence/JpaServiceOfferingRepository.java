@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -31,4 +32,18 @@ public interface JpaServiceOfferingRepository extends JpaRepository<ServiceOffer
             where provider_id = :providerId
             """, nativeQuery = true)
     List<UUID> findIdsByProviderIdIncludingDeleted(@Param("providerId") UUID providerId);
+
+    // 매칭 점유 계산용 — 제공자들이 가진 모든 제공 서비스(삭제 포함)의 ID와 제공자 ID
+    // Postgres는 따옴표 없는 별칭을 소문자로 바꾸므로, 프로젝션 getter와 맞추려고 별칭을 따옴표로 감싼다
+    @Query(value = """
+            select service_offering_id as "serviceOfferingId", provider_id as "providerId"
+            from provider_schema.p_provide_service_offerings
+            where provider_id in (:providerIds)
+            """, nativeQuery = true)
+    List<OfferingOwner> findOwnersByProviderIdInIncludingDeleted(@Param("providerIds") Collection<UUID> providerIds);
+
+    interface OfferingOwner {
+        UUID getServiceOfferingId();
+        UUID getProviderId();
+    }
 }

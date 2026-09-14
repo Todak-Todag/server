@@ -42,6 +42,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
@@ -71,6 +72,7 @@ class MatchingFacadeTest {
     private final UUID carePlanId = UUID.randomUUID();
     private final UUID regionId = UUID.randomUUID();
     private final UUID provideServiceId = UUID.randomUUID();
+    private final UUID providerIdA = UUID.randomUUID();
     private final UUID offeringIdA = UUID.randomUUID();
     private final UUID offeringIdB = UUID.randomUUID();
 
@@ -86,8 +88,13 @@ class MatchingFacadeTest {
         );
     }
 
+    // 후보마다 제공자가 달라, 제공자 기준 판정으로 바뀌어도 기존 테스트의 결과는 같다
     private ServiceOffering offering(UUID id) {
-        ServiceOffering offering = ServiceOffering.of(UUID.randomUUID(), provideServiceId, regionId);
+        return offering(id, UUID.randomUUID(), provideServiceId);
+    }
+
+    private ServiceOffering offering(UUID id, UUID providerId, UUID provideServiceId) {
+        ServiceOffering offering = ServiceOffering.of(providerId, provideServiceId, regionId);
         ReflectionTestUtils.setField(offering, "id", id);
 
         return offering;
@@ -457,5 +464,70 @@ class MatchingFacadeTest {
         ));
 
         verify(matchingEventPort, times(2)).publishMatchFailed(any());
+    }
+
+    @Test
+    @DisplayName("같은 제공자의 다른 서비스 종류 일정과 겹치는 시간에는 배정하지 않는다")
+    void match_otherServiceOfSameProvider_occupies() {
+        UUID otherOfferingId = UUID.randomUUID();
+
+        given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId))
+                .willReturn(List.of(offering(offeringIdA, providerIdA, provideServiceId)));
+        given(provideWorkQueryRepository.findAllByServiceOfferingIdIn(anyList()))
+                .willReturn(List.of(work(offeringIdA, "09:00", "13:00")));
+        // A 제공자는 다른 서비스 종류(otherOfferingId)로 목요일 09:00~10:00에 일정이 있다
+        given(serviceOfferingQueryRepository.findOfferingProviderIdsIncludingDeleted(any()))
+                .willReturn(Map.of(offeringIdA, providerIdA, otherOfferingId, providerIdA));
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of(new ScheduleSlot(
+                        otherOfferingId, THURSDAY, LocalTime.of(9, 0), LocalTime.of(10, 0))));
+
+        matchingFacade.match(event(preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING)));
+
+        // 후보가 아닌 다른 서비스 종류의 제공 서비스 ID까지 함께 조회한다
+        verify(schedulePort).findSchedules(
+                argThat(ids -> ids.size() == 2 && ids.containsAll(List.of(offeringIdA, otherOfferingId))),
+                any()
+        );
+
+        ArgumentCaptor<ProviderMatchedEvent> captor = ArgumentCaptor.forClass(ProviderMatchedEvent.class);
+        verify(matchingEventPort).publishMatched(captor.capture());
+        assertThat(captor.getValue().startedAt()).isEqualTo(THURSDAY.atTime(10, 0));
+    }
+
+    @Test
+    @DisplayName("같은 이벤트에서 서비스 종류가 달라도 같은 제공자의 방금 배정한 시간은 피한다")
+    void match_sharesOccupiedAcrossServices() {
+        UUID nursingServiceId = UUID.randomUUID();
+        UUID careServiceId = UUID.randomUUID();
+        UUID nursingOfferingId = UUID.randomUUID();
+        UUID careOfferingId = UUID.randomUUID();
+
+        given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, nursingServiceId))
+                .willReturn(List.of(offering(nursingOfferingId, providerIdA, nursingServiceId)));
+        given(serviceOfferingQueryRepository.findAllByRegionIdAndProvideServiceId(regionId, careServiceId))
+                .willReturn(List.of(offering(careOfferingId, providerIdA, careServiceId)));
+        given(provideWorkQueryRepository.findAllByServiceOfferingIdIn(anyList()))
+                .willReturn(List.of(work(nursingOfferingId, "09:00", "13:00")))
+                .willReturn(List.of(work(careOfferingId, "09:00", "13:00")));
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of());
+
+        matchingFacade.match(new CarePlanConfirmedEvent(carePlanId, regionId, List.of(
+                new CarePlanConfirmedEvent.Service(UUID.randomUUID(), nursingServiceId,
+                        List.of(preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING))),
+                new CarePlanConfirmedEvent.Service(UUID.randomUUID(), careServiceId,
+                        List.of(preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING)))
+        )));
+
+        // 서비스 종류가 여러 개여도 Schedule-Service는 한 번만 호출한다
+        verify(schedulePort, times(1)).findSchedules(anyList(), any());
+
+        ArgumentCaptor<ProviderMatchedEvent> captor = ArgumentCaptor.forClass(ProviderMatchedEvent.class);
+        verify(matchingEventPort, times(2)).publishMatched(captor.capture());
+
+        // 방문간호를 09:00에 배정했으므로 같은 제공자의 방문요양은 10:00으로 밀린다
+        assertThat(captor.getAllValues().get(0).startedAt()).isEqualTo(THURSDAY.atTime(9, 0));
+        assertThat(captor.getAllValues().get(1).startedAt()).isEqualTo(THURSDAY.atTime(10, 0));
     }
 }
