@@ -9,6 +9,14 @@ internal-jwt:
   issuer: todak-api-gateway
   ttl: 60s
 
+rate-limit:
+  max-idle: 1h
+  buckets:
+    user-service-login:
+      capacity: 20
+      refill-tokens: 10
+      refill-period: 1m
+
 authentication:
   access-token:
     cookie-name: ${ACCESS_COOKIE_NAME:AccessToken}
@@ -31,6 +39,9 @@ spring:
     gateway:
       server:
         webflux:
+          redis:
+            enabled: false   # 내장 RedisRateLimiter 를 끈다. Bucket4jRateLimiter 를 직접 구성해서 쓴다.
+
           discovery:
             locator:
               enabled: false

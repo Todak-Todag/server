@@ -19,12 +19,26 @@ spring:
     gateway:
       server:
         webflux:
+          redis:
+            enabled: false
+            
           discovery:
             locator:
               enabled: false
               lower-case-service-id: true
 
           routes:
+            - id: user-service-login
+              uri: lb://user-service
+              predicates:
+                - Path=/api/v1/auth/login
+                - Method=POST
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@clientIpKeyResolver}"
+                    rate-limiter: "#{@bucket4jRateLimiter}"
+                
             - id: user-service
               uri: lb://user-service
               predicates:
