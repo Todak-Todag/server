@@ -1,5 +1,7 @@
 package com.todak_todag.user_service.user.application.service.command;
 
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.log;
+
 import java.util.Objects;
 import java.util.UUID;
 
@@ -20,13 +22,16 @@ import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.application.result.UserUpdateResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
+import com.todak_todag.user_service.user.application.support.MaskingUtil;
 import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
@@ -49,6 +54,11 @@ public class UserUpdateService {
 		
 		// 2. 현재 비밀번호 검증
 		if(!passwordEncoder.matches(command.currentPassword(), user.getPasswordHash())) {
+			log.warn(
+					"[User] 현재 비밀번호와 일치하지 않은 회원탈퇴 요청이 들어왔습니다. userId={}",
+					user.getId().toString()
+			);
+			
 			throw new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
 		}
 		
@@ -61,6 +71,11 @@ public class UserUpdateService {
 		
 		if(loginSession != null) {
 			loginSession.logout();
+		} else {
+			log.warn(
+					"[User] 회원탈퇴 요청자의 현재 로그인 세션이 존재하지 않습니다. userId={}",
+					user.getId()
+			);
 		}
 		
 		// 5. 저장된 액세스 토큰 삭제

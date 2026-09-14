@@ -20,6 +20,7 @@ import com.todak_todag.user_service.user.application.result.UserPatientCreatedRe
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
 import com.todak_todag.user_service.user.application.support.ConsentDocumentValidator;
+import com.todak_todag.user_service.user.application.support.MaskingUtil;
 import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
@@ -29,8 +30,10 @@ import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepo
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 // User 생성 작업 담당 서비스
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(rollbackFor = Exception.class)
@@ -55,12 +58,22 @@ public class UserCreateService {
 		// 요청에 지역ID 존재하면 regionId 검증
 		if(signup.regionId() != null) {
 			if(!regionQueryRepo.existsAvailableRegion(signup.regionId())) {
+				log.warn(
+						"[User] 존재하지 않는 지역으로 회원가입 요청이 들어왔습니다. regionId={}",
+						signup.regionId().toString()
+				);
+				
 				throw new BusinessException(RegionErrorCode.REGION_NOT_FOUND);
 			}
 		}
 		
 		// Username 중복 검증 : 가벼운 작업 위로
 		if(userQueryRepo.duplicateUsername(signup.username())) {
+			log.warn(
+					"[User] Username 이 중복된 회원가입 요청이 들어왔습니다. username={}",
+					MaskingUtil.maskUsername(signup.username())
+			);
+			
 			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 		}
 		
@@ -99,6 +112,11 @@ public class UserCreateService {
 		
 		// Username 중복 검증
 		if(userQueryRepo.duplicateUsername(createAdmin.username())) {
+			log.warn(
+					"[User] Username 이 중복된 운영자 등록 요청이 들어왔습니다. username={}",
+					MaskingUtil.maskUsername(createAdmin.username())
+			);
+			
 			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 		}
 		
@@ -124,6 +142,11 @@ public class UserCreateService {
 		
 		// 2. 중복 username 검증
 		if(userQueryRepo.duplicateUsername(createPatient.username())) {
+			log.warn(
+					"[User] Username 이 중복된 퇴원 예정자 등록 요청이 들어왔습니다. username={}",
+					MaskingUtil.maskUsername(createPatient.username())
+			);
+			
 			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 		}
 		
