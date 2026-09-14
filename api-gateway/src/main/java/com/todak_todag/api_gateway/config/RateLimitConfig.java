@@ -6,10 +6,16 @@ import java.net.InetSocketAddress;
 import java.util.HexFormat;
 
 import org.bouncycastle.util.Arrays;
+import org.springframework.cloud.gateway.filter.ratelimit.Bucket4jRateLimiter;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
+import org.springframework.cloud.gateway.support.ConfigurationService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy;
+import io.github.bucket4j.distributed.proxy.AsyncProxyManager;
+import io.github.bucket4j.redis.lettuce.Bucket4jLettuce;
+import io.lettuce.core.api.StatefulRedisConnection;
 import reactor.core.publisher.Mono;
 
 @Configuration
@@ -30,6 +36,40 @@ public class RateLimitConfig {
 			
 			return Mono.just(normalize(remoteAddress.getAddress()));
 		};
+	}
+	
+	public AsyncProxyManager<String> rateLimitProxyManager(
+			StatefulRedisConnection<String, byte[]> rateLimitRedisConnection,
+			RateLimitProperties properties
+	) {
+		return Bucket4jLettuce.casBasedBuilder(rateLimitRedisConnection)
+				.expirationAfterWrite(
+						ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(properties.maxIdle())
+				)
+				.build()
+				.asAsync();
+	}
+	
+	@Bean
+	public Bucket4jRateLimiter bucket4jRateLimiter(
+			AsyncProxyManager<String> rateLimitProxyManager,
+			ConfigurationService configurationService,
+			RateLimitProperties properties
+	) {
+		Bucket4jRateLimiter rateLimiter = new Bucket4jRateLimiter(rateLimitProxyManager, configurationService);
+		
+		properties.buckets().forEach((routeId, limit) -> rateLimiter.getConfig().put(routeId, toConfig(limit)));
+		
+		return rateLimiter;
+	}
+	
+	private Bucket4jRateLimiter.Config toConfig(RateLimitProperties.Limit limit) {
+		return new Bucket4jRateLimiter.Config()
+				.setCapacity(limit.capacity())
+				.setRefillTokens(limit.refillTokens())
+				.setRefillPeriod(limit.refillPeriod())
+				.setRefillStyle(Bucket4jRateLimiter.RefillStyle.GREEDY)
+				.setRequestedTokens(1);
 	}
 	
 	private String normalize(InetAddress address) {

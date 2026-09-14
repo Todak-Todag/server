@@ -135,10 +135,12 @@ internal-jwt:
   ttl: 60s
   
 rate-limit:
-  login:
-    capacity: 20
-    refill-tokens: 20
-    refill-period: 1m
+  max-idle: 1h
+  buckets:
+    user-service-login:
+      capacity: 20
+      refill-tokens: 10
+      refill-period: 1m
   
 jwt:
   secret: ${JWT_SECRET}
