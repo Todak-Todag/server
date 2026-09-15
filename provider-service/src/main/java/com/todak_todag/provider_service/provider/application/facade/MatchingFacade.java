@@ -7,15 +7,20 @@ import com.todak_todag.provider_service.provider.application.event.*;
 import com.todak_todag.provider_service.provider.application.port.MatchingEventPort;
 import com.todak_todag.provider_service.provider.application.port.SchedulePort;
 import com.todak_todag.provider_service.provider.application.support.MatchingService;
+import com.todak_todag.provider_service.provider.domain.entity.OutboxEventType;
 import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
+import com.todak_todag.provider_service.provider.domain.entity.ProviderOutboxEvent;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
+import com.todak_todag.provider_service.provider.domain.repository.query.OutboxEventQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
@@ -27,11 +32,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MatchingFacade {
 
+    // 브로커 재전달은 컨슈머가 끊긴 직후 일어난다. 이보다 오래된 같은 날짜 결과는 이전의 정상 요청으로 본다
+    // ponytail: 요청 ID가 없어 시간 기준 추정. Schedule이 messageId를 보내면 그 값으로 교체
+    private static final Duration REDELIVERY_WINDOW = Duration.ofMinutes(10);
+
     private final ServiceOfferingQueryRepository serviceOfferingQueryRepository;
     private final ProvideWorkQueryRepository provideWorkQueryRepository;
     private final MatchingService matchingService;
     private final SchedulePort schedulePort;
     private final MatchingEventPort matchingEventPort;
+    private final OutboxEventQueryRepository outboxEventQueryRepository;
+    private final ObjectMapper objectMapper;
 
     public void match(CarePlanConfirmedEvent event) {
         // 외부 조회를 모두 끝낸 뒤에 적재를 시작한다
@@ -59,7 +70,7 @@ public class MatchingFacade {
             // 이 단계에는 외부 호출이 없어 재시도해도 결과가 같다
             // 예외가 리스너 밖으로 나가면 이미 적재한 결과가 중복 발행되므로 여기서 가둔다
             try {
-                apply(event.carePlanId(), event.regionId(), target, prepared.occupied());
+                apply(event.carePlanId(), event.regionId(), target, prepared.occupied(), prepared.processedPreferenceIds());
             } catch (Exception e) {
                 log.error("[Provider] 서비스 매칭 처리 실패 carePlanId={} provideServiceId={}",
                         event.carePlanId(), target.service().provideServiceId(), e);
@@ -67,11 +78,19 @@ public class MatchingFacade {
         }
     }
 
-    public void rematch(ProviderRematchedEvent event) {
+    public void rematch(ProviderRematchedEvent event, boolean redelivered) {
         // 예외가 리스너 밖으로 나가면 메시지가 재큐잉되므로 원칙적으로 여기서 가둔다
         // 다만 외부 서비스 장애는 잠시 뒤 성공할 수 있어 리스너 재시도에 맡긴다
         // (재시도를 소진하면 default-requeue-rejected: false 설정에 따라 폐기된다)
         try {
+            // 재전달된 메시지만 확인한다. 사용자의 정상 재요청은 새 메시지라 redelivered가 false다
+            if (redelivered && alreadyRematched(event)) {
+                log.info("[Provider] 이미 처리한 재매칭 요청의 재전달이라 건너뜀 servicePreferenceId={} date={}",
+                        event.servicePreferenceId(), event.date());
+
+                return;
+            }
+
             List<ServiceOffering> candidates = serviceOfferingQueryRepository
                     .findAllByRegionIdAndProvideServiceId(event.regionId(), event.provideServiceId());
 
@@ -108,13 +127,21 @@ public class MatchingFacade {
     // 같은 제공자가 여러 종류를 제공하면, 방금 배정한 방문간호 시간이 방문요양 판정에도 반영돼야 한다
     private record Prepared(
             List<MatchingTarget> targets,
-            List<MatchingService.OccupiedSlot> occupied
+            List<MatchingService.OccupiedSlot> occupied,
+            // 이전 수신에서 결과를 이미 적재한 희망 일정
+            Set<UUID> processedPreferenceIds
     ) {
     }
 
     // 외부 조회 단계
     // 여기서 실패하면 아직 적재된 것이 없으므로 호출자가 안전하게 예외를 다시 던질 수 있다
     private Prepared prepare(CarePlanConfirmedEvent event) {
+        // CarePlanConfirmed는 Care Plan당 한 번이라, 결과가 이미 적재된 희망 일정은 재수신이다
+        List<ProviderOutboxEvent> processed = loadProcessed(event);
+        Set<UUID> processedPreferenceIds = processed.stream()
+                .map(ProviderOutboxEvent::getAggregateId)
+                .collect(Collectors.toSet());
+
         List<MatchingTarget> targets = new ArrayList<>();
 
         for (CarePlanConfirmedEvent.Service service : event.services()) {
@@ -135,7 +162,7 @@ public class MatchingFacade {
 
         // 후보가 하나도 없으면 점유를 볼 제공자가 없어 Schedule-Service를 호출하지 않는다
         if (allCandidates.isEmpty()) {
-            return new Prepared(targets, new ArrayList<>());
+            return new Prepared(targets, new ArrayList<>(), processedPreferenceIds);
         }
 
         // 모든 서비스 종류의 점유를 한 번에 조회한다
@@ -146,7 +173,10 @@ public class MatchingFacade {
                 .min(Comparator.naturalOrder())
                 .orElseThrow();
 
-        return new Prepared(targets, loadOccupied(allCandidates, startDate));
+        List<MatchingService.OccupiedSlot> occupied = loadOccupied(allCandidates, startDate);
+        restoreOccupied(occupied, processed, allCandidates);
+
+        return new Prepared(targets, occupied, processedPreferenceIds);
     }
 
     // 적재 단계
@@ -155,9 +185,17 @@ public class MatchingFacade {
             UUID carePlanId,
             UUID regionId,
             MatchingTarget target,
-            List<MatchingService.OccupiedSlot> occupied
+            List<MatchingService.OccupiedSlot> occupied,
+            Set<UUID> processedPreferenceIds
     ) {
         for (CarePlanConfirmedEvent.Preference preference : target.service().preferences()) {
+            if (processedPreferenceIds.contains(preference.servicePreferenceId())) {
+                log.info("[Provider] 이미 처리한 희망 일정이라 건너뜀 servicePreferenceId={}",
+                        preference.servicePreferenceId());
+
+                continue;
+            }
+
             // 희망 일정 1건은 서로 독립적. 한 건이 실패해도 나머지는 계속 처리해야한다
             try {
                 matchOne(
@@ -246,6 +284,61 @@ public class MatchingFacade {
 
         return provideWorkQueryRepository.findAllByServiceOfferingIdIn(ids).stream()
                 .collect(Collectors.groupingBy(ProvideWork::getServiceOfferingId));
+    }
+
+    private List<ProviderOutboxEvent> loadProcessed(CarePlanConfirmedEvent event) {
+        Set<UUID> preferenceIds = event.services().stream()
+                .flatMap(service -> service.preferences().stream())
+                .map(CarePlanConfirmedEvent.Preference::servicePreferenceId)
+                .collect(Collectors.toSet());
+
+        if (preferenceIds.isEmpty()) {
+            return List.of();
+        }
+
+        return outboxEventQueryRepository.findAllByAggregateIdIn(preferenceIds);
+    }
+
+    // 재수신 전에 적재한 배정은 아직 Schedule에 저장되지 않았을 수 있어 점유에 다시 넣는다
+    // 이미 Schedule에 반영돼 조회된 구간은 같은 값이라 중복으로 넣지 않는다
+    private void restoreOccupied(
+            List<MatchingService.OccupiedSlot> occupied,
+            List<ProviderOutboxEvent> processed,
+            List<ServiceOffering> candidates
+    ) {
+        Map<UUID, UUID> providerIdByOfferingId = candidates.stream()
+                .collect(Collectors.toMap(ServiceOffering::getId, ServiceOffering::getProviderId, (a, b) -> a));
+
+        processed.stream()
+                .filter(outboxEvent -> outboxEvent.getEventType() == OutboxEventType.PROVIDER_MATCHED)
+                .map(outboxEvent -> objectMapper.readValue(outboxEvent.getPayload(), ProviderMatchedEvent.class))
+                .filter(matched -> providerIdByOfferingId.containsKey(matched.serviceOfferingId()))
+                .map(matched -> MatchingService.OccupiedSlot.startingAt(
+                        providerIdByOfferingId.get(matched.serviceOfferingId()),
+                        matched.date(),
+                        matched.startedAt().toLocalTime()
+                ))
+                .filter(slot -> !occupied.contains(slot))
+                .forEach(occupied::add);
+    }
+
+    // 같은 희망 일정·같은 날짜의 결과가 최근에 적재됐는지
+    private boolean alreadyRematched(ProviderRematchedEvent event) {
+        Instant since = Instant.now().minus(REDELIVERY_WINDOW);
+
+        return outboxEventQueryRepository
+                .findAllByAggregateIdAndCreatedAtAfter(event.servicePreferenceId(), since).stream()
+                .map(this::resultDate)
+                .anyMatch(event.date()::equals);
+    }
+
+    private LocalDate resultDate(ProviderOutboxEvent outboxEvent) {
+        return switch (outboxEvent.getEventType()) {
+            case PROVIDER_MATCHED ->
+                    objectMapper.readValue(outboxEvent.getPayload(), ProviderMatchedEvent.class).date();
+            case PROVIDER_MATCH_FAILED ->
+                    objectMapper.readValue(outboxEvent.getPayload(), ProviderMatchFailedEvent.class).date();
+        };
     }
 
     // 겹침과 부하는 제공자 단위로 본다
