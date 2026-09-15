@@ -12,6 +12,12 @@ spring:
       minimum-idle: 2
       connection-timeout: 3000
 
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      timeout: 3s
+
   jpa:
     open-in-view: false
     show-sql: false
@@ -62,3 +68,7 @@ eureka:
 logging:
   level:
     com.todak_todag.social_worker_service: info
+    
+matching:
+  task:
+    ttl: ${MATCHING_TASK_TTL:1h}

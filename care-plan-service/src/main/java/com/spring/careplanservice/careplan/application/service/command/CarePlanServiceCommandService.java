@@ -45,10 +45,11 @@ public class CarePlanServiceCommandService {
                 carePlan.getPatientId()
         );
 
+        validateSelectable(carePlan);
+
         validateDuplicateCarePlanService(
                 carePlanServiceSelectCommand.carePlanId(),
-                carePlanServiceSelectCommand.provideServiceId(),
-                carePlanServiceSelectCommand.userId()
+                carePlanServiceSelectCommand.provideServiceId()
         );
 
         CarePlanService carePlanService = CarePlanService.create(
@@ -103,14 +104,12 @@ public class CarePlanServiceCommandService {
     // 동일한 서비스가 이미 선택되어 있는지 검사
     private void validateDuplicateCarePlanService(
             UUID carePlanId,
-            UUID provideServiceId,
-            UUID userId
+            UUID provideServiceId
     ) {
         if (carePlanServiceCommandRepository
-                .existsByCarePlanIdAndProvideServiceIdAndCreatedBy(
+                .existsByCarePlanIdAndProvideServiceId(
                         carePlanId,
-                        provideServiceId,
-                        userId
+                        provideServiceId
                 )) {
 
             throw new BusinessException(
@@ -137,6 +136,16 @@ public class CarePlanServiceCommandService {
         if (!carePlan.isUnderReview()) {
             throw new BusinessException(
                     ErrorCode.CARE_PLAN_SERVICE_CANCEL_NOT_ALLOWED
+            );
+        }
+    }
+
+    private void validateSelectable(
+            CarePlan carePlan
+    ) {
+        if (!carePlan.isUnderReview()) {
+            throw new BusinessException(
+                    ErrorCode.CARE_PLAN_SERVICE_SELECT_NOT_ALLOWED
             );
         }
     }

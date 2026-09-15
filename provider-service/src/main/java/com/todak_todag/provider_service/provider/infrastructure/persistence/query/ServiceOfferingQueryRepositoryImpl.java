@@ -17,9 +17,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static com.todak_todag.provider_service.provider.domain.entity.QProvideService.provideService;
 import static com.todak_todag.provider_service.provider.domain.entity.QServiceOffering.serviceOffering;
@@ -42,8 +41,13 @@ public class ServiceOfferingQueryRepositoryImpl implements ServiceOfferingQueryR
     }
 
     @Override
-    public List<UUID> findIdsByProviderId(UUID providerId) {
-        return jpaServiceOfferingRepository.findIdsByProviderId(providerId);
+    public Optional<UUID> findProviderIdIncludingDeleted(UUID serviceOfferingId) {
+        return jpaServiceOfferingRepository.findProviderIdIncludingDeleted(serviceOfferingId);
+    }
+
+    @Override
+    public List<UUID> findIdsByProviderIdIncludingDeleted(UUID providerId) {
+        return jpaServiceOfferingRepository.findIdsByProviderIdIncludingDeleted(providerId);
     }
 
     @Override
@@ -59,6 +63,20 @@ public class ServiceOfferingQueryRepositoryImpl implements ServiceOfferingQueryR
     @Override
     public List<ServiceOffering> findAllByRegionIdAndProvideServiceId(UUID regionId, UUID provideServiceId) {
         return jpaServiceOfferingRepository.findAllByRegionIdAndProvideServiceId(regionId, provideServiceId);
+    }
+
+    @Override
+    public Map<UUID, UUID> findOfferingProviderIdsIncludingDeleted(Collection<UUID> providerIds) {
+        // in () 는 SQL 문법 오류라 빈 목록이면 조회하지 않는다
+        if (providerIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return jpaServiceOfferingRepository.findOwnersByProviderIdInIncludingDeleted(providerIds).stream()
+                .collect(Collectors.toMap(
+                        JpaServiceOfferingRepository.OfferingOwner::getServiceOfferingId,
+                        JpaServiceOfferingRepository.OfferingOwner::getProviderId
+                ));
     }
 
     private Page<ServiceOfferingView> search(BooleanExpression condition, Pageable pageable) {

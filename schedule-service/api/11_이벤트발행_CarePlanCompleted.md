@@ -5,7 +5,7 @@
 | Method | None (비동기 이벤트 발행) |
 | 사용자 | None |
 | 카테고리 | 발행 |
-| 테이블명 | `p_service_schedules`, `p_care_plan_service_results`, `p_schedule_outbox_events` |
+| 테이블명 | `p_service_schedules`, `p_care_plan_service_results`, `p_service_matching_attempts`, `p_schedule_outbox_events` |
 
 ## 설명
 
@@ -19,7 +19,7 @@
 
 1. 해당 케어플랜에 **아직 해소되지 않은 것이 하나도 없다.** 아래 두 기준 중 **하나라도 걸리면 미완료**다(OR 결합).
    - **일정 기준** — 끝나지 않은 일정이 0건이어야 한다. "끝나지 않음" = `status`가 `SCHEDULED`/`RESCHEDULING`이거나, `COMPLETED`/`NO_SHOW`인데 **수행 결과가 아직 등록되지 않은** 경우
-   - **매칭 기준** — 해소되지 않은 매칭 실패가 0건이어야 한다. "미해소" = `p_service_matching_attempts.status = 'FAILED'`(논리 삭제 제외)인데 그 `service_preference_id`로 `p_service_schedules` 레코드가 **아직 하나도 없는** 경우
+   - **매칭 기준** — 해소되지 않은 매칭 실패가 0건이어야 한다. "미해소" = `p_service_matching_attempts.status = 'FAILED'`(논리 삭제 제외)인데 그 `service_preference_id`로 `p_service_schedules` 레코드가 **아직 하나도 없는** 경우. 보정 스윕이 종결시킨 `EXPIRED`는 `FAILED`가 아니므로 여기서 자연히 빠진다.
    - 케어플랜이 끝났다는 것의 정의 그 자체이며, 어떤 일정이 트리거였는지와 무관하다.
 2. 해당 케어플랜으로 `CarePlanCompleted`가 **아직 적재된 적이 없다.**
    - 아웃박스의 `event_type = 'CarePlanCompleted' AND aggregate_id = carePlanId` 존재 여부로 판별하는 멱등 장치다.
@@ -32,7 +32,7 @@
 
 "미해소" 판정은 15번의 `FAILED` 필터와 **같은 조건**을 쓴다. 매칭에 성공하면 반드시 일정이 생성되므로(13번), "일정 레코드가 아예 없는가"로 판정하면 이미 해소된 과거 실패 이력이 자연히 걸러진다. 재매칭 실패는 기존 일정이 `SCHEDULED`로 복구되어 레코드가 남으므로 이 조건이 아니라 **일정 기준** 쪽에서 미완료로 잡힌다.
 
-> ⚠️ **알려진 한계**: 사용자가 16번 재매칭을 끝내 시도하지 않으면 그 케어플랜은 `CarePlanCompleted`가 **영원히 발행되지 않는다.** 매칭 시도에는 "재매칭 포기/만료" 상태가 없어 해소 경로가 재매칭 성공뿐이기 때문이다. 별도 과제로 관리한다.
+> ✅ **해소됨**: 사용자가 16번 재매칭을 끝내 시도하지 않으면 그 케어플랜은 `CarePlanCompleted`가 영원히 발행되지 않는 문제가 있었다(해소 경로가 재매칭 성공뿐이었기 때문). 아래 **보정 스윕**이 활동 기간이 끝난 케어플랜을 주기적으로 찾아 발행하고, 방치된 실패 이력은 `EXPIRED`로 종결시켜 이 한계를 해소한다.
 >
 
 ### 동시성 보호
@@ -72,6 +72,7 @@
 | --- | --- |
 | 07번 서비스 수행 결과 등록 | `COMPLETED` / `NO_SHOW` |
 | 04번 서비스 일정 취소 | `CANCELED` |
+| 보정 스윕 (아래 참조) | `COMPLETED` / `NO_SHOW` / `CANCELED` |
 - 이 구조 덕에 "DB는 커밋됐는데 이벤트만 유실" 또는 "이벤트는 나갔는데 DB는 롤백"이 발생하지 않는다.
 - 14번(`ProviderMatchFailed` 수신)은 일정을 `CANCELED`로 만들지 않고 `SCHEDULED`로 복구하므로 **발행 지점이 아니다** (이전 문서의 "미구현" 표기는 해소).
 
@@ -82,6 +83,54 @@
 | 트리거 | `@Scheduled(fixedDelay = ${schedule.outbox.relay.fixed-delay-ms:5000})` |
 | 배치 크기 | `PENDING` 최대 100건, `created_at ASC` |
 | 재시도 | 실패 시 `retry_count++` 후 `PENDING` 유지 → 3회 도달 시 `FAILED` |
+
+### 보정 스윕 (재매칭 미시도 대응)
+
+07번/04번은 **사용자나 제공자의 행동이 있어야** 완료 판정이 돌아간다. 그래서 초기 매칭에 실패한 서비스를 사용자가 끝내 16번으로 재매칭하지 않으면 판정 자체가 트리거되지 않고, 미해소 `FAILED`가 남아 매칭 기준도 영원히 통과하지 못한다. 완료 여부가 사용자의 추가 행동에 묶여, 실제 케어플랜 종료 시점과 이벤트 발행 시점이 어긋나는 문제다.
+
+이를 해소하기 위해 **활동이 끝난 케어플랜을 주기적으로 찾아 발행하는 보정 스윕**을 둔다.
+
+| 항목 | 값 |
+| --- | --- |
+| 트리거 | `@Scheduled(cron = ${schedule.care-plan.completion-sweep.cron:0 0 4 * * *})` — 1일 1회 새벽 4시 |
+| 담당 | `infrastructure/messaging/CarePlanCompletionSweepScheduler` (트리거) + `application/facade/CarePlanCompletionSweepFacade` (조합) |
+| 배치 크기 | 최대 100건. 못 딴 대상은 다음 주기에 다시 잡힌다 |
+| 적재 경로 | `CarePlanCompletionEventAppender.appendForSweep(carePlanId)` — 실시간 경로와 락/멱등/적재 코드를 공유한다 |
+| 비활성화 | `schedule.care-plan.completion-sweep.enabled=false` |
+
+**주기가 `fixedDelay`가 아니라 `cron`인 이유**: 판정 기준이 날짜 단위(마지막 활동일 + 유예기간)라 하루 한 번이면 충분하고, 트래픽이 적은 새벽에 돌리기 위해서다.
+
+#### 스윕 대상 조건
+
+아래를 **모두** 만족하는 케어플랜을 찾는다.
+
+1. **종료된 케어플랜** — 일정(`p_service_schedules.date`)과 매칭 시도(`p_service_matching_attempts.date`)의 **최댓값 + 14일**이 지났다.
+2. **미해소 매칭 실패가 남아있다** — 위 매칭 기준과 같은 조건. 이게 스윕이 존재하는 이유다.
+3. **일정이 1건 이상 있다** — 페이로드의 `status`를 채울 마지막 일정이 있어야 한다.
+
+#### "종료된 케어플랜" 판정이 발행 조건과 다른 기준을 쓰는 이유
+
+발행 조건의 **매칭 기준**(미해소 `FAILED`가 있으면 미완료)을 스윕에 그대로 적용하면, 스윕이 찾아야 할 대상이 바로 "미해소 `FAILED`가 남은 케어플랜"이라 **조건상 전부 걸러져 스윕이 아무 일도 하지 않는다.** 그래서 스윕은 매칭 기준 대신 케어플랜의 달력상 활동 종료를 기준으로 쓴다. 즉 **미해소 `FAILED`가 있어도 활동 기간이 끝나면 강제로 완료 처리한다.**
+
+반면 **일정 기준**(`SCHEDULED`/`RESCHEDULING` 잔존, 수행 결과 미등록)은 실시간 경로와 **똑같이 지킨다.** 아직 진행 중인 일정이 있으면 케어플랜이 실제로 끝나지 않은 것이고, 페이로드의 `status`가 이 문서의 허용값(`COMPLETED`/`NO_SHOW`/`CANCELED`)을 벗어나기 때문이다.
+
+#### `finishDate`가 아니라 자체 DB의 `date`를 쓰는 이유
+
+care-plan-service의 `finishDate`가 가장 정확한 종료 기준이지만, schedule-service는 이 값을 자체 DB에 갖고 있지 않다. `CarePlanPort`의 Internal API 3개는 전부 `servicePreferenceId`/`patientId` 기준이라 **`carePlanId`로 조회할 방법이 없고**, 대상마다 개별 호출하면 01번·`schedule-service.md` 5.7절이 금지한 N회 호출이 된다.
+
+그래서 자체 DB가 가진 일정/매칭 시도의 `date`로 마지막 활동일을 대신 판정한다. 케어플랜 기간이 30일 고정이라 마지막 활동일은 항상 `finishDate` 이하이며, **유예기간 14일**이 그 오차를 덮는다.
+
+> ⚠️ **알려진 한계**: 전 서비스가 초기 매칭에 실패해 **일정 레코드가 0건**인 케어플랜은 페이로드의 `status`(non-null 필수)를 채울 마지막 일정이 없어 스윕 대상에서 제외된다. 이 경우 `CarePlanCompleted`는 발행되지 않으며 별도 과제로 관리한다.
+>
+
+#### 방치된 실패 이력의 종결 — `EXPIRED`
+
+스윕이 발행한다는 것은 끝내 재매칭되지 않은 서비스가 사실상 포기 처리된다는 뜻이다. 이때 해당 `FAILED` 이력을 **`EXPIRED`로 전환**한다(`p_service_matching_attempts.status`).
+
+- `FAILED`로 남겨두면 다음 스윕이 같은 케어플랜을 매번 다시 잡고, 15번 조회에서도 이미 끝난 건이 계속 "재매칭 필요"로 보인다.
+- 전환 이후 그 케어플랜의 미해소 `FAILED`는 0건이 되므로, 실시간 경로의 매칭 기준도 더 이상 막히지 않는다.
+- `EXPIRED` 건은 16번 재매칭 대상이 아니다(`409 MATCHING_ATTEMPT_NOT_RETRYABLE`). 15번에서는 `status=EXPIRED`로 조회할 수 있다.
+
 
 ## 메시징 정보
 

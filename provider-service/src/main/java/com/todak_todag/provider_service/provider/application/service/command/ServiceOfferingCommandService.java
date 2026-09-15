@@ -50,15 +50,15 @@ public class ServiceOfferingCommandService {
 
     @Transactional
     public void delete(ServiceOfferingDeleteCommand command) {
-        // Facade의 조회와 이 트랜잭션 사이의 시점 차이를 방어하기 위해 다시 조회
-        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
+        // 제공 가능 일정 쓰기와 같은 부모 행을 잠근다
+        // 잠그지 않으면 하위 일정을 조회한 직후 새 일정이 등록되어 삭제 대상에서 빠진다
+        ServiceOffering serviceOffering = serviceOfferingCommandRepository.findByIdForUpdate(command.serviceOfferingId())
                 .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
 
         // ADMIN의 담당 지역 검증은 Facade가 트랜잭션 밖에서 마쳤다 (User-Service 호출이 필요해 여기서 다시 하지 않는다)
         if (command.userRole() != UserRole.ADMIN && !serviceOffering.isOwnedBy(command.userId())) {
             throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
         }
-
 
         List<ProvideWork> provideWorks = provideWorkQueryRepository.findAllByServiceOfferingId(serviceOffering.getId());
         provideWorks.forEach(provideWork -> provideWork.markDeleted(command.userId()));

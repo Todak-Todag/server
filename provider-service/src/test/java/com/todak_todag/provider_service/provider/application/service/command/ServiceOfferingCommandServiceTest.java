@@ -125,7 +125,7 @@ class ServiceOfferingCommandServiceTest {
             ServiceOffering offering = ownedOffering();
             ProvideWork provideWork = Mockito.mock(ProvideWork.class);
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId))
                     .willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of(provideWork));
@@ -141,7 +141,7 @@ class ServiceOfferingCommandServiceTest {
         void delete_withoutProvideWorks() {
             ServiceOffering offering = ownedOffering();
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId))
                     .willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of());
@@ -154,7 +154,7 @@ class ServiceOfferingCommandServiceTest {
         @Test
         @DisplayName("Facade 조회 이후 삭제되었으면 SERVICE_OFFERING_NOT_FOUND")
         void notFound() {
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId))
                     .willReturn(Optional.empty());
 
             assertThatThrownBy(() -> serviceOfferingCommandService.delete(command(UserRole.SERVICE_PROVIDER)))
@@ -171,7 +171,7 @@ class ServiceOfferingCommandServiceTest {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
             given(offering.isOwnedBy(providerId)).willReturn(false);
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId))
                     .willReturn(Optional.of(offering));
 
             assertThatThrownBy(() -> serviceOfferingCommandService.delete(command(UserRole.SERVICE_PROVIDER)))
@@ -189,7 +189,7 @@ class ServiceOfferingCommandServiceTest {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
             given(offering.getId()).willReturn(serviceOfferingId);
 
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId))
                     .willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
                     .willReturn(List.of());

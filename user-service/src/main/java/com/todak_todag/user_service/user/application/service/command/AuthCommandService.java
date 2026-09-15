@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.todak_todag.user_service.global.exception.AuthErrorCode;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.global.support.MaskingUtil;
 import com.todak_todag.user_service.user.application.command.AuthLoginCommand;
 import com.todak_todag.user_service.user.application.command.AuthLogoutCommand;
 import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
@@ -94,16 +95,30 @@ public class AuthCommandService {
 		
 		// 3. 리프레시 토큰 해시로 조회
 		Auth loginSession = authQueryRepo.findActiveByRefreshTokenHash(refreshTokenHash)
-				.orElseThrow(() -> new BusinessException(AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID));
-		
+				.orElseThrow(() -> {
+					// 이미 회전됐거나 로그아웃된 토큰의 재사용일 수 있어 탈취 정황으로 볼 여지가 있다.
+					log.warn("[User] 유효한 세션이 없는 RefreshToken 으로 재발급이 시도되었습니다.");
+
+					return new BusinessException(AuthErrorCode.AUTH_REFRESH_TOKEN_INVALID);
+				});
+
 		// 4. 만료 검증
 		LocalDateTime now = LocalDateTime.now();
-		
+
 		loginSession.validateExpiration(now);
-		
+
 		// 5. 세션 소유자 조회 -> 계정 상태 조회.. 조회 되면 Approved 상태이며 삭제되지 않은 것
 		User user = userQueryRepo.findActiveById(loginSession.getUserId())
-				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+				.orElseThrow(() -> {
+					// 활성 세션이 남아있는데 계정이 이용 불가 상태다. 정지·탈퇴 시 세션 정리가 누락됐다는 신호.
+					log.warn(
+							"[User] 활성 세션의 소유자가 이용 가능한 계정이 아닙니다. userId={}, authId={}",
+							loginSession.getUserId(),
+							loginSession.getId()
+					);
+
+					return new BusinessException(UserErrorCode.USER_NOT_FOUND);
+				});
 		
 		// 6. 새로운 토큰 발급
 		String newAccessToken = tokenPort.createToken();
@@ -117,33 +132,57 @@ public class AuthCommandService {
 		
 		// 8. Redis 저장
 		tokenStorePort.storeAccessToken(user.getId(), newAccessToken, newJwtAccessToken);
-		
+
+		log.info("[User] 토큰 재발급 완료 userId={}, authId={}", user.getId(), loginSession.getId());
+
 		return new AuthReissueResult(newAccessToken, newRefreshToken);
 	}
-	
+
 	public void logout(AuthLogoutCommand command) {
 		Auth auth = authQueryRepo.findActiveByUserId(command.requesterId())
 				.orElse(null);
-		
+
 		if(auth != null) {
-			auth.logout();			
+			auth.logout();
+		} else {
+			// 인증을 통과했는데 DB에 활성 세션이 없다. 세션 정합성이 깨진 상태.
+			log.warn(
+					"[User] 로그아웃 요청자의 활성 로그인 세션이 존재하지 않습니다. userId={}",
+					command.requesterId()
+			);
 		}
-		
+
 		if(command.accessToken() != null && !command.accessToken().isBlank()) {
-			tokenStorePort.deleteAccessToken(command.requesterId(), command.accessToken());			
+			tokenStorePort.deleteAccessToken(command.requesterId(), command.accessToken());
 		}
+
+		log.info("[User] 로그아웃 완료 userId={}", command.requesterId());
 	}
 	
 	public AuthLoginResult login(AuthLoginCommand loginCommand) {
 		// 1. 사용자 있나?
 		User loginUser = userQueryRepo.findLoginByUsername(loginCommand.username())
-				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED));	
-		
+				.orElseThrow(() -> {
+					// 존재하지 않는 계정이라 userId 가 없다. 남길 수 있는 식별 정보는 마스킹된 아이디뿐이다.
+					log.warn(
+							"[User] 존재하지 않는 아이디로 로그인이 시도되었습니다. username={}",
+							MaskingUtil.maskUsername(loginCommand.username())
+					);
+
+					return new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
+				});
+
 		// 2. 로그인이 가능한 상태인가?
 		loginUser.validateCanLogin();
-		
+
 		// 3. 로그인 가능한 상태니까 아이디와 비밀번호 검증
 		if(!passwordEncoder.matches(loginCommand.password(), loginUser.getPasswordHash())) {
+			// 계정은 확인됐으므로 마스킹된 아이디 대신 userId 로 남긴다. 반복 시도 추적에 쓰인다.
+			log.warn(
+					"[User] 비밀번호가 일치하지 않는 로그인이 시도되었습니다. userId={}",
+					loginUser.getId()
+			);
+
 			throw new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
 		}
 		
@@ -155,7 +194,11 @@ public class AuthCommandService {
 			
 				// 동의했던 내역이 존재하면 첫 로그인 시점이 아닌 퇴원 예정자가 동의를 철회한 것이다.
 				if(consentQueryRepo.findAllByUserId(loginUser.getId()).isEmpty()) {
-					log.info("[User] 퇴원 예정자가 첫 로그인을 시작하였습니다. userId={}", loginUser.getId());
+					log.info(
+							"[User] 퇴원 예정자 첫 로그인으로 3분 임시 토큰을 발급합니다. userId={}",
+							loginUser.getId()
+					);
+
 					String accessToken = tokenPort.createToken();
 					
 					String jwtAccessToken = tokenPort.createJwtAccessToken(loginUser.getId(), loginUser.getRole());
@@ -168,6 +211,10 @@ public class AuthCommandService {
 					return new AuthLoginResult(loginUser.getId(), accessToken, refreshToken);
 				}
 			}
+
+			// 비밀번호까지 맞았는데 탈퇴한 계정이다. 본인일 가능성이 높지만 재가입 안내가 필요한 상황.
+			log.info("[User] 탈퇴한 계정으로 로그인이 시도되었습니다. userId={}", loginUser.getId());
+
 			throw new BusinessException(UserErrorCode.USER_LOGIN_WITHDRAWN);
 		}
 		
@@ -197,6 +244,14 @@ public class AuthCommandService {
 
 		// 10. 발급한 AccessToken을 Redis에 저장 (실패 시 트랜잭션 전체 롤백)
 		tokenStorePort.storeAccessToken(loginUser.getId(), accessToken, jwtAccessToken);
+
+		// 실패만 남기면 "언제부터 침입자가 들어와 있었는지" 판단할 기준이 없다.
+		log.info(
+				"[User] 로그인 완료 userId={}, role={}, authId={}",
+				loginUser.getId(),
+				loginUser.getRole(),
+				loginSession.getId()
+		);
 
 		return new AuthLoginResult(loginSession.getUserId(), accessToken, refreshToken);
 	}

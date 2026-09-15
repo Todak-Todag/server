@@ -3,6 +3,19 @@ jwt:
 
 internal:
   key: test-internal-key
+  
+internal-jwt:
+  private-key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tDQpNSUlFdmdJQkFEQU5CZ2txaGtpRzl3MEJBUUVGQUFTQ0JLZ3dnZ1NrQWdFQUFvSUJBUUNuUzJ0eXVOTDcxR2dmDQpsaktxdTJ4a01ZcVZXdC9LaHpDMmdkaGU3eDhVUUovamVFZFdIZE5kdUZTWGd6dmRlVWZxZjJQQlZFWk8ranQ1DQpmMlFRWnlNRGZHUXpHUExSVXBuVHpaU0ltb0UvR0I3VGpTbkJGWlhScGJYT3RzVGVpdWpXTXN4RzFvKytMMWlYDQpEUTIxV3JvMkZlK2hUWlJJY3JUenQvR3Z1a0dKOFU3ZlVpdkMvb1dsQ2pXTTIwR2ZoZzd0clo2MVViTG1EYk1iDQpQSWVFUHZhSVpGdnh2bnl5QkxUZlg4ekhnTndGZkJlZTY1N3RhUkdTSWR2RmFtWHFnelFZaU9PWmN1UlRyZEdYDQp3dnVzWHVsLzFyOXFUMXN0MEsyaDVNdmJFZnR1aFBOWGxlbVArd05pRUl0eDBPbXd5b3E2TTFvUVNkS1RSRmtYDQpQejBZQlhYL0FnTUJBQUVDZ2dFQUFvMjlIUmFWRFFFbkZtZDFDTjdzd2tFNEFnNHhPZitZWjdVOFFLNUloemprDQpORnhPWWdQNVVHS0lqQWd5TUQ0NWFzQlZuUmpSRCs3Skk3MElyOU9pVWJEcUEwODRQVFlVTDJCVFgyTWI4QkU3DQpJbGVyeWxRRU1FWlhxOWRsbVpidklDa0dBMXFWYjYrWWpjS2JoeURpc09Wdzc1Ykp2VWRlK0JUQ2tESGNtRndtDQpibFZXSHNuU2JaSjJ6R2g2WEkzUmdDcy9jWm44L3Q0ekozS0ZNYzdaeGlST215ck95MmlleWlkSVFZTXA1V1FsDQp3R1Eram80dE1mVHpvWml0disrSUgzMWJEbVR4VkhoUW0xZUVnZlhTbFB5cDJsSUxiTUZHK01qZDE0OHhCTXkvDQpoajZmY0t2S3hJSWJWMlVvcnBxajN2RVNlYVBtdk5EbHFPQ3o0SlN6aFFLQmdRRGxrZmJyK1BSRC9ZTlZQWWhIDQpLS3ZSWU5uOFM5RkFDNGJGcGJLVEhjOUhDM3B0ajVsMUlMYXNqRzJFeE5ORzUyZE8rcU9LbllCb3IwYkxzOWxlDQp1SitLeElCd1BQNW95QTk1Nnpva0FGWGN4bHZQUk1EdDF1UWcvZGpkcUN0cnN4LzlyR0xSWktmWEtMeXNmOW93DQp5NUw5WGpidGRHVWNIY2VnSVJyTHcvaVA3UUtCZ1FDNmpnZms5SXh0RG45ZjNjYVhNZlI4RkJBNXZxWVIwWjY4DQpJZGZlVmsyUEJOam9QNVBVZlEyNDZSejRBa0lIT0lxaHpsSkZqWnMrR1UrTHlNRXRRSXUzVnlia0cwellqeUs1DQpENVF1NlV1K1hrS05rbjhuQ0V2eE5VVFNXbUxTNU5hOCtYUUlHYXBMUzczdi9aQ0RUVjhSR1VSM29TRGFLSWExDQpkd1lDdE81b0d3S0JnUURON08va1hnMm1TMnFhZExhZ3RnL2hvaElIYVc4TEZ3dk9rVUt0Q3FsYTNpWDB6MEhsDQpPZklDdDNpcUJ2QktBdHE5a3NCT1g5ZkdqNnRlb0RaVTdDRllsY2xzWkpvRkhhZ2NRZStHU2JLN2RrYjJsb0xGDQpGZVRPMzBYQUZ0RFVLL3AvVHpuWkFJUTUwVFhsT2s1YlJORFdhOE96bnB2djY1cWN2ZlZPWUx5L1JRS0JnUUN3DQozWGtFaXdrYlY3UlEraHlPT1pFMWxYdndreHcxSm93Y2h1VjI2RkZ0dDBYQm9vMFAxbU9OSEkwWFlHU2pIZXJwDQpEb2VYWTNKOEJGa1RDSWlFMDMzaW15REhBRTd4dlhwSkEwa1UxSiszNHZ1cjV1amY0NURFSlNHVFlKZnlvM3dtDQorMFVUYk9tenF5SnZCZkhkV2h3NFJNRlJ2WlE4NEZFZWQ3SmVISlV1WXdLQmdFb25TZ2gxMjlNSjdPOFpCTllEDQpMR3VIdmZHNG5EdG1aeHFGWGpWL3NCRkhZZ24xdzlxNEZOVXZiaEczb2s4RWtuYTBjQTBCTHZUTjhGS3A3R0FMDQpSbDBkbE1ZZExsQ0VjQk04d2xSamQ0Q3JKYUZRVm0wVEN0aHFhdXk2RVNBK0M1TmVpREsxYUlSR1BNOS9Ubk9oDQoyRldqNytJRFRuSDU0MHprL3VYMFVUUEoNCi0tLS0tRU5EIFBSSVZBVEUgS0VZLS0tLS0NCg==
+  issuer: todak-api-gateway
+  ttl: 60s
+
+rate-limit:
+  max-idle: 1h
+  buckets:
+    user-service-login:
+      capacity: 20
+      refill-tokens: 10
+      refill-period: 1m
 
 authentication:
   access-token:
@@ -26,12 +39,27 @@ spring:
     gateway:
       server:
         webflux:
+          redis:
+            enabled: false   # 내장 RedisRateLimiter 를 끈다. Bucket4jRateLimiter 를 직접 구성해서 쓴다.
+
           discovery:
             locator:
               enabled: false
               lower-case-service-id: true
 
           routes:
+            # 좁은 패턴이 넓은 user-service 라우트보다 먼저 매칭되어야 하므로 위에 둔다.
+            - id: user-service-login
+              uri: lb://user-service
+              predicates:
+                - Path=/api/v1/auth/login
+                - Method=POST
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@clientIpKeyResolver}"
+                    rate-limiter: "#{@bucket4jRateLimiter}"
+
             - id: user-service
               uri: lb://user-service
               predicates:

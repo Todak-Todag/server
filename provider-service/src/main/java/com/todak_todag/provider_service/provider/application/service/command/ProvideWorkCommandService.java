@@ -10,8 +10,8 @@ import com.todak_todag.provider_service.provider.application.result.ProvideWorkU
 import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
 import com.todak_todag.provider_service.provider.domain.repository.command.ProvideWorkCommandRepository;
+import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
 import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
-import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,16 +28,11 @@ public class ProvideWorkCommandService {
 
     private final ProvideWorkCommandRepository provideWorkCommandRepository;
     private final ProvideWorkQueryRepository provideWorkQueryRepository;
-    private final ServiceOfferingQueryRepository serviceOfferingQueryRepository;
+    private final ServiceOfferingCommandRepository serviceOfferingCommandRepository;
 
     @Transactional
     public ProvideWorkCreateResult create(ProvideWorkCreateCommand command) {
-        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
-                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
-
-        if (!serviceOffering.isOwnedBy(command.providerId())) {
-            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
-        }
+        lockOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
 
         validateNotOverlapped(
                 command.serviceOfferingId(),
@@ -60,12 +55,7 @@ public class ProvideWorkCommandService {
     // schedulePort 호출은 Facade가 트랜잭션 밖에서 수행한다
     @Transactional
     public ProvideWorkUpdateResult update(ProvideWorkUpdateCommand command) {
-        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
-                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
-
-        if (!serviceOffering.isOwnedBy(command.providerId())) {
-            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
-        }
+        lockOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
 
         ProvideWork provideWork = provideWorkQueryRepository.findById(command.provideWorkId())
                 .orElseThrow(() -> new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND));
@@ -93,12 +83,7 @@ public class ProvideWorkCommandService {
     // schedulePort 호출은 Facade가 트랜잭션 밖에서 수행한다
     @Transactional
     public void delete(ProvideWorkDeleteCommand command) {
-        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
-                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
-
-        if (!serviceOffering.isOwnedBy(command.providerId())) {
-            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
-        }
+        lockOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
 
         ProvideWork provideWork = provideWorkQueryRepository.findById(command.provideWorkId())
                 .orElseThrow(() -> new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND));
@@ -111,6 +96,20 @@ public class ProvideWorkCommandService {
 
         log.info("[Provider] 제공 가능 일정 삭제 provideWorkId={} serviceOfferingId={}",
                 provideWork.getId(), command.serviceOfferingId());
+    }
+
+    // 같은 제공 서비스의 쓰기는 부모 행을 잠가 한 번에 하나씩 처리한다
+    // 잠금 없이 "조회 → 겹침 검사 → 저장"을 하면 동시 요청이 모두 검사를 통과해 겹치는 일정이 저장된다
+    // 잠금을 기다리는 사이 제공 서비스가 삭제됐다면 조회되지 않아 SERVICE_OFFERING_NOT_FOUND가 된다
+    private ServiceOffering lockOwnedServiceOffering(UUID serviceOfferingId, UUID providerId) {
+        ServiceOffering serviceOffering = serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
+
+        if (!serviceOffering.isOwnedBy(providerId)) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
+        }
+
+        return serviceOffering;
     }
 
     // 같은 제공 서비스 안에서 요일이 같고 시간이 겹치는 일정은 등록·수정할 수 없다

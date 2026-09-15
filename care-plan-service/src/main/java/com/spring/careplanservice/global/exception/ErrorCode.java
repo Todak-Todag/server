@@ -87,7 +87,7 @@ public enum ErrorCode {
     ),
 
     CARE_PLAN_BAD_REQUEST(
-            HttpStatus.CONFLICT,
+            HttpStatus.BAD_REQUEST,
             "page는 0 이상이어야 합니다."
     ),
 
@@ -134,6 +134,11 @@ public enum ErrorCode {
     CARE_PLAN_COMPLETED_EVENT_CARE_PLAN_MISMATCH(
             HttpStatus.BAD_REQUEST,
             "완료 이벤트의 carePlanId와 Schedule 수행 결과의 carePlanId가 일치하지 않습니다."
+    ),
+
+    CARE_PLAN_SERVICE_SELECT_NOT_ALLOWED(
+            HttpStatus.CONFLICT,
+            "UNDER_REVIEW 상태의 Care Plan만 서비스를 선택할 수 있습니다."
     ),
     ;
 

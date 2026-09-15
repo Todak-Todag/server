@@ -24,6 +24,7 @@ public interface MatchingAttemptApiSpec {
             description = "퇴원 예정자가 본인의 서비스 희망 일정에 대한 매칭 시도(성공/실패) 내역을 조회한다. " +
                     "status를 지정하지 않으면 재매칭이 필요한 FAILED 내역만 조회한다 — " +
                     "이때 아직 일정이 생성되지 않은(=재시도로 해소되지 않은) 실패 건만 반환한다. " +
+                    "EXPIRED는 끝내 재매칭되지 않아 Care Plan 종료와 함께 만료 처리된 실패 이력이다. " +
                     "Care Plan이 CONFIRMED 상태가 아니면 빈 배열을 반환한다. " +
                     "정렬은 최신순/오래된순(기본 createdAt,DESC)이 가능하다."
     )
@@ -35,7 +36,7 @@ public interface MatchingAttemptApiSpec {
             Integer size,
             @Parameter(description = "정렬 (기본 createdAt,DESC)")
             String sort,
-            @Parameter(description = "매칭 결과 필터 (MATCHED/FAILED, 기본 FAILED)")
+            @Parameter(description = "매칭 결과 필터 (MATCHED/FAILED/EXPIRED, 기본 FAILED)")
             MatchingAttemptStatus status,
             @Parameter(hidden = true)
             UserContext user

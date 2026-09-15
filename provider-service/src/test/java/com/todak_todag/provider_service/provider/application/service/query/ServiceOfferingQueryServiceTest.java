@@ -172,11 +172,8 @@ class ServiceOfferingQueryServiceTest {
         @Test
         @DisplayName("providerId를 반환한다")
         void findProvider_success() {
-            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
-            given(offering.getProviderId()).willReturn(providerId);
-
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
-                    .willReturn(Optional.of(offering));
+            given(serviceOfferingQueryRepository.findProviderIdIncludingDeleted(serviceOfferingId))
+                    .willReturn(Optional.of(providerId));
 
             ServiceOfferingProviderResult result =
                     serviceOfferingQueryService.findProvider(serviceOfferingId);
@@ -187,48 +184,13 @@ class ServiceOfferingQueryServiceTest {
         @Test
         @DisplayName("존재하지 않으면 SERVICE_OFFERING_NOT_FOUND")
         void findProvider_notFound() {
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
+            given(serviceOfferingQueryRepository.findProviderIdIncludingDeleted(serviceOfferingId))
                     .willReturn(Optional.empty());
 
             assertThatThrownBy(() -> serviceOfferingQueryService.findProvider(serviceOfferingId))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
-        }
-    }
-
-    @Nested
-    @DisplayName("제공자별 제공 서비스 ID 목록 조회")
-    class FindIdsByProvider {
-
-        @Test
-        @DisplayName("보유한 제공 서비스 ID 목록을 반환한다")
-        void findIdsByProvider_success() {
-            UUID providerId = UUID.randomUUID();
-            UUID first = UUID.randomUUID();
-            UUID second = UUID.randomUUID();
-
-            given(serviceOfferingQueryRepository.findIdsByProviderId(providerId))
-                    .willReturn(List.of(first, second));
-
-            ServiceOfferingIdsResult result =
-                    serviceOfferingQueryService.findIdsByProvider(providerId);
-
-            assertThat(result.serviceOfferingIds()).containsExactly(first, second);
-        }
-
-        @Test
-        @DisplayName("보유한 제공 서비스가 없으면 빈 목록을 반환한다")
-        void findIdsByProvider_empty() {
-            UUID providerId = UUID.randomUUID();
-
-            given(serviceOfferingQueryRepository.findIdsByProviderId(providerId))
-                    .willReturn(List.of());
-
-            ServiceOfferingIdsResult result =
-                    serviceOfferingQueryService.findIdsByProvider(providerId);
-
-            assertThat(result.serviceOfferingIds()).isEmpty();
         }
     }
 

@@ -54,8 +54,7 @@ public interface ServiceOfferingApiSpec {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "serviceOfferingId 형식 오류"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "본인이 등록한 제공 서비스가 아님"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "존재하지 않는 제공 서비스"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "확정된 서비스 일정이 존재함"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "Schedule-Service 호출 실패")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "User-Service 호출 실패")
     })
     void delete(
             @Parameter(hidden = true)

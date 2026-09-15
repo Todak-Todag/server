@@ -57,8 +57,7 @@ public interface ProvideWorkApiSpec {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "요일 범위 오류 또는 시간 범위 오류"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "본인이 등록한 제공 서비스가 아님"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "존재하지 않는 제공 서비스 또는 제공 가능 일정"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "시간 겹침 또는 확정된 서비스 일정 존재"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "Schedule-Service 호출 실패")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "시간이 겹치는 제공 가능 일정 존재")
     })
     ApiResponse<ProvideWorkUpdateResponse> update(
             @Parameter(hidden = true)
@@ -86,9 +85,7 @@ public interface ProvideWorkApiSpec {
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "204", description = "제공 가능 일정 삭제 성공"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "ID 형식 오류"),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "본인이 등록한 제공 서비스가 아님"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "존재하지 않는 제공 서비스 또는 제공 가능 일정"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "확정된 서비스 일정 존재"),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "Schedule-Service 호출 실패")
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "존재하지 않는 제공 서비스 또는 제공 가능 일정")
     })
     void delete(
             @Parameter(hidden = true)

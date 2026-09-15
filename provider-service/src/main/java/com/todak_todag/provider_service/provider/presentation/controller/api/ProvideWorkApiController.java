@@ -27,10 +27,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ProvideWorkApiController implements ProvideWorkApiSpec {
 
-    // 등록은 외부 호출이 없어 CommandService를 직접 사용하고,
-    // 수정은 확정 일정 확인이 필요해 Facade를 거침
+    // 소유권·겹침 검증은 CommandService가 트랜잭션 안에서 수행한다
     private final ProvideWorkCommandService provideWorkCommandService;
-    private final ServiceOfferingFacade serviceOfferingFacade;
 
     @Override
     @PostMapping
@@ -63,7 +61,7 @@ public class ProvideWorkApiController implements ProvideWorkApiSpec {
             @PathVariable("provideWorkId") UUID provideWorkId,
             @Valid @RequestBody ProvideWorkUpdateRequest request
     ) {
-        ProvideWorkUpdateResult result = serviceOfferingFacade.updateProvideWork(
+        ProvideWorkUpdateResult result = provideWorkCommandService.update(
                 new ProvideWorkUpdateCommand(
                         serviceOfferingId,
                         provideWorkId,
@@ -86,7 +84,7 @@ public class ProvideWorkApiController implements ProvideWorkApiSpec {
             @PathVariable("serviceOfferingId") UUID serviceOfferingId,
             @PathVariable("provideWorkId") UUID provideWorkId
     ) {
-        serviceOfferingFacade.deleteProvideWork(
+        provideWorkCommandService.delete(
                 new ProvideWorkDeleteCommand(serviceOfferingId, provideWorkId, user.getUserId())
         );
     }

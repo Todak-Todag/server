@@ -3,19 +3,14 @@ package com.todak_todag.provider_service.provider.application.facade;
 import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
-import com.todak_todag.provider_service.provider.application.command.ProvideWorkDeleteCommand;
-import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
 import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
-import com.todak_todag.provider_service.provider.application.port.SchedulePort;
 import com.todak_todag.provider_service.provider.application.port.UserPort;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
 import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
-import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
 import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
-import com.todak_todag.provider_service.provider.application.service.command.ProvideWorkCommandService;
 import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
 import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
 import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
@@ -36,7 +31,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.time.Instant;
-import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -75,13 +69,7 @@ class ServiceOfferingFacadeTest {
     private ServiceOfferingQueryService serviceOfferingQueryService;
 
     @Mock
-    private ProvideWorkCommandService provideWorkCommandService;
-
-    @Mock
     private UserPort userPort;
-
-    @Mock
-    private SchedulePort schedulePort;
 
     @InjectMocks
     private ServiceOfferingFacade serviceOfferingFacade;
@@ -170,19 +158,17 @@ class ServiceOfferingFacadeTest {
 
         private ServiceOffering ownedOffering() {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
-            given(offering.getId()).willReturn(serviceOfferingId);
             given(offering.isOwnedBy(providerId)).willReturn(true);
             return offering;
         }
 
         @Test
-        @DisplayName("확정 일정이 없으면 CommandService에 위임한다")
+        @DisplayName("확정 일정 여부와 관계없이 CommandService에 위임한다")
         void delete_success() {
             ServiceOffering offering = ownedOffering();
 
             given(serviceOfferingQueryRepository.findById(serviceOfferingId))
                     .willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
 
             serviceOfferingFacade.delete(command());
 
@@ -190,8 +176,8 @@ class ServiceOfferingFacadeTest {
         }
 
         @Test
-        @DisplayName("존재하지 않으면 Schedule-Service를 호출하지 않는다")
-        void delete_notFound_noExternalCall() {
+        @DisplayName("존재하지 않으면 SERVICE_OFFERING_NOT_FOUND")
+        void delete_notFound() {
             given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.empty());
 
             assertThatThrownBy(() -> serviceOfferingFacade.delete(command()))
@@ -199,13 +185,12 @@ class ServiceOfferingFacadeTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
 
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
             verify(serviceOfferingCommandService, never()).delete(any());
         }
 
         @Test
-        @DisplayName("본인 소유가 아니면 Schedule-Service를 호출하지 않는다")
-        void delete_notOwner_noExternalCall() {
+        @DisplayName("본인 소유가 아니면 AUTH_FORBIDDEN")
+        void delete_notOwner() {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
             given(offering.isOwnedBy(providerId)).willReturn(false);
 
@@ -215,24 +200,6 @@ class ServiceOfferingFacadeTest {
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
-
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
-            verify(serviceOfferingCommandService, never()).delete(any());
-        }
-
-        @Test
-        @DisplayName("확정된 일정이 있으면 SERVICE_OFFERING_SCHEDULE_EXISTS")
-        void delete_scheduleExists() {
-            ServiceOffering offering = ownedOffering();
-
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId))
-                    .willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(true);
-
-            assertThatThrownBy(() -> serviceOfferingFacade.delete(command()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_SCHEDULE_EXISTS);
 
             verify(serviceOfferingCommandService, never()).delete(any());
         }
@@ -245,12 +212,10 @@ class ServiceOfferingFacadeTest {
         @DisplayName("ADMIN은 담당 지역이면 본인 소유가 아니어도 CommandService에 위임한다")
         void delete_admin_sameRegion() {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
-            given(offering.getId()).willReturn(serviceOfferingId);
             given(offering.getRegionId()).willReturn(regionId);
 
             given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
             given(userPort.findRegionIdByUserId(adminId)).willReturn(regionId);
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
 
             serviceOfferingFacade.delete(adminCommand());
 
@@ -259,7 +224,7 @@ class ServiceOfferingFacadeTest {
         }
 
         @Test
-        @DisplayName("ADMIN이라도 담당 지역이 아니면 Schedule-Service를 호출하지 않고 AUTH_FORBIDDEN")
+        @DisplayName("ADMIN이라도 담당 지역이 아니면 AUTH_FORBIDDEN")
         void delete_admin_otherRegion() {
             ServiceOffering offering = Mockito.mock(ServiceOffering.class);
             given(offering.getRegionId()).willReturn(otherRegionId);
@@ -272,7 +237,6 @@ class ServiceOfferingFacadeTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
 
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
             verify(serviceOfferingCommandService, never()).delete(any());
         }
     }
@@ -408,165 +372,6 @@ class ServiceOfferingFacadeTest {
                     .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
 
             verify(serviceOfferingQueryService, never()).searchByRegion(any());
-        }
-    }
-
-    @Nested
-    @DisplayName("제공 가능 일정 수정")
-    class UpdateProvideWork {
-
-        private final UUID provideWorkId = UUID.randomUUID();
-
-        private ProvideWorkUpdateCommand command() {
-            return new ProvideWorkUpdateCommand(
-                    serviceOfferingId, provideWorkId, providerId, 1, LocalTime.of(9, 0), LocalTime.of(13, 0));
-        }
-
-        private ServiceOffering ownedOffering() {
-            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
-            given(offering.getId()).willReturn(serviceOfferingId);
-            given(offering.isOwnedBy(providerId)).willReturn(true);
-            return offering;
-        }
-
-        @Test
-        @DisplayName("확정 일정이 없으면 CommandService에 위임한다")
-        void updateProvideWork_success() {
-            ServiceOffering offering = ownedOffering();
-            ProvideWorkUpdateResult expected = new ProvideWorkUpdateResult(provideWorkId);
-
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
-            given(provideWorkCommandService.update(any(ProvideWorkUpdateCommand.class))).willReturn(expected);
-
-            ProvideWorkUpdateResult result = serviceOfferingFacade.updateProvideWork(command());
-
-            assertThat(result).isEqualTo(expected);
-        }
-
-        @Test
-        @DisplayName("존재하지 않으면 Schedule-Service를 호출하지 않는다")
-        void updateProvideWork_notFound_noExternalCall() {
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> serviceOfferingFacade.updateProvideWork(command()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
-
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
-            verify(provideWorkCommandService, never()).update(any());
-        }
-
-        @Test
-        @DisplayName("본인 소유가 아니면 Schedule-Service를 호출하지 않는다")
-        void updateProvideWork_notOwner_noExternalCall() {
-            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
-            given(offering.isOwnedBy(providerId)).willReturn(false);
-
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
-
-            assertThatThrownBy(() -> serviceOfferingFacade.updateProvideWork(command()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
-
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
-            verify(provideWorkCommandService, never()).update(any());
-        }
-
-        @Test
-        @DisplayName("확정된 일정이 있으면 CommandService를 호출하지 않는다")
-        void updateProvideWork_scheduleExists() {
-            ServiceOffering offering = ownedOffering();
-
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(true);
-
-            assertThatThrownBy(() -> serviceOfferingFacade.updateProvideWork(command()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS);
-
-            verify(provideWorkCommandService, never()).update(any());
-        }
-    }
-
-    @Nested
-    @DisplayName("제공 가능 일정 삭제")
-    class DeleteProvideWork {
-
-        private final UUID provideWorkId = UUID.randomUUID();
-
-        private ProvideWorkDeleteCommand command() {
-            return new ProvideWorkDeleteCommand(serviceOfferingId, provideWorkId, providerId);
-        }
-
-        private ServiceOffering ownedOffering() {
-            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
-            given(offering.getId()).willReturn(serviceOfferingId);
-            given(offering.isOwnedBy(providerId)).willReturn(true);
-            return offering;
-        }
-
-        @Test
-        @DisplayName("확정 일정이 없으면 CommandService에 위임한다")
-        void deleteProvideWork_success() {
-            ServiceOffering offering = ownedOffering();
-
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(false);
-
-            serviceOfferingFacade.deleteProvideWork(command());
-
-            verify(provideWorkCommandService).delete(any(ProvideWorkDeleteCommand.class));
-        }
-
-        @Test
-        @DisplayName("존재하지 않으면 Schedule-Service를 호출하지 않는다")
-        void deleteProvideWork_notFound_noExternalCall() {
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.empty());
-
-            assertThatThrownBy(() -> serviceOfferingFacade.deleteProvideWork(command()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
-
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
-            verify(provideWorkCommandService, never()).delete(any());
-        }
-
-        @Test
-        @DisplayName("본인 소유가 아니면 Schedule-Service를 호출하지 않는다")
-        void deleteProvideWork_notOwner_noExternalCall() {
-            ServiceOffering offering = Mockito.mock(ServiceOffering.class);
-            given(offering.isOwnedBy(providerId)).willReturn(false);
-
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
-
-            assertThatThrownBy(() -> serviceOfferingFacade.deleteProvideWork(command()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
-
-            verify(schedulePort, never()).existsConfirmedSchedule(any());
-            verify(provideWorkCommandService, never()).delete(any());
-        }
-
-        @Test
-        @DisplayName("확정된 일정이 있으면 CommandService를 호출하지 않는다")
-        void deleteProvideWork_scheduleExists() {
-            ServiceOffering offering = ownedOffering();
-
-            given(serviceOfferingQueryRepository.findById(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(schedulePort.existsConfirmedSchedule(serviceOfferingId)).willReturn(true);
-
-            assertThatThrownBy(() -> serviceOfferingFacade.deleteProvideWork(command()))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_SCHEDULE_EXISTS);
-
-            verify(provideWorkCommandService, never()).delete(any());
         }
     }
 }

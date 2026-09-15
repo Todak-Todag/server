@@ -1,5 +1,6 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+import static com.todak_todag.user_service.support.AuthenticatedRequestSupport.asUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -81,8 +82,7 @@ class UserAdminApiControllerTest {
 
 			// when & then
 			mockMvc.perform(patch(STATUS_URI)
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.MASTER.name())
+							.with(asUser(REQUESTER_ID, UserRole.MASTER))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -105,8 +105,7 @@ class UserAdminApiControllerTest {
 
 			// when & then
 			mockMvc.perform(patch(STATUS_URI)
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.ADMIN.name())
+							.with(asUser(REQUESTER_ID, UserRole.ADMIN))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -127,8 +126,7 @@ class UserAdminApiControllerTest {
 
 			// when
 			mockMvc.perform(patch(STATUS_URI)
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.MASTER.name())
+							.with(asUser(REQUESTER_ID, UserRole.MASTER))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -151,8 +149,7 @@ class UserAdminApiControllerTest {
 		void approvalTest_fail_acceptIsNull() throws Exception {
 			// when & then
 			mockMvc.perform(patch(STATUS_URI)
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.MASTER.name())
+							.with(asUser(REQUESTER_ID, UserRole.MASTER))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -169,8 +166,7 @@ class UserAdminApiControllerTest {
 		void approvalTest_fail_invalidUuid() throws Exception {
 			// when & then
 			mockMvc.perform(patch("/api/v1/admin/users/not-a-uuid/status")
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.MASTER.name())
+							.with(asUser(REQUESTER_ID, UserRole.MASTER))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -187,8 +183,7 @@ class UserAdminApiControllerTest {
 		void approvalTest_fail_forbiddenRole() throws Exception {
 			// when & then
 			mockMvc.perform(patch(STATUS_URI)
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.HOSPITAL_STAFF.name())
+							.with(asUser(REQUESTER_ID, UserRole.HOSPITAL_STAFF))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -225,8 +220,7 @@ class UserAdminApiControllerTest {
 
 			// when & then
 			mockMvc.perform(patch(STATUS_URI)
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.MASTER.name())
+							.with(asUser(REQUESTER_ID, UserRole.MASTER))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -253,8 +247,7 @@ class UserAdminApiControllerTest {
 
 			// when & then
 			mockMvc.perform(patch(SUSPEND_URI)
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.MASTER.name())
+							.with(asUser(REQUESTER_ID, UserRole.MASTER))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -271,8 +264,7 @@ class UserAdminApiControllerTest {
 		void suspendTest_fail_forbiddenRole() throws Exception {
 			// when & then
 			mockMvc.perform(patch(SUSPEND_URI)
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.PATIENT.name())
+							.with(asUser(REQUESTER_ID, UserRole.PATIENT))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
@@ -293,8 +285,7 @@ class UserAdminApiControllerTest {
 
 			// when & then
 			mockMvc.perform(patch(SUSPEND_URI)
-							.header("X-User-Id", REQUESTER_ID.toString())
-							.header("X-User-Role", UserRole.MASTER.name())
+							.with(asUser(REQUESTER_ID, UserRole.MASTER))
 							.contentType(MediaType.APPLICATION_JSON)
 							.content("""
 									{
