@@ -18,6 +18,8 @@ import com.todak_todag.provider_service.provider.domain.repository.query.Service
 import com.todak_todag.provider_service.provider.domain.entity.OutboxEventType;
 import com.todak_todag.provider_service.provider.domain.entity.ProviderOutboxEvent;
 import com.todak_todag.provider_service.provider.domain.repository.query.OutboxEventQueryRepository;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -41,6 +43,7 @@ import org.springframework.amqp.AmqpException;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.BDDMockito.willDoNothing;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -640,5 +643,71 @@ class MatchingFacadeTest {
 
         verify(outboxEventQueryRepository, never()).findAllByAggregateIdAndCreatedAtAfter(any(), any());
         verify(matchingEventPort).publishMatched(any());
+    }
+
+    @Test
+    @DisplayName("가운데 희망 일정 적재만 실패하면 나머지는 적재하고 마지막에 예외를 던진다")
+    void match_middleAppendFailure_processesRestThenThrows() {
+        givenMatchableCandidate();
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of());
+
+        willDoNothing()
+                .willThrow(new DataAccessResourceFailureException("db down"))
+                .willDoNothing()
+                .given(matchingEventPort).publishMatched(any());
+
+        assertThatThrownBy(() -> matchingFacade.match(event(
+                preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING),
+                preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING),
+                preference(UUID.randomUUID(), THURSDAY, TimeSlot.MORNING)
+        ))).isInstanceOf(DataAccessException.class);
+
+        // 실패한 가운데 건 뒤의 희망 일정도 처리됐다
+        verify(matchingEventPort, times(3)).publishMatched(any());
+    }
+
+    @Test
+    @DisplayName("재시도 때는 이미 적재한 희망 일정을 건너뛰고 실패했던 건만 적재한다")
+    void match_retry_appendsOnlyFailedPreference() {
+        UUID firstId = UUID.randomUUID();
+        UUID failedId = UUID.randomUUID();
+        UUID thirdId = UUID.randomUUID();
+
+        // 첫 시도에서 첫째(09:00)·셋째(10:00)만 적재된 상태
+        given(outboxEventQueryRepository.findAllByAggregateIdIn(any()))
+                .willReturn(List.of(
+                        matchedResult(firstId, offeringIdA, THURSDAY, "09:00"),
+                        matchedResult(thirdId, offeringIdA, THURSDAY, "10:00")
+                ));
+        givenMatchableCandidate();
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of());
+
+        matchingFacade.match(event(
+                preference(firstId, THURSDAY, TimeSlot.MORNING),
+                preference(failedId, THURSDAY, TimeSlot.MORNING),
+                preference(thirdId, THURSDAY, TimeSlot.MORNING)
+        ));
+
+        ArgumentCaptor<ProviderMatchedEvent> captor = ArgumentCaptor.forClass(ProviderMatchedEvent.class);
+        verify(matchingEventPort, times(1)).publishMatched(captor.capture());
+
+        assertThat(captor.getValue().servicePreferenceId()).isEqualTo(failedId);
+        // 복원한 09:00·10:00 점유를 피해 11:00에 배정된다
+        assertThat(captor.getValue().startedAt()).isEqualTo(THURSDAY.atTime(11, 0));
+    }
+
+    @Test
+    @DisplayName("재매칭 적재가 DB 오류로 실패하면 리스너 재시도를 받도록 예외를 던진다")
+    void rematch_appendFailure_rethrows() {
+        givenMatchableCandidate();
+        given(schedulePort.findSchedules(anyList(), any()))
+                .willReturn(List.of());
+        willThrow(new DataAccessResourceFailureException("db down"))
+                .given(matchingEventPort).publishMatched(any());
+
+        assertThatThrownBy(() -> matchingFacade.rematch(rematchEvent(UUID.randomUUID(), THURSDAY), false))
+                .isInstanceOf(DataAccessException.class);
     }
 }
