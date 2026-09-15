@@ -1,0 +1,115 @@
+name: todak-platform
+
+x-jvm: &jvm
+  restart: unless-stopped
+  networks: [todak-network]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+
+  config-server:
+    <<: *jvm
+    image: ${ECR_REGISTRY}/todak/config-server:${IMAGE_TAG}
+    container_name: todak-config-server
+    mem_limit: 384m
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,native
+      SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS: file:/config-repo
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k"
+    volumes:
+      - ../config-repo:/config-repo:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+
+  eureka-server:
+    <<: *jvm
+    image: ${ECR_REGISTRY}/todak/eureka-server:${IMAGE_TAG}
+    container_name: todak-eureka-server
+    mem_limit: 384m
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: http://config-server:8888
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k"
+    depends_on:
+      config-server: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 40s
+
+  api-gateway:
+    <<: *jvm
+    image: ${ECR_REGISTRY}/todak/api-gateway:${IMAGE_TAG}
+    container_name: todak-api-gateway
+    mem_limit: 512m
+    env_file:
+      - /dev/shm/todak.infra.env
+      - /dev/shm/todak.common.env
+      - /dev/shm/todak.auth.env       # gateway + user-service 만
+      - /dev/shm/todak.gateway.env    # INTERNAL_JWT_PRIVATE_KEY — 이 컨테이너만
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      CONFIG_SERVER_URL: http://config-server:8888
+      JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k"
+    depends_on:
+      config-server: { condition: service_healthy }
+      eureka-server: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 50s
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: todak-caddy
+    restart: unless-stopped
+    mem_limit: 64m
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api-gateway: { condition: service_healthy }
+    networks: [todak-network]
+
+  alloy:
+    image: grafana/alloy:v1.19.0
+    container_name: todak-alloy
+    restart: unless-stopped
+    mem_limit: 256m
+    command:
+      - run
+      - /etc/alloy/config-deploy.alloy
+      - --server.http.listen-addr=0.0.0.0:10000
+      - --storage.path=/var/lib/alloy/data
+    environment:
+      DATA_PRIVATE_IP: ${DATA_PRIVATE_IP}
+    volumes:
+      - ./alloy/config-deploy.alloy:/etc/alloy/config-deploy.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    networks: [todak-network]      # 컨테이너 이름으로 스크레이프하려면 필수
+
+volumes:
+  caddy-data:
+  caddy-config:
+  alloy-data:
+
+networks:
+  todak-network:
+    external: true

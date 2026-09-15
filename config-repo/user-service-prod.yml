@@ -54,6 +54,8 @@ jwt:
   secure: true             # local: false — HTTPS 필수
 
 authentication:
+  user:
+    redis-key-prefix: ${USER_KEY_PREFIX}
   access-token:
     redis-key-prefix: ${ACCESS_KEY_PREFIX}
     cookie-name: ${ACCESS_COOKIE_NAME}
