@@ -26,6 +26,9 @@ spring:
           create_namespaces: true
     show-sql: true
 
+  flyway:
+    enabled: false
+
 eureka:
   client:
     enabled: false

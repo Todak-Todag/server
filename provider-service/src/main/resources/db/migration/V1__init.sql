@@ -1,8 +1,6 @@
-CREATE SCHEMA IF NOT EXISTS provider_schema;
-
 CREATE TABLE IF NOT EXISTS provider_schema.p_provide_services (
-    provide_service_id UUID PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
+  provide_service_id UUID PRIMARY KEY,
+  name VARCHAR(50) NOT NULL,
     content VARCHAR(255) NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     created_by UUID NOT NULL,
