@@ -444,7 +444,7 @@ class DischargeQueryRepositoryImplTest {
                 .createNativeQuery("""
                     UPDATE discharge_schema.p_discharges
                     SET created_at = :createdAt
-                    WHERE id = :id
+                    WHERE discharge_id = :id
                     """)
                 .setParameter("createdAt", createdAt)
                 .setParameter("id", discharge.getId())
