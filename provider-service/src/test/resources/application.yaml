@@ -38,6 +38,12 @@ spring:
 internal:
   key: test-internal-api-key
 
+internal-jwt:
+  jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+  issuer: todak-api-gateway
+  audience: provider-service
+  clock-skew: 30s
+
 # CI·로컬 테스트에는 Eureka 서버가 없으므로 서비스 디스커버리를 끈다.
 eureka:
   client:

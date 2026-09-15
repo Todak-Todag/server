@@ -147,6 +147,8 @@ services:
 
       ZIPKIN_HOST: zipkin
 
+      GATEWAY_JWKS_URI: http://api-gateway:8080/.well-known/jwks.json
+
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
 
     ports:

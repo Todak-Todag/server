@@ -1,5 +1,6 @@
 package com.todak_todag.provider_service.provider.presentation.controller.api;
 
+import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.provider.application.result.ProvideServiceSearchResult;
 import com.todak_todag.provider_service.provider.application.service.query.ProvideServiceQueryService;
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static com.todak_todag.provider_service.support.AuthenticatedRequestSupport.asUser;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -51,8 +53,7 @@ class ProvideServiceApiControllerTest {
         given(provideServiceQueryService.search(any())).willReturn(page);
 
         mockMvc.perform(get(BASE_URL)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value(200))
@@ -69,16 +70,15 @@ class ProvideServiceApiControllerTest {
                 .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
         mockMvc.perform(get(BASE_URL)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "PATIENT"))
+                        .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("인증 헤더가 없으면 403을 반환한다")
-    void search_noAuth_forbidden() throws Exception {
+    @DisplayName("게이트웨이 토큰이 없으면 401을 반환한다")
+    void search_noAuth_unauthorized() throws Exception {
         mockMvc.perform(get(BASE_URL))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -88,8 +88,7 @@ class ProvideServiceApiControllerTest {
                 .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
         mockMvc.perform(get(BASE_URL)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isEmpty())
                 .andExpect(jsonPath("$.data.pageInfo.totalElements").value(0));

@@ -1,5 +1,6 @@
 package com.todak_todag.provider_service.provider.presentation.controller.api;
 
+import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 import java.util.UUID;
 
+import static com.todak_todag.provider_service.support.AuthenticatedRequestSupport.asUser;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -61,8 +63,7 @@ class ServiceOfferingAdminApiControllerTest {
                 .willReturn(page(serviceOfferingId, providerId));
 
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "ADMIN"))
+                        .with(asUser(UUID.randomUUID(), UserRole.ADMIN)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.code").value(200))
@@ -85,8 +86,7 @@ class ServiceOfferingAdminApiControllerTest {
                 .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "ADMIN"))
+                        .with(asUser(UUID.randomUUID(), UserRole.ADMIN)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content", hasSize(0)));
     }
@@ -99,8 +99,7 @@ class ServiceOfferingAdminApiControllerTest {
                 .searchByRegion(any());
 
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "ADMIN"))
+                        .with(asUser(UUID.randomUUID(), UserRole.ADMIN)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.success").value(false));
     }
@@ -109,8 +108,7 @@ class ServiceOfferingAdminApiControllerTest {
     @DisplayName("SERVICE_PROVIDER가 요청하면 403을 반환한다")
     void searchByRegion_serviceProvider() throws Exception {
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                 .andExpect(status().isForbidden());
     }
 
@@ -121,25 +119,23 @@ class ServiceOfferingAdminApiControllerTest {
                 .willReturn(new PageImpl<>(List.of(), PageRequest.of(0, 10), 0));
 
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "MASTER"))
+                        .with(asUser(UUID.randomUUID(), UserRole.MASTER)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content", hasSize(0)));
     }
 
     @Test
-    @DisplayName("인증 헤더가 없으면 403을 반환한다")
+    @DisplayName("게이트웨이 토큰이 없으면 401을 반환한다")
     void searchByRegion_noAuthHeader() throws Exception {
         mockMvc.perform(get(BASE_URL + "/{regionId}", regionId))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     @DisplayName("regionId가 UUID 형식이 아니면 400을 반환한다")
     void searchByRegion_invalidRegionId() throws Exception {
         mockMvc.perform(get(BASE_URL + "/{regionId}", "not-a-uuid")
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "ADMIN"))
+                        .with(asUser(UUID.randomUUID(), UserRole.ADMIN)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
