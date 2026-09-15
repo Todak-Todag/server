@@ -1,5 +1,6 @@
 package com.todak_todag.provider_service.provider.presentation.controller.api;
 
+import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
@@ -24,6 +25,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static com.todak_todag.provider_service.support.AuthenticatedRequestSupport.asUser;
 import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -67,8 +69,7 @@ class ServiceOfferingApiControllerTest {
                     .willReturn(new ServiceOfferingCreateResult(serviceOfferingId, providerId, Instant.now()));
 
             mockMvc.perform(post(BASE_URL)
-                            .header("X-User-Id", providerId.toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(providerId, UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(UUID.randomUUID().toString())))
                     .andExpect(status().isCreated())
@@ -81,8 +82,7 @@ class ServiceOfferingApiControllerTest {
         @DisplayName("SERVICE_PROVIDER가 아니면 403")
         void create_forbidden() throws Exception {
             mockMvc.perform(post(BASE_URL)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(UUID.randomUUID().toString())))
                     .andExpect(status().isForbidden())
@@ -94,8 +94,7 @@ class ServiceOfferingApiControllerTest {
         @DisplayName("provideServiceId가 없으면 400")
         void create_invalidParameter() throws Exception {
             mockMvc.perform(post(BASE_URL)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isBadRequest())
@@ -114,8 +113,7 @@ class ServiceOfferingApiControllerTest {
         @DisplayName("삭제에 성공하면 204를 반환한다")
         void delete_success() throws Exception {
             mockMvc.perform(delete(BASE_URL + "/{serviceOfferingId}", serviceOfferingId)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isNoContent());
         }
 
@@ -123,8 +121,7 @@ class ServiceOfferingApiControllerTest {
         @DisplayName("ADMIN도 삭제할 수 있다")
         void delete_admin() throws Exception {
             mockMvc.perform(delete(BASE_URL + "/{serviceOfferingId}", serviceOfferingId)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "ADMIN"))
+                            .with(asUser(UUID.randomUUID(), UserRole.ADMIN)))
                     .andExpect(status().isNoContent());
         }
 
@@ -132,8 +129,7 @@ class ServiceOfferingApiControllerTest {
         @DisplayName("SERVICE_PROVIDER도 ADMIN도 아니면 403")
         void delete_forbidden() throws Exception {
             mockMvc.perform(delete(BASE_URL + "/{serviceOfferingId}", serviceOfferingId)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
@@ -146,8 +142,7 @@ class ServiceOfferingApiControllerTest {
                     .when(serviceOfferingFacade).delete(Mockito.any());
 
             mockMvc.perform(delete(BASE_URL + "/{serviceOfferingId}", serviceOfferingId)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.code").value("SERVICE_OFFERING_NOT_FOUND"));
         }
@@ -156,8 +151,7 @@ class ServiceOfferingApiControllerTest {
         @DisplayName("serviceOfferingId가 UUID 형식이 아니면 400")
         void delete_invalidId() throws Exception {
             mockMvc.perform(delete(BASE_URL + "/{serviceOfferingId}", "not-a-uuid")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
         }
@@ -186,8 +180,7 @@ class ServiceOfferingApiControllerTest {
                     .willReturn(page(serviceOfferingId, provideServiceId));
 
             mockMvc.perform(get(BASE_URL)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.code").value(200))
@@ -209,8 +202,7 @@ class ServiceOfferingApiControllerTest {
 
             mockMvc.perform(get(BASE_URL)
                             .param("providerId", UUID.randomUUID().toString())
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "ADMIN"))
+                            .with(asUser(UUID.randomUUID(), UserRole.ADMIN)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.content", hasSize(0)));
         }
@@ -219,8 +211,7 @@ class ServiceOfferingApiControllerTest {
         @DisplayName("SERVICE_PROVIDER도 ADMIN도 아니면 403")
         void search_forbidden() throws Exception {
             mockMvc.perform(get(BASE_URL)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isForbidden());
         }
 
@@ -229,8 +220,7 @@ class ServiceOfferingApiControllerTest {
         void search_invalidProviderId() throws Exception {
             mockMvc.perform(get(BASE_URL)
                             .param("providerId", "not-a-uuid")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false));
         }

@@ -1,5 +1,6 @@
 package com.todak_todag.provider_service.provider.presentation.controller.api;
 
+import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
@@ -16,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static com.todak_todag.provider_service.support.AuthenticatedRequestSupport.asUser;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -52,8 +54,7 @@ class ProvideServiceAdminApiControllerTest {
                 .willReturn(new ProvideServiceCreateResult(provideServiceId, NAME, CONTENT));
 
         mockMvc.perform(post(BASE_URL)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "MASTER")
+                        .with(asUser(UUID.randomUUID(), UserRole.MASTER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(NAME, CONTENT)))
                 .andExpect(status().isCreated())
@@ -71,8 +72,7 @@ class ProvideServiceAdminApiControllerTest {
                 .willThrow(new BusinessException(ProviderErrorCode.PROVIDE_SERVICE_DUPLICATE));
 
         mockMvc.perform(post(BASE_URL)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "MASTER")
+                        .with(asUser(UUID.randomUUID(), UserRole.MASTER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(NAME, CONTENT)))
                 .andExpect(status().isConflict())
@@ -83,8 +83,7 @@ class ProvideServiceAdminApiControllerTest {
     @DisplayName("ADMIN이 요청하면 403을 반환한다")
     void create_admin_forbidden() throws Exception {
         mockMvc.perform(post(BASE_URL)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "ADMIN")
+                        .with(asUser(UUID.randomUUID(), UserRole.ADMIN))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(NAME, CONTENT)))
                 .andExpect(status().isForbidden());
@@ -94,28 +93,26 @@ class ProvideServiceAdminApiControllerTest {
     @DisplayName("SERVICE_PROVIDER가 요청하면 403을 반환한다")
     void create_serviceProvider_forbidden() throws Exception {
         mockMvc.perform(post(BASE_URL)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(NAME, CONTENT)))
                 .andExpect(status().isForbidden());
     }
 
     @Test
-    @DisplayName("인증 헤더가 없으면 403을 반환한다")
-    void create_noAuth_forbidden() throws Exception {
+    @DisplayName("게이트웨이 토큰이 없으면 401을 반환한다")
+    void create_noAuth_unauthorized() throws Exception {
         mockMvc.perform(post(BASE_URL)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body(NAME, CONTENT)))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
     @DisplayName("서비스명이 비어 있으면 400을 반환한다")
     void create_blankName_badRequest() throws Exception {
         mockMvc.perform(post(BASE_URL)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "MASTER")
+                        .with(asUser(UUID.randomUUID(), UserRole.MASTER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("", CONTENT)))
                 .andExpect(status().isBadRequest())
@@ -126,8 +123,7 @@ class ProvideServiceAdminApiControllerTest {
     @DisplayName("서비스명이 50자를 넘으면 400을 반환한다")
     void create_tooLongName_badRequest() throws Exception {
         mockMvc.perform(post(BASE_URL)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "MASTER")
+                        .with(asUser(UUID.randomUUID(), UserRole.MASTER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("가".repeat(51), CONTENT)))
                 .andExpect(status().isBadRequest())
