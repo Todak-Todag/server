@@ -3,16 +3,16 @@ package com.todak_todag.discharge_service.discharge.presentation.controller.api;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeCompleteCommand;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeCreateCommand;
 import com.todak_todag.discharge_service.discharge.application.command.DischargeUpdateCommand;
-import com.todak_todag.discharge_service.discharge.application.result.DischargeCompleteResult;
 import com.todak_todag.discharge_service.discharge.application.query.DischargeSearchQuery;
+import com.todak_todag.discharge_service.discharge.application.result.DischargeCompleteResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCreateResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeFindResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeSearchResult;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeUpdateResult;
 import com.todak_todag.discharge_service.discharge.application.service.command.DischargeCommandService;
 import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;
-import com.todak_todag.discharge_service.discharge.presentation.request.DischargeCompleteRequest;
 import com.todak_todag.discharge_service.discharge.domain.entity.DischargeStatus;
+import com.todak_todag.discharge_service.discharge.presentation.request.DischargeCompleteRequest;
 import com.todak_todag.discharge_service.discharge.presentation.request.DischargeCreateRequest;
 import com.todak_todag.discharge_service.discharge.presentation.request.DischargeUpdateRequest;
 import com.todak_todag.discharge_service.discharge.presentation.response.DischargeCompleteResponse;
@@ -49,11 +49,12 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/discharges")
-public class DischargeApiController {
+public class DischargeApiController implements DischargeApiSpec {
 
     private final DischargeCommandService dischargeCommandService;
     private final DischargeQueryService dischargeQueryService;
 
+    @Override
     @PreAuthorize("hasRole('HOSPITAL_STAFF')")
     @PostMapping
     public ResponseEntity<ApiResponse<DischargeCreateResponse>> createDischarge(
@@ -85,6 +86,7 @@ public class DischargeApiController {
                 );
     }
 
+    @Override
     @PreAuthorize("hasRole('HOSPITAL_STAFF')")
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<DischargeSearchResponse>>> searchDischarges(
@@ -104,7 +106,6 @@ public class DischargeApiController {
                         size,
                         sort
                 );
-
 
         DischargeSearchQuery query =
                 new DischargeSearchQuery(
@@ -137,6 +138,7 @@ public class DischargeApiController {
         );
     }
 
+    @Override
     @PreAuthorize("hasRole('HOSPITAL_STAFF')")
     @PatchMapping("/{dischargeId}")
     public ResponseEntity<ApiResponse<DischargeUpdateResponse>> updateDischarge(
@@ -167,6 +169,7 @@ public class DischargeApiController {
         );
     }
 
+    @Override
     @PreAuthorize("hasRole('HOSPITAL_STAFF')")
     @PatchMapping("/{dischargeId}/completed")
     public ResponseEntity<ApiResponse<DischargeCompleteResponse>> completeDischarge(
@@ -196,6 +199,7 @@ public class DischargeApiController {
         );
     }
 
+    @Override
     @PreAuthorize("hasAnyRole('HOSPITAL_STAFF', 'PATIENT')")
     @GetMapping("/{dischargeId}")
     public ResponseEntity<ApiResponse<DischargeFindResponse>> findDischarge(

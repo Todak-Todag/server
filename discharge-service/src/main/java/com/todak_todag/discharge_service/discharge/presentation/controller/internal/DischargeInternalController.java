@@ -1,7 +1,7 @@
 package com.todak_todag.discharge_service.discharge.presentation.controller.internal;
 
-import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeInternalFindResult;
+import com.todak_todag.discharge_service.discharge.application.service.query.DischargeQueryService;
 import com.todak_todag.discharge_service.discharge.presentation.response.DischargeInternalFindResponse;
 import com.todak_todag.discharge_service.global.response.ApiResponse;
 import lombok.RequiredArgsConstructor;
@@ -16,14 +16,16 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/internal/v1/discharges")
-public class DischargeInternalController {
+public class DischargeInternalController implements DischargeInternalApiSpec {
 
     private final DischargeQueryService dischargeQueryService;
 
+    @Override
     @GetMapping("/{dischargeId}")
     public ApiResponse<DischargeInternalFindResponse> findById(
             @PathVariable UUID dischargeId
     ) {
+
         DischargeInternalFindResult result =
                 dischargeQueryService.findById(dischargeId);
 
