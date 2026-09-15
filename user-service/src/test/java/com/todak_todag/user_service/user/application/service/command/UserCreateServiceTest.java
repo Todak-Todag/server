@@ -572,7 +572,7 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("퇴원 예정자로 생성된 User 의 상태는 WITHDRAWN 이고 권한은 PATIENT 이다")
+		@DisplayName("퇴원 예정자로 생성된 User 의 상태는 WITHDRAWN 이고 권한은 PATIENT_CONSENT 이다")
 		void createUserPatientTest_statusAndRole() {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
@@ -588,7 +588,10 @@ class UserCreateServiceTest {
 			verify(userCommandRepo).save(captor.capture());
 
 			assertThat(captor.getValue().getStatus()).isEqualTo(UserStatus.WITHDRAWN);
-			assertThat(captor.getValue().getRole()).isEqualTo(UserRole.PATIENT);
+			// 약관 동의 전까지는 PATIENT 가 아니라 PATIENT_CONSENT 로 발급된다.
+			// 이래야 다른 서비스의 PATIENT 전용 API(예: discharge-service 의 @PreAuthorize("hasAnyRole('HOSPITAL_STAFF','PATIENT')"))가
+			// 인식하지 못하는 role 값이라 자동으로 거부하고, 임시 토큰의 권한 범위가 약관 동의로 한정된다.
+			assertThat(captor.getValue().getRole()).isEqualTo(UserRole.PATIENT_CONSENT);
 		}
 
 		@Test

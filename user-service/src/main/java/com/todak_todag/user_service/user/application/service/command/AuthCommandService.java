@@ -190,7 +190,7 @@ public class AuthCommandService {
 		if(loginUser.isWithdrawn()) {
 
 			// WITHDRAWN 이면서 PATIENT 이면 - 첫 로그인 시점일 가능성이 있다.
-			if(loginUser.isPatient()) {
+			if(loginUser.isPatientConsent()) {
 			
 				// 동의했던 내역이 존재하면 첫 로그인 시점이 아닌 퇴원 예정자가 동의를 철회한 것이다.
 				if(consentQueryRepo.findAllByUserId(loginUser.getId()).isEmpty()) {

@@ -12,8 +12,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -122,7 +120,7 @@ public class User extends BaseAuditableEntity {
 		user.passwordHash = passwordHash;
 		user.name = name;
 		user.phone = phone;
-		user.role = UserRole.PATIENT;
+		user.role = UserRole.PATIENT_CONSENT;
 		user.address = address;
 		user.status = UserStatus.WITHDRAWN;
 		
@@ -256,6 +254,10 @@ public class User extends BaseAuditableEntity {
 		return this.role == UserRole.PATIENT;
 	}
 	
+	public boolean isPatientConsent() {
+		return this.role == UserRole.PATIENT_CONSENT;
+	}
+	
 	public void approvalOrReject(Boolean accept, String rejectReason) {
 		// 승인
 		if(accept == true) {
@@ -289,8 +291,9 @@ public class User extends BaseAuditableEntity {
 	// 생성된 아이디를 통해 환자가 로그인 후
 	// 필수 약관 동의 시 승인 상태로 변경.
 	public void approveFromRequiredConsent() {
-		if (isPatient() && isWithdrawn()) {
+		if (isPatientConsent() && isWithdrawn()) {
 			this.status = UserStatus.APPROVED;
+			this.role = UserRole.PATIENT;
 			this.statusChangeReason = null;
 		}
 	}

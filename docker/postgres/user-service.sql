@@ -6,7 +6,7 @@ CREATE TYPE user_schema.user_status AS ENUM (
 
 CREATE TYPE  user_schema.user_role AS ENUM (
     'PATIENT', 'HOSPITAL_STAFF', 'SOCIAL_WORKER',
-    'SERVICE_PROVIDER', 'ADMIN', 'MASTER'
+    'SERVICE_PROVIDER', 'ADMIN', 'MASTER', 'PATIENT_CONSENT'
 );
 
 CREATE TYPE user_schema.consent_status AS ENUM (
