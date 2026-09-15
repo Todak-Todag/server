@@ -68,7 +68,7 @@ eureka:
 logging:
   level:
     com.todak_todag.social_worker_service: info
-    
+
 matching:
   task:
     ttl: ${MATCHING_TASK_TTL:1h}
