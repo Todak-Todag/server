@@ -26,6 +26,7 @@ public class Discharge extends BaseAuditableEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "discharge_id")
     private UUID id;
 
     @Column(nullable = false)
