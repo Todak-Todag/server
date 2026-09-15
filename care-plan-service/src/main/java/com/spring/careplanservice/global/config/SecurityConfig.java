@@ -1,7 +1,8 @@
 package com.spring.careplanservice.global.config;
 
 
-import com.spring.careplanservice.global.security.HeaderAuthenticationFilter;
+import com.spring.careplanservice.global.security.GatewayAuthenticationConverter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -9,8 +10,15 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.server.resource.web.HeaderBearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import java.time.Duration;
+import java.util.List;
 
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -24,20 +32,10 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
 
-                // Gateway가 매 요청마다 사용자 정보를 전달하므로 서버 세션을 사용하지 않는다
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
-                .addFilterBefore(
-                        new HeaderAuthenticationFilter(),
-                        UsernamePasswordAuthenticationFilter.class
-                )
-
-                /*
-                 * 내부 API는 Internal Interceptor 에서 X-Internal-Api-Key를 검증하므로
-                 * Spring Security 인가 대상에서는 제외한다
-                 */
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/internal/**",
@@ -49,8 +47,46 @@ public class SecurityConfig {
                                 "/actuator/prometheus"
                         ).permitAll()
                         .anyRequest().authenticated()
+                )
+
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .bearerTokenResolver(
+                                new HeaderBearerTokenResolver("X-Gateway-Token")
+                        )
+                        .jwt(jwt -> jwt
+                                .jwtAuthenticationConverter(
+                                        new GatewayAuthenticationConverter()
+                                )
+                        )
                 );
 
         return http.build();
+    }
+
+    @Bean
+    public JwtDecoder gatewayTokenDecoder(
+            @Value("${internal-jwt.jwk-set-uri}") String jwkSetUri,
+            @Value("${internal-jwt.issuer}") String issuer,
+            @Value("${internal-jwt.audience}") String audience,
+            @Value("${internal-jwt.clock-skew}") Duration clockSkew
+    ) {
+        NimbusJwtDecoder decoder = NimbusJwtDecoder
+                .withJwkSetUri(jwkSetUri)
+                .jwsAlgorithm(SignatureAlgorithm.RS256)
+                .build();
+
+        OAuth2TokenValidator<Jwt> validator =
+                new DelegatingOAuth2TokenValidator<>(
+                        new JwtTimestampValidator(clockSkew),
+                        new JwtIssuerValidator(issuer),
+                        new JwtClaimValidator<List<String>>(
+                                "aud",
+                                aud -> aud != null && aud.contains(audience)
+                        )
+                );
+
+        decoder.setJwtValidator(validator);
+
+        return decoder;
     }
 }
