@@ -14,6 +14,13 @@ import org.testcontainers.rabbitmq.RabbitMQContainer;
         // 테스트는 OutboxRelayFacade.relay() 를 직접 호출한다
         "provider.outbox.relay.enabled=false",
 
+        // Flyway로 스키마와 테이블을 생성한다
+        "spring.flyway.enabled=true",
+        "spring.flyway.locations=classpath:db/migration",
+        "spring.flyway.schemas=provider_schema",
+        "spring.flyway.default-schema=provider_schema",
+        "spring.flyway.create-schemas=true",
+
         // 운영과 같이 초기화 스크립트가 만든 스키마를 검증만 한다
         // 스크립트와 엔티티가 어긋나면 컨텍스트 기동이 실패해 배포 전에 잡힌다
         "spring.jpa.hibernate.ddl-auto=validate",
@@ -21,12 +28,11 @@ import org.testcontainers.rabbitmq.RabbitMQContainer;
 })
 public abstract class ContainerTestSupport {
 
-    // docker/postgres/provider-service.sql 을 그대로 실행한다
-    // 원본은 build.gradle의 processTestResources가 테스트 리소스로 복사한다
+
+    // PostgreSQL 컨테이너를 띄우고, Spring 시작 시 Flyway로 초기화한다
     static final PostgreSQLContainer<?> POSTGRES =
             new PostgreSQLContainer<>("postgres:17-alpine")
-                    .withDatabaseName("todaktodag_test")
-                    .withInitScript("db/provider-service.sql");
+                    .withDatabaseName("todaktodag_test");
 
     static final RabbitMQContainer RABBIT_MQ =
             new RabbitMQContainer("rabbitmq:4-alpine");
