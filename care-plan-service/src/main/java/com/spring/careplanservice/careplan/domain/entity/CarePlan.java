@@ -64,7 +64,8 @@ public class CarePlan extends BaseAuditEntity {
         boolean transitionable = switch (this.status) {
             case UNDER_REVIEW -> nextStatus == CarePlanStatus.CONFIRMED;
             case CONFIRMED -> nextStatus == CarePlanStatus.IN_PROGRESS;
-            case IN_PROGRESS, COMPLETED -> false;
+            case IN_PROGRESS -> nextStatus == CarePlanStatus.COMPLETED;
+            case COMPLETED -> false;
         };
 
         if (!transitionable) {
@@ -90,16 +91,5 @@ public class CarePlan extends BaseAuditEntity {
 
     public void delete(UUID deletedBy) {
         markDeleted(deletedBy);
-    }
-
-    // 실제로 이번 호출에서 COMPLETED로 바뀐 경우에만 Outbox를 넣어야 함
-    public boolean complete() {
-        if (this.status != CarePlanStatus.IN_PROGRESS) {
-            return false;
-        }
-
-        this.status = CarePlanStatus.COMPLETED;
-
-        return true;
     }
 }

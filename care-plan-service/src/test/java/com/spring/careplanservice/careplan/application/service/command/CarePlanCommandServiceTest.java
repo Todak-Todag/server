@@ -707,8 +707,8 @@ class CarePlanCommandServiceTest {
         }
 
         @Test
-        @DisplayName("IN_PROGRESS 상태는 API를 통해 COMPLETED로 변경할 수 없음")
-        void updateCarePlanStatus_inProgressToCompleted_throwsException() {
+        @DisplayName("IN_PROGRESS 상태는 COMPLETED 상태로 변경 가능")
+        void updateCarePlanStatus_inProgressToCompleted_success() {
             CarePlan carePlan = CarePlan.create(
                     patientId,
                     dischargeId,
@@ -729,12 +729,13 @@ class CarePlanCommandServiceTest {
 
             given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
 
-            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
+            CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(
                     carePlanStatusUpdateCommand,
                     null
-            )).isInstanceOf(BusinessException.class);
+            );
 
-            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.IN_PROGRESS);
+            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.COMPLETED);
+            assertThat(carePlanStatusUpdateResult.status()).isEqualTo(CarePlanStatus.COMPLETED);
 
             verify(carePlanCommandRepository).findById(carePlanId);
         }
