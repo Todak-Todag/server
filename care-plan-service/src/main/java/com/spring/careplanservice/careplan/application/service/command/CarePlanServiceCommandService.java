@@ -91,6 +91,13 @@ public class CarePlanServiceCommandService {
 
         validateCancelable(carePlan);
 
+        List<CarePlanService> carePlanServices = carePlanServiceCommandRepository.findAllByCarePlanId(
+                carePlan.getId()
+        );
+
+        // 서비스 1개 남은 상태에서 마지막 서비스 취소 : CarePlan COMPLETED
+        boolean isLastService = carePlanServices.size() == 1;
+
         List<CarePlanServicePreference> preferences = servicePreferenceCommandRepository.findAllByPlanServiceIds(
                 List.of(carePlanServiceCancelCommand.planServiceId())
         );
@@ -99,6 +106,10 @@ public class CarePlanServiceCommandService {
 
         preferences.forEach(preference -> preference.delete(deletedBy));
         carePlanService.delete(deletedBy);
+
+        if (isLastService) {
+            carePlan.completeByCancellation();
+        }
     }
 
     // 동일한 서비스가 이미 선택되어 있는지 검사
