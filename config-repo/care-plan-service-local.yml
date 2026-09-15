@@ -12,7 +12,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
 
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
@@ -30,13 +30,17 @@ spring:
           initial-interval: 1000
           multiplier: 2
 
-    properties:
-      hibernate:
-        format_sql: true
-        hbm2ddl:
-          create_namespaces: true
+  properties:
+    hibernate:
+      format_sql: true
+      hbm2ddl:
+        create_namespaces: true
 
-    show-sql: true
+  flyway:
+    schemas: care_plan_schema
+    default-schema: care_plan_schema
+
+  show-sql: true
 
 eureka:
   client:
