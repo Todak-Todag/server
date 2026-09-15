@@ -24,10 +24,12 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/social-worker-matchings")
-public class SocialWorkerMatchingStatusApiController {
+public class SocialWorkerMatchingStatusApiController
+        implements SocialWorkerMatchingStatusApiSpec {
 
     private final MatchingStatusCommandService matchingStatusCommandService;
 
+    @Override
     @PatchMapping("/{matchingResultId}")
     public ResponseEntity<ApiResponse<MatchingStatusChangeResponse>>
     changeStatus(

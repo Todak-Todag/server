@@ -21,10 +21,12 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/social-worker-matchings")
-public class SocialWorkerMatchingTaskApiController {
+public class SocialWorkerMatchingTaskApiController
+        implements SocialWorkerMatchingTaskApiSpec {
 
     private final MatchingTaskQueryService matchingTaskQueryService;
 
+    @Override
     @GetMapping("/tasks/{taskId}")
     public ResponseEntity<ApiResponse<MatchingTaskStatusResponse>>
     getMatchingTaskStatus(
