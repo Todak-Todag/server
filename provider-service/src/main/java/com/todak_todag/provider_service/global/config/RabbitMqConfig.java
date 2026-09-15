@@ -4,6 +4,7 @@ import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.DirectExchange;
 import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.support.converter.DefaultJacksonJavaTypeMapper;
 import org.springframework.amqp.support.converter.JacksonJavaTypeMapper;
 import org.springframework.amqp.support.converter.JacksonJsonMessageConverter;
@@ -28,6 +29,14 @@ public class RabbitMqConfig {
     public static final String PROVIDER_MATCHED_KEY = "provider.matched.key";
     public static final String PROVIDER_MATCH_FAILED_KEY = "provider.match-failed.key";
 
+    // 재시도를 소진한 수신 메시지를 보존하는 Dead Letter 경로
+    // 원인 해결 후 DLQ 메시지를 원래 큐로 옮겨 다시 처리한다 (처리 기록으로 중복 적재되지 않음)
+    public static final String PROVIDER_DLX_EXCHANGE = "provider.dlx.exchange";
+    public static final String CARE_PLAN_CONFIRMED_DLQ = "provider.care-plan-confirmed.dlq.queue";
+    public static final String CARE_PLAN_CONFIRMED_DLQ_KEY = "provider.care-plan-confirmed.dlq.key";
+    public static final String SCHEDULE_REMATCHED_DLQ = "provider.schedule-rematched.dlq.queue";
+    public static final String SCHEDULE_REMATCHED_DLQ_KEY = "provider.schedule-rematched.dlq.key";
+
     @Bean
     public DirectExchange carePlanExchange() {
         return new DirectExchange(CARE_PLAN_EXCHANGE);
@@ -43,14 +52,21 @@ public class RabbitMqConfig {
         return new DirectExchange(PROVIDER_EXCHANGE);
     }
 
+    // 리스너 재시도를 모두 소진하면 x-dead-letter-exchange로 DLQ에 옮겨진다
     @Bean
     public Queue carePlanConfirmedQueue() {
-        return new Queue(CARE_PLAN_CONFIRMED_QUEUE, true);
+        return QueueBuilder.durable(CARE_PLAN_CONFIRMED_QUEUE)
+                .deadLetterExchange(PROVIDER_DLX_EXCHANGE)
+                .deadLetterRoutingKey(CARE_PLAN_CONFIRMED_DLQ_KEY)
+                .build();
     }
 
     @Bean
     public Queue scheduleRematchedQueue() {
-        return new Queue(SCHEDULE_REMATCHED_QUEUE, true);
+        return QueueBuilder.durable(SCHEDULE_REMATCHED_QUEUE)
+                .deadLetterExchange(PROVIDER_DLX_EXCHANGE)
+                .deadLetterRoutingKey(SCHEDULE_REMATCHED_DLQ_KEY)
+                .build();
     }
 
     @Bean
@@ -65,6 +81,35 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(scheduleRematchedQueue())
                 .to(scheduleExchange())
                 .with(SCHEDULE_REMATCHED_KEY);
+    }
+
+    @Bean
+    public DirectExchange providerDlxExchange() {
+        return new DirectExchange(PROVIDER_DLX_EXCHANGE);
+    }
+
+    @Bean
+    public Queue carePlanConfirmedDlq() {
+        return new Queue(CARE_PLAN_CONFIRMED_DLQ, true);
+    }
+
+    @Bean
+    public Queue scheduleRematchedDlq() {
+        return new Queue(SCHEDULE_REMATCHED_DLQ, true);
+    }
+
+    @Bean
+    public Binding carePlanConfirmedDlqBinding() {
+        return BindingBuilder.bind(carePlanConfirmedDlq())
+                .to(providerDlxExchange())
+                .with(CARE_PLAN_CONFIRMED_DLQ_KEY);
+    }
+
+    @Bean
+    public Binding scheduleRematchedDlqBinding() {
+        return BindingBuilder.bind(scheduleRematchedDlq())
+                .to(providerDlxExchange())
+                .with(SCHEDULE_REMATCHED_DLQ_KEY);
     }
 
     // Care-Plan·Schedule이 발행할 때 컨버터가 __TypeId__ 헤더에 자기 쪽 클래스 이름을 박는다
