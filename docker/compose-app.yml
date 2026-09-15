@@ -103,7 +103,7 @@ services:
       ZIPKIN_HOST: zipkin
 
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      GATEWAY_JWKS_URL: ${GATEWAY_JWKS_URL}
+      GATEWAY_JWKS_URI: ${GATEWAY_JWKS_URI}
 
     ports:
       - "19005:19005"
