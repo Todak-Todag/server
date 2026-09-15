@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS care_plan_schema.p_care_plans
     -- 논리 FK -> user_schema.p_users(user_id)
     patient_id   UUID                              NOT NULL,
 
-    -- 논리 FK -> discharge_schema.p_discharge(discharge_id)
+    -- 논리 FK -> discharge_schema.p_discharges(discharge_id)
     discharge_id UUID                              NOT NULL,
 
     status       care_plan_schema.care_plan_status NOT NULL DEFAULT 'UNDER_REVIEW',
