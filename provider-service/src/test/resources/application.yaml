@@ -7,6 +7,17 @@ spring:
   application:
     name: provider-service
 
+  # 운영과 같은 수신 재시도 설정. 없으면 실패 메시지가 DLQ로 가지 않고 원래 큐로 무한히 돌아온다
+  rabbitmq:
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1000
+          multiplier: 2
+
   # 테스트에는 Config Server가 없으므로 configserver import 강제 검사를 끈다.
   cloud:
     config:
