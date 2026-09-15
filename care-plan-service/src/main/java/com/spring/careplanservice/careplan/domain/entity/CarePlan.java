@@ -58,14 +58,14 @@ public class CarePlan extends BaseAuditEntity {
         return carePlan;
     }
 
+    // 일반 상태 변경 메서드에서는 IN_PROGRESS 이후 전이를 허용하지 않겠다
     public boolean transitionTo(
             CarePlanStatus nextStatus
     ) {
         boolean transitionable = switch (this.status) {
             case UNDER_REVIEW -> nextStatus == CarePlanStatus.CONFIRMED;
             case CONFIRMED -> nextStatus == CarePlanStatus.IN_PROGRESS;
-            case IN_PROGRESS -> nextStatus == CarePlanStatus.COMPLETED;
-            case COMPLETED -> false;
+            case IN_PROGRESS, COMPLETED -> false;
         };
 
         if (!transitionable) {
@@ -73,6 +73,15 @@ public class CarePlan extends BaseAuditEntity {
         }
 
         this.status = nextStatus;
+        return true;
+    }
+
+    public boolean complete() {
+        if (this.status != CarePlanStatus.IN_PROGRESS) {
+            return false;
+        }
+
+        this.status = CarePlanStatus.COMPLETED;
         return true;
     }
 

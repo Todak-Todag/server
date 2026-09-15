@@ -211,7 +211,7 @@ public class CarePlanCommandService {
 
         // IN_PROGRESS 상태인 경우에만 COMPLETED로 전이
         // 이미 완료되었거나 완료 대상이 아닌 경우 중복 Outbox 이벤트 생성을 방지
-        boolean completed = carePlan.transitionTo(CarePlanStatus.COMPLETED);
+        boolean completed = carePlan.complete();
 
         if (!completed) {
             return;

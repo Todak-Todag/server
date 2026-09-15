@@ -6,7 +6,10 @@ import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpd
 import com.spring.careplanservice.careplan.application.event.*;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
-import com.spring.careplanservice.careplan.application.result.*;
+import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
+import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
+import com.spring.careplanservice.careplan.application.result.ScheduleResultFindResult;
 import com.spring.careplanservice.careplan.application.support.CarePlanCompletedEventValidator;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.*;
@@ -707,8 +710,8 @@ class CarePlanCommandServiceTest {
         }
 
         @Test
-        @DisplayName("IN_PROGRESS 상태는 COMPLETED 상태로 변경 가능")
-        void updateCarePlanStatus_inProgressToCompleted_success() {
+        @DisplayName("IN_PROGRESS 상태는 API를 통해 COMPLETED로 변경할 수 없음")
+        void updateCarePlanStatus_inProgressToCompleted_throwsException() {
             CarePlan carePlan = CarePlan.create(
                     patientId,
                     dischargeId,
@@ -727,15 +730,14 @@ class CarePlanCommandServiceTest {
                     CarePlanStatus.COMPLETED
             );
 
-            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+            given(carePlanCommandRepository.findById(carePlanId))
+                    .willReturn(Optional.of(carePlan));
 
-            CarePlanStatusUpdateResult carePlanStatusUpdateResult = carePlanCommandService.updateCarePlanStatus(
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
                     carePlanStatusUpdateCommand,
                     null
-            );
-
-            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.COMPLETED);
-            assertThat(carePlanStatusUpdateResult.status()).isEqualTo(CarePlanStatus.COMPLETED);
+            )).isInstanceOf(BusinessException.class);
+            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.IN_PROGRESS);
 
             verify(carePlanCommandRepository).findById(carePlanId);
         }
