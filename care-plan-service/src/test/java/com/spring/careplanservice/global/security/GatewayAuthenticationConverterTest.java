@@ -3,11 +3,13 @@ package com.spring.careplanservice.global.security;
 import com.spring.careplanservice.global.common.UserRole;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.oauth2.jwt.BadJwtException;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class GatewayAuthenticationConverterTest {
     private final GatewayAuthenticationConverter converter = new GatewayAuthenticationConverter();
@@ -30,5 +32,27 @@ class GatewayAuthenticationConverterTest {
         assertThat(authentication.getAuthorities())
                 .extracting("authority")
                 .containsExactly("ROLE_PATIENT");
+    }
+
+    @Test
+    void 잘못된_sub는_인증에_실패한다() {
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "RS256")
+                .subject("invalid-uuid")
+                .claim("role", "PATIENT")
+                .build();
+
+        assertThatThrownBy(() -> converter.convert(jwt)).isInstanceOf(BadJwtException.class);
+    }
+
+    @Test
+    void 잘못된_role은_인증에_실패한다() {
+        Jwt jwt = Jwt.withTokenValue("token")
+                .header("alg", "RS256")
+                .subject(UUID.randomUUID().toString())
+                .claim("role", "INVALID_ROLE")
+                .build();
+
+        assertThatThrownBy(() -> converter.convert(jwt)).isInstanceOf(BadJwtException.class);
     }
 }
