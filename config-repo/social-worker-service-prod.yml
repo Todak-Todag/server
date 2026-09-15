@@ -3,24 +3,35 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
     username: ${POSTGRES_USERNAME}
     password: ${POSTGRES_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      timeout: 3s
 
   jpa:
     open-in-view: false
     show-sql: false
-
     hibernate:
       ddl-auto: validate
-
     properties:
       hibernate:
+        format_sql: false
         default_schema: social_worker_schema
         default_batch_fetch_size: 100
-        hbm2ddl:
-          create_namespaces: true
+
+  flyway:
+    schemas: social_worker_schema
+    default-schema: social_worker_schema
 
   rabbitmq:
     host: ${RABBITMQ_HOST}
@@ -30,10 +41,15 @@ spring:
 
     listener:
       simple:
+        # DLQ 미운용 — 재시도 소진 시 폐기. 재큐잉하면 무한 반복됨
+        default-requeue-rejected: false
         retry:
           enabled: true
           max-retries: 3
           initial-interval: 1000ms
+
+internal:
+  key: ${INTERNAL_API_KEY}
 
 springdoc:
   swagger-ui:
@@ -43,11 +59,16 @@ springdoc:
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_SERVER_HOST}:8761/eureka/
+      defaultZone: ${EUREKA_SERVER_URL}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
 
 logging:
   level:
     com.todak_todag.social_worker_service: info
 
-internal:
-  key: ${INTERNAL_API_KEY}
+matching:
+  task:
+    ttl: ${MATCHING_TASK_TTL:1h}

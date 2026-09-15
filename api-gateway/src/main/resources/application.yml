@@ -19,12 +19,26 @@ spring:
     gateway:
       server:
         webflux:
+          redis:
+            enabled: false
+            
           discovery:
             locator:
               enabled: false
               lower-case-service-id: true
 
           routes:
+            - id: user-service-login
+              uri: lb://user-service
+              predicates:
+                - Path=/api/v1/auth/login
+                - Method=POST
+              filters:
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@clientIpKeyResolver}"
+                    rate-limiter: "#{@bucket4jRateLimiter}"
+                
             - id: user-service
               uri: lb://user-service
               predicates:
@@ -133,6 +147,14 @@ internal-jwt:
   private-key: ${INTERNAL_JWT_PRIVATE_KEY}
   issuer: todak-api-gateway
   ttl: 60s
+  
+rate-limit:
+  max-idle: 1h
+  buckets:
+    user-service-login:
+      capacity: 20
+      refill-tokens: 10
+      refill-period: 1m
   
 jwt:
   secret: ${JWT_SECRET}

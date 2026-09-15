@@ -41,11 +41,9 @@ class CarePlanConfirmedConsumeIntegrationTest extends ContainerTestSupport {
         jpaOutboxEventRepository.deleteAll();
     }
 
-    @Test
-    @DisplayName("제공자가 없으면 매칭 실패 이벤트가 아웃박스에 적재된다")
-    void consume_noProvider_appendsMatchFailed() {
-        // 후보가 없는 지역·서비스 종류라 매칭은 반드시 실패한다
-        CarePlanConfirmedEvent event = new CarePlanConfirmedEvent(
+    // 후보가 없는 지역·서비스 종류라 매칭은 반드시 실패한다
+    private CarePlanConfirmedEvent noProviderEvent() {
+        return new CarePlanConfirmedEvent(
                 UUID.randomUUID(),
                 UUID.randomUUID(),
                 List.of(new CarePlanConfirmedEvent.Service(
@@ -56,12 +54,20 @@ class CarePlanConfirmedConsumeIntegrationTest extends ContainerTestSupport {
                         ))
                 ))
         );
+    }
 
+    private void send(CarePlanConfirmedEvent event) {
         rabbitTemplate.convertAndSend(
                 RabbitMqConfig.CARE_PLAN_EXCHANGE,
                 RabbitMqConfig.CARE_PLAN_CONFIRMED_KEY,
                 event
         );
+    }
+
+    @Test
+    @DisplayName("제공자가 없으면 매칭 실패 이벤트가 아웃박스에 적재된다")
+    void consume_noProvider_appendsMatchFailed() {
+        send(noProviderEvent());
 
         // 리스너가 비동기로 처리하므로 적재될 때까지 기다린다
         await().atMost(Duration.ofSeconds(10)).untilAsserted(() -> {
@@ -72,5 +78,24 @@ class CarePlanConfirmedConsumeIntegrationTest extends ContainerTestSupport {
             assertThat(all.get(0).getAggregateId()).isEqualTo(servicePreferenceId);
             assertThat(all.get(0).getPublishedAt()).isNull();
         });
+    }
+
+    @Test
+    @DisplayName("같은 CarePlanConfirmed를 두 번 받아도 결과는 한 번만 적재된다")
+    void consume_twice_appendsOnce() {
+        CarePlanConfirmedEvent event = noProviderEvent();
+
+        send(event);
+
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                assertThat(jpaOutboxEventRepository.findAll()).hasSize(1)
+        );
+
+        send(event);
+
+        // 두 번째 수신이 처리될 시간 동안 계속 한 건으로 유지되는지 본다
+        await().during(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(5)).untilAsserted(() ->
+                assertThat(jpaOutboxEventRepository.findAll()).hasSize(1)
+        );
     }
 }

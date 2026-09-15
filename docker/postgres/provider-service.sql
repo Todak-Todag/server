@@ -84,3 +84,7 @@ CREATE INDEX IF NOT EXISTS ix_provider_outbox_events_pending
 CREATE UNIQUE INDEX IF NOT EXISTS uq_service_offerings_provider_service
     ON provider_schema.p_provide_service_offerings (provider_id, provide_service_id)
     WHERE deleted_at IS NULL;
+
+-- 중복 수신 판별 시 희망 일정별 적재 결과를 조회한다
+CREATE INDEX IF NOT EXISTS ix_provider_outbox_events_aggregate
+    ON provider_schema.p_provider_outbox_events (aggregate_id);

@@ -3,23 +3,29 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:5432/todaktodag_db?currentSchema=care_plan_schema
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}?currentSchema=care_plan_schema
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
-      minimum-idle: 5
+      minimum-idle: 2
+      connection-timeout: 3000
 
+  # ⚠️ local 파일에서는 아래 jpa 설정들이 spring.rabbitmq 밑에 잘못 들어가 있음
   jpa:
+    open-in-view: false
+    show-sql: false
     hibernate:
       ddl-auto: validate
-
     properties:
       hibernate:
         format_sql: false
+        default_batch_fetch_size: 100
 
-    show-sql: false
+  flyway:
+    schemas: care_plan_schema
+    default-schema: care_plan_schema
 
   rabbitmq:
     host: ${RABBITMQ_HOST}
@@ -37,11 +43,6 @@ spring:
           initial-interval: 1000
           multiplier: 2
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://${EUREKA_SERVER_HOST}:8761/eureka/
-
 internal:
   key: ${INTERNAL_API_KEY}
 
@@ -50,3 +51,16 @@ schedule:
     relay:
       enabled: true
       fixed-delay-ms: 5000
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    com.todak_todag.care_plan_service: info

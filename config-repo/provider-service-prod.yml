@@ -3,27 +3,29 @@ server:
 
 spring:
   datasource:
-    url: jdbc:postgresql://${DB_HOST}:5432/todaktodag_db
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
-      minimum-idle: 5
+      minimum-idle: 2
+      connection-timeout: 3000
 
   jpa:
+    open-in-view: false
+    show-sql: false
     hibernate:
       ddl-auto: validate
-
     properties:
       hibernate:
+        format_sql: false
         default_schema: provider_schema
         default_batch_fetch_size: 100
-        format_sql: false
-        hbm2ddl:
-          create_namespaces: true
 
-    show-sql: false
+  flyway:
+    schemas: provider_schema
+    default-schema: provider_schema
 
   rabbitmq:
     host: ${RABBITMQ_HOST}
@@ -37,4 +39,12 @@ internal:
 eureka:
   client:
     service-url:
-      defaultZone: http://${EUREKA_SERVER_HOST}:8761/eureka/
+      defaultZone: ${EUREKA_SERVER_URL}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    com.todak_todag.provider_service: info
