@@ -247,7 +247,7 @@ public class ConsentCommandService {
                         )
                 );
 
-        if (!user.isPatient() || !user.isWithdrawn()) {
+        if (!user.isPatientConsent() || !user.isWithdrawn()) {
             return;
         }
 
