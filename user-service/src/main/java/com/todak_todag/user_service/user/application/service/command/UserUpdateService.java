@@ -1,15 +1,23 @@
 package com.todak_todag.user_service.user.application.service.command;
 
+import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.todak_todag.user_service.global.common.UserRole;
 import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
 import com.todak_todag.user_service.user.application.command.UserDeleteCommand;
 import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
+import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
+import com.todak_todag.user_service.user.application.command.UserUpdateCommand;
 import com.todak_todag.user_service.user.application.port.TokenStorePort;
+import com.todak_todag.user_service.user.application.result.UserApprovalResult;
+import com.todak_todag.user_service.user.application.result.UserUpdateResult;
 import com.todak_todag.user_service.user.application.support.AddressValidator;
 import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
@@ -24,54 +32,249 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class UserUpdateService {
 
-    private final TokenStorePort tokenStorePort;
-    private final AddressValidator addressValidator;
-    private final UserQueryRepository userQueryRepo;
-    private final AuthQueryRepository authQueryRepo;
+	private final TokenStorePort tokenStorePort;
 
-    @Transactional(readOnly = true)
-    public String findPasswordHashForVerification(UUID requesterId) {
-        User user = userQueryRepo.findActiveById(requesterId)
-                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
-        return user.getPasswordHash();
-    }
+	private final AddressValidator addressValidator;
 
-    @Transactional(rollbackFor = Exception.class)
-    public void userDelete(UserDeleteCommand command) {
-        // 재조회 — BCrypt 도는 동안 이미 탈퇴/변경됐다면 여기서 USER_NOT_FOUND로 걸러진다
-        User user = userQueryRepo.findActiveById(command.requesterId())
-                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+	private final UserQueryRepository userQueryRepo;
 
-        user.delete(command.requesterId());
+	private final AuthQueryRepository authQueryRepo;
 
-        Auth loginSession = authQueryRepo.findActiveByUserId(user.getId()).orElse(null);
-        if (loginSession != null) {
-            loginSession.logout();
-        } else {
-            log.warn("[User] 회원탈퇴 요청자의 현재 로그인 세션이 존재하지 않습니다. userId={}", user.getId());
-        }
+	// Facade가 BCrypt 검증 전에 조회하는 짧은 읽기 트랜잭션. userDelete/passwordUpdate가 공유한다.
+	@Transactional(readOnly = true)
+	public String findPasswordHashForVerification(UUID requesterId) {
+		User user = userQueryRepo.findActiveById(requesterId)
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 
-        tokenStorePort.revokeAllSessions(user.getId());
-        log.info("[User] 회원탈퇴 완료 userId={}", user.getId());
-    }
+		return user.getPasswordHash();
+	}
 
-    @Transactional(rollbackFor = Exception.class)
-    public UUID passwordUpdate(UserPasswordUpdateCommand command, String newPasswordHash) {
-        User user = userQueryRepo.findActiveById(command.requesterId())
-                .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+	@Transactional(rollbackFor = Exception.class)
+	public void userDelete(UserDeleteCommand command) {
+		// 1. 재조회 — BCrypt 도는 동안 이미 탈퇴/상태 변경됐을 수 있어 다시 확인한다
+		User user = userQueryRepo.findActiveById(command.requesterId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 
-        user.changePassword(newPasswordHash);
+		// 2. 회원탈퇴 진행
+		user.delete(command.requesterId());
 
-        Auth loginSession = authQueryRepo.findActiveByUserId(user.getId()).orElse(null);
-        if (loginSession != null) {
-            loginSession.logout();
-        } else {
-            log.warn("[User] 비밀번호 변경 요청 사용자의 현재 로그인 세션이 존재하지 않습니다. userId={}", command.requesterId());
-        }
+		// 3. 로그인 세션 만료
+		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.orElse(null);
 
-        tokenStorePort.revokeAllSessions(user.getId());
-        log.info("[User] 비밀번호 변경 완료 userId={}", user.getId());
+		if(loginSession != null) {
+			loginSession.logout();
+		} else {
+			log.warn(
+					"[User] 회원탈퇴 요청자의 현재 로그인 세션이 존재하지 않습니다. userId={}",
+					user.getId()
+			);
+		}
 
-        return user.getId();
-    }
+		// 4. 저장된 액세스 토큰 삭제
+		tokenStorePort.revokeAllSessions(user.getId());
+
+		log.info("[User] 회원탈퇴 완료 userId={}", user.getId());
+	}
+
+	@Transactional(rollbackFor = Exception.class)
+	public UserUpdateResult userUpdate(UserUpdateCommand command) {
+		// 0. regionId가 넘어오지 않았는데 address 가 존재하는 경우 빠른 실패 시키기 위해 Validator 밖에서 처리
+		
+		//    공백 문자열은 changeMyInfo / AddressValidator 와 동일하게 '미입력' 으로 취급한다.
+		if(command.regionId() == null
+				&& command.address() != null
+				&& !command.address().isBlank()
+		) {
+			log.info(
+					"[User] 지역 정보 없이 주소만 담긴 회원정보 변경이 시도되었습니다. userId={}",
+					command.requesterId()
+			);
+
+			throw new BusinessException(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION);
+		}
+		
+		// 1. 요청자 조회
+		User user = userQueryRepo.findActiveById(command.requesterId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
+		// 2. 요청에 regionId 가 존재하면 검증
+		if(command.regionId() != null) {
+			addressValidator.updateAddressValidate(command);
+		}
+		
+		// 3. 업데이트
+		user.changeMyInfo(
+				command.name(),
+				command.phone(),
+				command.regionId(),
+				command.address()
+		);
+
+		log.info(
+				"[User] 회원정보 변경 완료 userId={}, regionId={}",
+				user.getId(),
+				user.getRegionId()
+		);
+
+		return new UserUpdateResult(
+				user.getId(),
+				user.getName(),
+				user.getPhone(),
+				user.getRegionId(),
+				user.getAddress()
+		);
+	}
+	
+	@Transactional(rollbackFor = Exception.class)
+	public UUID passwordUpdate(UserPasswordUpdateCommand command, String newPasswordHash) {
+		// 1. 재조회 — 비밀번호 검증(BCrypt)은 Facade에서 이미 끝났다. 여기선 상태만 재확인한다.
+		User user = userQueryRepo.findActiveById(command.requesterId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+		// 2. 변경한다.
+		user.changePassword(newPasswordHash);
+
+		// 3. 사용자의 현재 세션을 만료시킨다.
+		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.orElse(null);
+
+		if(loginSession != null) {
+			loginSession.logout();
+		} else {
+			log.warn(
+					"[User] 비밀번호 변경 요청 사용자의 현재 로그인 세션이 존재하지 않습니다. userId={}",
+					command.requesterId()
+			);
+		}
+
+		// 4. 로그인 세션을 만료 시킨 후 Redis 에도 반영한다.
+		tokenStorePort.revokeAllSessions(user.getId());
+
+		log.info("[User] 비밀번호 변경 완료 userId={}", user.getId());
+
+		return user.getId();
+	}
+
+	@Transactional(rollbackFor = Exception.class)
+	public UserApprovalResult approval(UserApprovalCommand command) {
+		// 1. 요청자의 신원이 뭐니?
+		UserRole requesterRole = command.requesterRole();
+		
+		// 2. 요청자가 운영자면 승인/거절 대상의 지역과 같은지 확인한다.
+		
+		// 2-1. 대상자 조회
+		User target = userQueryRepo.findById(command.userId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
+		if(Objects.equals(requesterRole, UserRole.ADMIN)) {
+			
+			// 2-1. 관리자를 조회한다. 없으면 권한이 없는 것이다.
+			User admin = userQueryRepo.findAdminById(command.requesterId())
+					.orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+			// 2-3. 지역이 다르면 권한이 없다.
+			if(!Objects.equals(admin.getRegionId(), target.getRegionId())) {
+				log.warn(
+						"[User] 회원가입 승인/거절 시 운영자 지역 권한 밖의 요청이 들어왔습니다. adminUserId={}, targetUserId={}",
+						command.requesterId(),
+						target.getId()
+				);
+
+				throw new BusinessException(CommonErrorCode.AUTH_FORBIDDEN);
+			}
+		}
+
+		// 3. 대상 유저에게 승인 또는 거절한다.
+		target.approvalOrReject(command.accept(), command.rejectReason());
+
+		log.info(
+				"[User] 회원가입 승인/거절 처리 완료 targetUserId={}, requesterId={}, requesterRole={}, accept={}",
+				target.getId(),
+				command.requesterId(),
+				requesterRole,
+				command.accept()
+		);
+
+		return new UserApprovalResult(
+				target.getId(),
+				target.getRole(),
+				target.getStatusChangeReason(),
+				command.accept()
+		);
+	}
+	
+	@Transactional(rollbackFor = Exception.class)
+	public UUID suspend(UserSuspendCommand command) {
+		// 1. 요청자의 신원이 뭐니?
+		UserRole requesterRole = command.requesterRole();
+		
+		// 2. 정지 대상이 존재하는가?
+		User user = userQueryRepo.findById(command.userId())
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
+		// 4. 3번 IF문을 안타면 MASTER 이며 일시 정지를 진행한다.
+		if(!user.isApprove()) {
+			log.info(
+					"[User] 이미 이용 가능 상태가 아닌 사용자에 대한 정지가 시도되었습니다. targetUserId={}, status={}",
+					user.getId(),
+					user.getStatus()
+			);
+
+			throw new BusinessException(UserErrorCode.USER_SUSPEND_MODIFY_STATE);
+		}
+		
+		// 3. 요청자가 ADMIN 인가?
+		if(Objects.equals(requesterRole, UserRole.ADMIN)) {
+			
+			// 3-1. ADMIN 은 ADMIN 을 정지시킬 수 없다.
+			if(Objects.equals(user.getRole(), UserRole.ADMIN)) {
+				log.warn(
+						"[User] 운영자가 다른 운영자의 정지를 시도했습니다. adminUserId={}, targetUserId={}",
+						command.requesterId(),
+						user.getId()
+				);
+
+				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+			}
+			
+			// 3-2. ADMIN 은 같은 지역내 사용자만 정지가 가능하다.
+			User requesterAdmin = userQueryRepo.findActiveById(command.requesterId())
+					.orElseThrow(() -> new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST));
+			
+			if(!Objects.equals(user.getRegionId(), requesterAdmin.getRegionId())) {
+				log.warn(
+						"[User] 운영자가 담당 지역 밖 사용자의 정지를 시도했습니다. adminUserId={}, targetUserId={}",
+						command.requesterId(),
+						user.getId()
+				);
+
+				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+			}
+		}
+		
+		// 4. 사용자 정지!
+		user.suspend(command.suspendReason());
+		
+		// 5. 사용자 정지 시킨후 대상 사용자의 로그인 세션을 만료 시킨다.
+		Auth suspendUserLoginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.orElse(null);
+		
+		if(suspendUserLoginSession != null) {
+			suspendUserLoginSession.logout();
+		}
+		
+		// 6. Redis 에 저장된 대상 사용자의 AccessToken 전체 무효화
+		tokenStorePort.revokeAllSessions(user.getId());
+
+		log.info(
+				"[User] 사용자 정지 완료 targetUserId={}, requesterId={}, requesterRole={}",
+				user.getId(),
+				command.requesterId(),
+				requesterRole
+		);
+
+		return user.getId();
+	}
+	
 }

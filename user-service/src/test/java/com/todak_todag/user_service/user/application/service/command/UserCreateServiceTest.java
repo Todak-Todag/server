@@ -3,9 +3,7 @@ package com.todak_todag.user_service.user.application.service.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -13,7 +11,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -42,17 +39,17 @@ import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
-import com.todak_todag.user_service.user.application.support.AddressValidator;
-import com.todak_todag.user_service.user.application.support.ConsentDocumentValidator;
 import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
 import com.todak_todag.user_service.user.domain.repository.command.ConsentCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
-import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
+// 읽기 검증(지역/중복/약관/주소)은 UserCreateQueryService 로 분리되었다.
+// 이 클래스는 Facade 가 BCrypt 를 끝낸 뒤 넘겨주는 passwordHash 를 받아
+// "저장 직전 재검증 - 저장" 만 담당하므로, 그 범위만 검증한다.
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UserCreateService 단위테스트")
 class UserCreateServiceTest {
@@ -78,25 +75,16 @@ class UserCreateServiceTest {
 	private static final UUID HOSPITAL_STAFF_ID = UUID.fromString("770e8400-e29b-41d4-a716-446655440000");
 
 	@Mock
-	private AddressValidator addressValidator;
-
-	@Mock
-	private PasswordEncoderPort passwordEncoder;
-
-	@Mock
 	private UserCommandRepository userCommandRepo;
 
 	@Mock
 	private UserQueryRepository userQueryRepo;
 
 	@Mock
-	private RegionQueryRepository regionQueryRepo;
-
-	@Mock
-	private ConsentDocumentValidator consentDocumentValidator;
-
-	@Mock
 	private ConsentCommandRepository consentCommandRepo;
+
+	@Mock
+	private PasswordEncoderPort passwordEncoder;
 
 	@InjectMocks
 	private UserCreateService userCreateService;
@@ -147,22 +135,16 @@ class UserCreateServiceTest {
 	@DisplayName("회원가입")
 	class CreateUserSignup {
 
-		private void givenAvailableRegion() {
-			given(regionQueryRepo.existsAvailableRegion(REGION_ID)).willReturn(true);
-		}
-
 		@Test
-		@DisplayName("유효한 회원가입 요청이면 User 를 저장하고 저장된 식별자와 이름을 반환한다")
+		@DisplayName("유효한 요청이면 User 를 저장하고 저장된 식별자와 이름을 반환한다")
 		void createUserSignupTest_success() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			UserSignupCreatedResult result = userCreateService.createUserSignup(command);
+			UserSignupCreatedResult result = userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
 			verify(userCommandRepo, times(1)).save(any(User.class));
@@ -175,13 +157,11 @@ class UserCreateServiceTest {
 		void createUserSignupTest_statusIsPending() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.SOCIAL_WORKER);
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserSignup(command);
+			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
@@ -191,21 +171,17 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("비밀번호는 해시로 변환되어 저장되고 평문은 저장되지 않는다")
-		void createUserSignupTest_passwordIsHashed() {
+		@DisplayName("전달받은 passwordHash 가 그대로 저장되고 평문은 저장되지 않는다")
+		void createUserSignupTest_storesGivenPasswordHash() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.SERVICE_PROVIDER);
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserSignup(command);
+			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
-			verify(passwordEncoder).encode(RAW_PASSWORD);
-
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
 			verify(userCommandRepo).save(captor.capture());
 
@@ -219,13 +195,11 @@ class UserCreateServiceTest {
 		void createUserSignupTest_fieldMapping() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserSignup(command);
+			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
@@ -241,15 +215,14 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("로그인 아이디가 중복이면 USER_DUPLICATE_LOGIN_ID 예외가 발생하고 저장하지 않는다")
-		void createUserSignupTest_fail_duplicateUsername() {
+		@DisplayName("저장 직전 재검증에서 로그인 아이디가 중복이면 USER_DUPLICATE_LOGIN_ID 예외가 발생하고 저장하지 않는다")
+		void createUserSignupTest_fail_duplicateUsernameOnRecheck() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(true);
 
 			// When & Then
-			assertThatThrownBy(() -> userCreateService.createUserSignup(command))
+			assertThatThrownBy(() -> userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID)))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
 					.isEqualTo(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
@@ -263,12 +236,10 @@ class UserCreateServiceTest {
 		void createUserSignupTest_fail_invalidRole(UserRole deniedRole) {
 			// Given
 			UserSignupCommand command = signupCommand(deniedRole);
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 
 			// When & Then
-			assertThatThrownBy(() -> userCreateService.createUserSignup(command))
+			assertThatThrownBy(() -> userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID)))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
 					.isEqualTo(UserErrorCode.USER_INVALID_CREATE_ROLE);
@@ -277,61 +248,33 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("로그인 아이디가 중복이면 비밀번호 해시 연산을 수행하지 않는다")
-		void createUserSignupTest_fail_duplicateUsernameSkipsHashing() {
-			// Given
-			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
-			givenAvailableRegion();
-			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(true);
-
-			// When
-			assertThatThrownBy(() -> userCreateService.createUserSignup(command))
-					.isInstanceOf(BusinessException.class);
-
-			// Then
-			verify(passwordEncoder, never()).encode(anyString());
-		}
-
-		@Test
-		@DisplayName("정상 흐름은 지역 검증 - 중복 검증 - 약관 검증 - 비밀번호 해시 - User 저장 - Consent 저장 순서로 수행된다")
+		@DisplayName("정상 흐름은 재검증 - 저장 - Consent 저장 순서로 수행된다")
 		void createUserSignupTest_executionOrder() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(consentDocumentValidator.signupConsentDocumentValidate(command)).willReturn(Set.of(TERMS_ID));
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserSignup(command);
+			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
-			InOrder inOrder = inOrder(
-					regionQueryRepo, userQueryRepo, consentDocumentValidator, passwordEncoder,
-					userCommandRepo, consentCommandRepo
-			);
-			inOrder.verify(regionQueryRepo).existsAvailableRegion(REGION_ID);
+			InOrder inOrder = inOrder(userQueryRepo, userCommandRepo, consentCommandRepo);
 			inOrder.verify(userQueryRepo).duplicateUsername(USERNAME);
-			inOrder.verify(consentDocumentValidator).signupConsentDocumentValidate(command);
-			inOrder.verify(passwordEncoder).encode(RAW_PASSWORD);
 			inOrder.verify(userCommandRepo).save(any(User.class));
 			inOrder.verify(consentCommandRepo).saveAll(any());
 		}
 
 		@Test
-		@DisplayName("정상 가입 시 검증기가 반환한 동의 약관들이 저장된 유저 id로 저장된다")
+		@DisplayName("전달받은 동의 약관 id 들이 저장된 유저 id로 저장된다")
 		void createUserSignupTest_success_savesConsents() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(consentDocumentValidator.signupConsentDocumentValidate(command)).willReturn(Set.of(TERMS_ID));
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserSignup(command);
+			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
 			ArgumentCaptor<List<Consent>> captor = ArgumentCaptor.forClass(List.class);
@@ -344,39 +287,15 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("약관 검증에 실패하면 User/Consent 모두 저장하지 않는다")
-		void createUserSignupTest_fail_consentValidationFails() {
-			// Given
-			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
-			givenAvailableRegion();
-			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(consentDocumentValidator.signupConsentDocumentValidate(command))
-					.willThrow(new BusinessException(UserErrorCode.USER_SIGNUP_REQUIRED_NOT_AGREED));
-
-			// When & Then
-			assertThatThrownBy(() -> userCreateService.createUserSignup(command))
-					.isInstanceOf(BusinessException.class)
-					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(UserErrorCode.USER_SIGNUP_REQUIRED_NOT_AGREED);
-
-			verify(passwordEncoder, never()).encode(anyString());
-			verify(userCommandRepo, never()).save(any(User.class));
-			verify(consentCommandRepo, never()).saveAll(any());
-		}
-
-		@Test
 		@DisplayName("동의한 약관이 없으면 Consent 저장은 빈 리스트로 호출된다")
 		void createUserSignupTest_success_noAgreedConsents_savesEmptyList() {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(consentDocumentValidator.signupConsentDocumentValidate(command)).willReturn(Set.of());
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserSignup(command);
+			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of());
 
 			// Then
 			verify(consentCommandRepo).saveAll(List.of());
@@ -387,81 +306,61 @@ class UserCreateServiceTest {
 	@DisplayName("운영자 등록")
 	class CreateUserAdmin {
 
-		private void givenAvailableRegion() {
-			given(regionQueryRepo.findById(REGION_ID)).willReturn(Optional.of(mock(Region.class)));
+		private Region region() {
+			Region region = mock(Region.class);
+			given(region.getProvince()).willReturn("전라남도");
+			given(region.getDistrict()).willReturn("고흥군");
+			return region;
 		}
 
 		@Test
-		@DisplayName("유효한 운영자 등록 요청이면 User 를 저장하고 저장된 식별자와 이름을 반환한다")
+		@DisplayName("유효한 요청이면 User 를 저장하고 저장된 식별자·이름·지역명을 반환한다")
 		void createUserAdminTest_success() {
 			// Given
-			givenAvailableRegion();
+			Region region = region();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			UserAdminCreatedResult result = userCreateService.createUserAdmin(adminCreateCommand());
+			UserAdminCreatedResult result = userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region);
 
 			// Then
 			verify(userCommandRepo, times(1)).save(any(User.class));
 			assertThat(result.userId()).isEqualTo(SAVED_USER_ID);
 			assertThat(result.name()).isEqualTo(NAME);
+			assertThat(result.province()).isEqualTo("전라남도");
+			assertThat(result.district()).isEqualTo("고흥군");
 		}
 
 		@Test
-		@DisplayName("운영자로 생성된 User 의 상태는 APPROVED 이다")
-		void createUserAdminTest_statusIsApproved() {
+		@DisplayName("운영자로 생성된 User 의 상태는 APPROVED 이고 권한은 ADMIN 이다")
+		void createUserAdminTest_statusAndRole() {
 			// Given
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserAdmin(adminCreateCommand());
+			userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region());
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
 			verify(userCommandRepo).save(captor.capture());
 
 			assertThat(captor.getValue().getStatus()).isEqualTo(UserStatus.APPROVED);
-		}
-
-		@Test
-		@DisplayName("운영자로 생성된 User 의 권한은 ADMIN 이다")
-		void createUserAdminTest_roleIsAdmin() {
-			// Given
-			givenAvailableRegion();
-			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
-
-			// When
-			userCreateService.createUserAdmin(adminCreateCommand());
-
-			// Then
-			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
-
 			assertThat(captor.getValue().getRole()).isEqualTo(UserRole.ADMIN);
 		}
 
 		@Test
-		@DisplayName("비밀번호는 해시로 변환되어 저장되고 평문은 저장되지 않는다")
-		void createUserAdminTest_passwordIsHashed() {
+		@DisplayName("전달받은 passwordHash 가 그대로 저장되고 평문은 저장되지 않는다")
+		void createUserAdminTest_storesGivenPasswordHash() {
 			// Given
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserAdmin(adminCreateCommand());
+			userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region());
 
 			// Then
-			verify(passwordEncoder).encode(RAW_PASSWORD);
-
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
 			verify(userCommandRepo).save(captor.capture());
 
@@ -474,13 +373,11 @@ class UserCreateServiceTest {
 		@DisplayName("요청 값이 User 엔티티에 그대로 매핑된다")
 		void createUserAdminTest_fieldMapping() {
 			// Given
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserAdmin(adminCreateCommand());
+			userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region());
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
@@ -495,14 +392,14 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("로그인 아이디가 중복이면 USER_DUPLICATE_LOGIN_ID 예외가 발생하고 저장하지 않는다")
-		void createUserAdminTest_fail_duplicateUsername() {
+		@DisplayName("저장 직전 재검증에서 로그인 아이디가 중복이면 USER_DUPLICATE_LOGIN_ID 예외가 발생하고 저장하지 않는다")
+		void createUserAdminTest_fail_duplicateUsernameOnRecheck() {
 			// Given
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(true);
+			Region region = mock(Region.class);
 
 			// When & Then
-			assertThatThrownBy(() -> userCreateService.createUserAdmin(adminCreateCommand()))
+			assertThatThrownBy(() -> userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
 					.isEqualTo(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
@@ -511,37 +408,18 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("로그인 아이디가 중복이면 비밀번호 해시 연산을 수행하지 않는다")
-		void createUserAdminTest_fail_duplicateUsernameSkipsHashing() {
-			// Given
-			givenAvailableRegion();
-			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(true);
-
-			// When
-			assertThatThrownBy(() -> userCreateService.createUserAdmin(adminCreateCommand()))
-					.isInstanceOf(BusinessException.class);
-
-			// Then
-			verify(passwordEncoder, never()).encode(anyString());
-		}
-
-		@Test
-		@DisplayName("정상 흐름은 지역 조회 - 중복 검증 - 비밀번호 해시 - 저장 순서로 수행된다")
+		@DisplayName("정상 흐름은 재검증 - 저장 순서로 수행된다")
 		void createUserAdminTest_executionOrder() {
 			// Given
-			givenAvailableRegion();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserAdmin(adminCreateCommand());
+			userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region());
 
 			// Then
-			InOrder inOrder = inOrder(regionQueryRepo, userQueryRepo, passwordEncoder, userCommandRepo);
-			inOrder.verify(regionQueryRepo).findById(REGION_ID);
+			InOrder inOrder = inOrder(userQueryRepo, userCommandRepo);
 			inOrder.verify(userQueryRepo).duplicateUsername(USERNAME);
-			inOrder.verify(passwordEncoder).encode(RAW_PASSWORD);
 			inOrder.verify(userCommandRepo).save(any(User.class));
 		}
 	}
@@ -551,16 +429,15 @@ class UserCreateServiceTest {
 	class CreateUserPatient {
 
 		@Test
-		@DisplayName("유효한 퇴원 예정자 등록 요청이면 User 를 저장하고 저장된 식별자와 요청자 식별자 등을 반환한다")
+		@DisplayName("유효한 요청이면 User 를 저장하고 저장된 식별자와 요청자 식별자 등을 반환한다")
 		void createUserPatientTest_success() {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			UserPatientCreatedResult result = userCreateService.createUserPatient(command);
+			UserPatientCreatedResult result = userCreateService.createUserPatient(command, HASHED_PASSWORD);
 
 			// Then
 			verify(userCommandRepo, times(1)).save(any(User.class));
@@ -577,11 +454,10 @@ class UserCreateServiceTest {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserPatient(command);
+			userCreateService.createUserPatient(command, HASHED_PASSWORD);
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
@@ -595,20 +471,17 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("비밀번호는 해시로 변환되어 저장되고 평문은 저장되지 않는다")
-		void createUserPatientTest_passwordIsHashed() {
+		@DisplayName("전달받은 passwordHash 가 그대로 저장되고 평문은 저장되지 않는다")
+		void createUserPatientTest_storesGivenPasswordHash() {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserPatient(command);
+			userCreateService.createUserPatient(command, HASHED_PASSWORD);
 
 			// Then
-			verify(passwordEncoder).encode(RAW_PASSWORD);
-
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
 			verify(userCommandRepo).save(captor.capture());
 
@@ -623,11 +496,10 @@ class UserCreateServiceTest {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserPatient(command);
+			userCreateService.createUserPatient(command, HASHED_PASSWORD);
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
@@ -643,34 +515,14 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("주소 검증에 실패하면 예외가 전파되고 중복 검증/저장을 수행하지 않는다")
-		void createUserPatientTest_fail_addressValidation() {
-			// Given
-			UserPatientCreateCommand command = patientCreateCommand();
-			BusinessException addressException = new BusinessException(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
-
-			doThrow(addressException).when(addressValidator).patientAddressValidate(command);
-
-			// When & Then
-			assertThatThrownBy(() -> userCreateService.createUserPatient(command))
-					.isInstanceOf(BusinessException.class)
-					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(UserErrorCode.USER_INVALID_REGION_ADDRESS_MISMATCH);
-
-			verify(userQueryRepo, never()).duplicateUsername(anyString());
-			verify(passwordEncoder, never()).encode(anyString());
-			verify(userCommandRepo, never()).save(any(User.class));
-		}
-
-		@Test
-		@DisplayName("로그인 아이디가 중복이면 USER_DUPLICATE_LOGIN_ID 예외가 발생하고 저장하지 않는다")
-		void createUserPatientTest_fail_duplicateUsername() {
+		@DisplayName("저장 직전 재검증에서 로그인 아이디가 중복이면 USER_DUPLICATE_LOGIN_ID 예외가 발생하고 저장하지 않는다")
+		void createUserPatientTest_fail_duplicateUsernameOnRecheck() {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(true);
 
 			// When & Then
-			assertThatThrownBy(() -> userCreateService.createUserPatient(command))
+			assertThatThrownBy(() -> userCreateService.createUserPatient(command, HASHED_PASSWORD))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
 					.isEqualTo(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
@@ -679,22 +531,19 @@ class UserCreateServiceTest {
 		}
 
 		@Test
-		@DisplayName("정상 흐름은 주소 검증 - 중복 검증 - 비밀번호 해시 - 저장 순서로 수행된다")
+		@DisplayName("정상 흐름은 재검증 - 저장 순서로 수행된다")
 		void createUserPatientTest_executionOrder() {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(passwordEncoder.encode(RAW_PASSWORD)).willReturn(HASHED_PASSWORD);
 			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
-			userCreateService.createUserPatient(command);
+			userCreateService.createUserPatient(command, HASHED_PASSWORD);
 
 			// Then
-			InOrder inOrder = inOrder(addressValidator, userQueryRepo, passwordEncoder, userCommandRepo);
-			inOrder.verify(addressValidator).patientAddressValidate(command);
+			InOrder inOrder = inOrder(userQueryRepo, userCommandRepo);
 			inOrder.verify(userQueryRepo).duplicateUsername(USERNAME);
-			inOrder.verify(passwordEncoder).encode(RAW_PASSWORD);
 			inOrder.verify(userCommandRepo).save(any(User.class));
 		}
 	}
@@ -741,7 +590,7 @@ class UserCreateServiceTest {
 			userCreateService.createUserMaster(MASTER_ID, USERNAME, RAW_PASSWORD, NAME, PHONE);
 
 			// Then
-			verify(passwordEncoder, never()).encode(anyString());
+			verify(passwordEncoder, never()).encode(RAW_PASSWORD);
 			verify(userCommandRepo, never()).save(any(User.class));
 		}
 
