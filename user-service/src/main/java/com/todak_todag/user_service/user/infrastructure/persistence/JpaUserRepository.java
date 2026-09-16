@@ -25,6 +25,8 @@ public interface JpaUserRepository extends JpaRepository<User, UUID>, UserQueryD
 
 	Optional<User> findByIdAndRoleAndDeletedAtIsNull(UUID id, UserRole role);
 
+	Optional<User> findByIdAndStatusInAndDeletedAtIsNull(UUID id, List<UserStatus> status);
+	
 	@Query("""
 			SELECT u.id FROM User u
 			WHERE u.regionId =:regionId

@@ -55,4 +55,13 @@ public class UserQueryRepositoryImpl implements UserQueryRepository {
 	public boolean initMasterDuplicate(UUID userId) {
 		return jpaRepo.existsById(userId);
 	}
+
+	@Override
+	public Optional<User> findLoginById(UUID userId) {
+		return jpaRepo.findByIdAndStatusInAndDeletedAtIsNull(userId, List.of(
+				UserStatus.APPROVED,
+				UserStatus.WITHDRAWN,
+				UserStatus.PENDING
+		));
+	}
 }
