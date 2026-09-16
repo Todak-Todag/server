@@ -19,7 +19,7 @@ services:
     # PostgreSQL 데이터 영속화.
     volumes:
       - postgres-data:/var/lib/postgresql/data
-#      - ./postgres:/docker-entrypoint-initdb.d:ro
+    #      - ./postgres:/docker-entrypoint-initdb.d:ro
 
     # PostgreSQL 상태 확인.
     healthcheck:
@@ -308,9 +308,13 @@ services:
     container_name: todak-prometheus
     restart: unless-stopped
 
+    environment:
+      MONITORING_OWNER: ${MONITORING_OWNER}
+
     # Prometheus 설정 및 데이터 영속화.
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules.yml:/etc/prometheus/rules.yml:ro
       - prometheus-data:/prometheus
 
     # Prometheus UI 포트.
@@ -320,6 +324,27 @@ services:
     networks:
       - todak-network
 
+  # 알림 관리.
+  alertmanager:
+    image: prom/alertmanager:v0.34.0
+    container_name: todak-alertmanager
+    restart: unless-stopped
+
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --web.listen-address=:10001
+
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+    secrets:
+      - slack_webhook_url
+
+    ports:
+      - "10001:10001"
+
+    networks:
+      - todak-network
 
   # 로그 저장소.
   loki:
@@ -415,3 +440,7 @@ networks:
   todak-network:
     name: todak-network
     driver: bridge
+
+secrets:
+  slack_webhook_url:
+    environment: SLACK_WEBHOOK_URL
