@@ -1,0 +1,18 @@
+{$DOMAIN} {
+    encode zstd gzip
+
+    # 운영 엔드포인트·문서 외부 차단
+    @blocked path /actuator* /internal/* /swagger-ui* /v3/api-docs*
+    respond @blocked 404
+
+    reverse_proxy api-gateway:8080 {
+        header_up X-Real-IP {remote_host}
+    }
+
+    log {
+        output file /data/access.log {
+            roll_size 10mb
+            roll_keep 3
+        }
+    }
+}

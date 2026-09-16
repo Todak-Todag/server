@@ -19,7 +19,7 @@ spring:
     show-sql: true
 
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
 
     properties:
       hibernate:
@@ -28,6 +28,10 @@ spring:
         format_sql: true
         hbm2ddl:
           create_namespaces: true
+
+  flyway:
+    schemas: discharge_schema
+    default-schema: discharge_schema
 
 springdoc:
   swagger-ui:

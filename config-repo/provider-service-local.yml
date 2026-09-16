@@ -12,7 +12,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
 
     properties:
       hibernate:
@@ -21,6 +21,10 @@ spring:
         format_sql: true
         hbm2ddl:
           create_namespaces: true
+
+  flyway:
+    schemas: provider_schema
+    default-schema: provider_schema
 
     show-sql: true
 

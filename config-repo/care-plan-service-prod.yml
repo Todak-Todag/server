@@ -46,6 +46,12 @@ spring:
 internal:
   key: ${INTERNAL_API_KEY}
 
+internal-jwt:
+  jwk-set-uri: ${GATEWAY_JWKS_URI}
+  issuer: todak-api-gateway
+  audience: ${spring.application.name}
+  clock-skew: 30s
+
 schedule:
   outbox:
     relay:

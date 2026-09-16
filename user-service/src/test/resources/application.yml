@@ -34,6 +34,9 @@ spring:
         hbm2ddl:
           create_namespaces: true
 
+  flyway:
+    enabled: false
+
 eureka:
   client:
     register-with-eureka: false

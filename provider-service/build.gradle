@@ -37,6 +37,9 @@ dependencies {
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
 	implementation 'io.github.openfeign.querydsl:querydsl-jpa:7.4.0'
 	implementation 'io.micrometer:micrometer-registry-prometheus'
+	implementation 'org.flywaydb:flyway-core'
+	implementation 'org.flywaydb:flyway-database-postgresql'
+	implementation 'org.springframework.boot:spring-boot-flyway'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'
@@ -72,10 +75,10 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
-// 통합 테스트가 운영과 같은 초기화 스크립트로 스키마를 만들도록 복사한다
-// 두 벌로 관리하면 어긋나므로 원본 하나만 두고 빌드 시점에 가져온다
-tasks.named('processTestResources') {
-	from('../docker/postgres/provider-service.sql') {
-		into 'db'
-	}
-}
+//// 통합 테스트가 운영과 같은 초기화 스크립트로 스키마를 만들도록 복사한다
+//// 두 벌로 관리하면 어긋나므로 원본 하나만 두고 빌드 시점에 가져온다
+//tasks.named('processTestResources') {
+//	from('../docker/postgres/provider-service.sql') {
+//		into 'db'
+//	}
+//}

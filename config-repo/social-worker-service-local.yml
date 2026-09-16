@@ -19,7 +19,7 @@ spring:
     show-sql: true
 
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
 
     properties:
       hibernate:
@@ -41,6 +41,10 @@ spring:
           enabled: true
           max-retries: 3
           initial-interval: 1000ms
+
+  flyway:
+    schemas: social_worker_schema
+    default-schema: social_worker_schema
 
 springdoc:
   swagger-ui:
