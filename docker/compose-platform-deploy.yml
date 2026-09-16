@@ -17,6 +17,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod,native
       SPRING_CLOUD_CONFIG_SERVER_NATIVE_SEARCH_LOCATIONS: file:/config-repo
+      ZIPKIN_HOST: ${ZIPKIN_HOST}
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k"
     volumes:
       - ../config-repo:/config-repo:ro
@@ -35,6 +36,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: prod
       CONFIG_SERVER_URL: http://config-server:8888
+      ZIPKIN_HOST: ${ZIPKIN_HOST}
       JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k"
     depends_on:
       config-server: { condition: service_healthy }
