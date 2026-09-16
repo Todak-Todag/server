@@ -14,12 +14,19 @@ spring:
     hibernate:
       ddl-auto: validate
 
+    properties:
+      hibernate:
+        format_sql: true
+        hbm2ddl:
+          create_namespaces: true
+
+    show-sql: true
+
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
-
     # 수신 재시도 3회, 소진 시 원본 큐로 재큐잉하지 않고 DLQ로 이동
     listener:
       simple:
@@ -30,17 +37,9 @@ spring:
           initial-interval: 1000
           multiplier: 2
 
-  properties:
-    hibernate:
-      format_sql: true
-      hbm2ddl:
-        create_namespaces: true
-
   flyway:
     schemas: care_plan_schema
     default-schema: care_plan_schema
-
-  show-sql: true
 
 eureka:
   client:
@@ -49,12 +48,6 @@ eureka:
 
 internal:
   key: ${INTERNAL_API_KEY}
-
-internal-jwt:
-  jwk-set-uri: ${GATEWAY_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
-  issuer: todak-api-gateway
-  audience: ${spring.application.name}
-  clock-skew: 30s
 
 schedule:
   outbox:
