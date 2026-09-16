@@ -17,7 +17,9 @@ import com.todak_todag.provider_service.provider.domain.repository.query.Service
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.TransactionException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
@@ -53,10 +55,10 @@ public class MatchingFacade {
         try {
             prepared = prepare(event);
         } catch (RuntimeException e) {
-            // 외부 서비스 장애는 잠시 뒤 성공할 수 있어 리스너 재시도에 맡긴다
+            // 외부 서비스 장애·DB 조회 실패는 잠시 뒤 성공할 수 있어 리스너 재시도에 맡긴다
             // (재시도를 소진하면 default-requeue-rejected: false 설정에 따라 폐기된다)
             if (isRetryable(e)) {
-                log.warn("[Provider] 외부 서비스 장애로 매칭 재시도 carePlanId={}", event.carePlanId());
+                log.warn("[Provider] 일시적 장애로 매칭 재시도 carePlanId={}", event.carePlanId());
 
                 throw e;
             }
@@ -66,21 +68,32 @@ public class MatchingFacade {
             return;
         }
 
+        // 한 희망 일정의 적재가 실패해도 나머지는 끝까지 처리한다
+        // 재시도할 실패가 있었으면 마지막에 던져 리스너 재시도를 받는다
+        // 재시도 때 이미 적재한 희망 일정은 처리 기록으로 건너뛰므로 중복되지 않는다
+        RuntimeException retryableFailure = null;
+
         for (MatchingTarget target : prepared.targets()) {
-            // 이 단계에는 외부 호출이 없어 재시도해도 결과가 같다
-            // 예외가 리스너 밖으로 나가면 이미 적재한 결과가 중복 발행되므로 여기서 가둔다
-            try {
-                apply(event.carePlanId(), event.regionId(), target, prepared.occupied(), prepared.processedPreferenceIds());
-            } catch (Exception e) {
-                log.error("[Provider] 서비스 매칭 처리 실패 carePlanId={} provideServiceId={}",
-                        event.carePlanId(), target.service().provideServiceId(), e);
+            RuntimeException failure = apply(
+                    event.carePlanId(), event.regionId(), target, prepared.occupied(), prepared.processedPreferenceIds()
+            );
+
+            if (retryableFailure == null) {
+                retryableFailure = failure;
             }
+        }
+
+        if (retryableFailure != null) {
+            log.warn("[Provider] 적재에 실패한 희망 일정이 있어 매칭 재시도 carePlanId={}", event.carePlanId());
+
+            throw retryableFailure;
         }
     }
 
     public void rematch(ProviderRematchedEvent event, boolean redelivered) {
-        // 예외가 리스너 밖으로 나가면 메시지가 재큐잉되므로 원칙적으로 여기서 가둔다
-        // 다만 외부 서비스 장애는 잠시 뒤 성공할 수 있어 리스너 재시도에 맡긴다
+        // 적재에 성공한 뒤에는 예외를 던지지 않는다 (재처리 시 중복 방지)
+        // 외부 장애와 DB 적재 실패는 잠시 뒤 성공할 수 있어 리스너 재시도에 맡긴다
+        // 한 건만 처리하므로 적재가 실패했다면 성공분이 없어 다시 처리해도 중복되지 않는다
         // (재시도를 소진하면 default-requeue-rejected: false 설정에 따라 폐기된다)
         try {
             // 재전달된 메시지만 확인한다. 사용자의 정상 재요청은 새 메시지라 redelivered가 false다
@@ -104,7 +117,7 @@ public class MatchingFacade {
             );
         } catch (RuntimeException e) {
             if (isRetryable(e)) {
-                log.warn("[Provider] 외부 서비스 장애로 재매칭 재시도 servicePreferenceId={} date={}",
+                log.warn("[Provider] 일시적 장애로 재매칭 재시도 servicePreferenceId={} date={}",
                         event.servicePreferenceId(), event.date());
 
                 throw e;
@@ -181,13 +194,16 @@ public class MatchingFacade {
 
     // 적재 단계
     // 외부 호출 없이 판정하고 아웃박스에 쌓는다
-    private void apply(
+    // 재시도할 실패가 있었으면 첫 번째 것을 돌려준다
+    private RuntimeException apply(
             UUID carePlanId,
             UUID regionId,
             MatchingTarget target,
             List<MatchingService.OccupiedSlot> occupied,
             Set<UUID> processedPreferenceIds
     ) {
+        RuntimeException retryableFailure = null;
+
         for (CarePlanConfirmedEvent.Preference preference : target.service().preferences()) {
             if (processedPreferenceIds.contains(preference.servicePreferenceId())) {
                 log.info("[Provider] 이미 처리한 희망 일정이라 건너뜀 servicePreferenceId={}",
@@ -204,11 +220,17 @@ public class MatchingFacade {
                         preference.preferredTimeSlot(),
                         target.candidates(), target.works(), occupied
                 );
-            } catch (Exception e) {
+            } catch (RuntimeException e) {
                 log.error("[Provider] 매칭 처리 실패 servicePreferenceId={}",
                         preference.servicePreferenceId(), e);
+
+                if (retryableFailure == null && isRetryable(e)) {
+                    retryableFailure = e;
+                }
             }
         }
+
+        return retryableFailure;
     }
 
     private void matchOne(
@@ -365,13 +387,18 @@ public class MatchingFacade {
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 
-    // 외부 서비스 장애처럼 잠시 뒤 성공할 수 있는 실패인지
+    // 외부 서비스 장애나 DB 적재 실패처럼 잠시 뒤 성공할 수 있는 실패인지
     // 재시도할 가치가 있는 것만 다시 던져 리스너 재시도를 받는다
     private boolean isRetryable(RuntimeException e) {
         // 연결 실패·타임아웃은 status가 -1, 상대 서버 오류는 5xx
         // 4xx는 다시 보내도 같은 결과라 재시도하지 않는다
         if (e instanceof FeignException feignException) {
             return feignException.status() < 0 || feignException.status() >= 500;
+        }
+
+        // 아웃박스 적재·처리 기록 조회 실패 (커밋 실패는 TransactionException으로 온다)
+        if (e instanceof DataAccessException || e instanceof TransactionException) {
+            return true;
         }
 
         return e instanceof BusinessException businessException

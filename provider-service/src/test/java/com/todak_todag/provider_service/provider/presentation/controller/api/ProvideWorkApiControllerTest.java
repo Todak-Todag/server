@@ -1,5 +1,6 @@
 package com.todak_todag.provider_service.provider.presentation.controller.api;
 
+import com.todak_todag.provider_service.global.common.UserRole;
 import com.todak_todag.provider_service.global.config.SecurityConfig;
 import com.todak_todag.provider_service.global.exception.BusinessException;
 import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
@@ -17,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static com.todak_todag.provider_service.support.AuthenticatedRequestSupport.asUser;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doThrow;
@@ -64,8 +66,7 @@ class ProvideWorkApiControllerTest {
                 .willReturn(new ProvideWorkCreateResult(provideWorkId));
 
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("1", "09:00", "13:00")))
                 .andExpect(status().isCreated())
@@ -78,8 +79,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("SERVICE_PROVIDER가 아니면 403")
     void create_forbidden() throws Exception {
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "PATIENT")
+                        .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("1", "09:00", "13:00")))
                 .andExpect(status().isForbidden())
@@ -88,12 +88,12 @@ class ProvideWorkApiControllerTest {
     }
 
     @Test
-    @DisplayName("인증 헤더가 없으면 403")
+    @DisplayName("게이트웨이 토큰이 없으면 401")
     void create_noAuthHeader() throws Exception {
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("1", "09:00", "13:00")))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -103,8 +103,7 @@ class ProvideWorkApiControllerTest {
                 .willThrow(new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN));
 
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("1", "09:00", "13:00")))
                 .andExpect(status().isForbidden())
@@ -118,8 +117,7 @@ class ProvideWorkApiControllerTest {
                 .willThrow(new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
 
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("1", "09:00", "13:00")))
                 .andExpect(status().isNotFound())
@@ -133,8 +131,7 @@ class ProvideWorkApiControllerTest {
                 .willThrow(new BusinessException(ProviderErrorCode.PROVIDE_WORK_TIME_OVERLAP));
 
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("1", "09:00", "13:00")))
                 .andExpect(status().isConflict())
@@ -145,8 +142,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("day가 범위를 벗어나면 400")
     void create_invalidDay() throws Exception {
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("8", "09:00", "13:00")))
                 .andExpect(status().isBadRequest())
@@ -158,8 +154,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("필수 값이 없으면 400")
     void create_missingField() throws Exception {
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 { "day": 1 }
@@ -172,8 +167,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("serviceOfferingId가 UUID 형식이 아니면 400")
     void create_invalidServiceOfferingId() throws Exception {
         mockMvc.perform(post(BASE_URL, "not-a-uuid")
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("1", "09:00", "13:00")))
                 .andExpect(status().isBadRequest())
@@ -189,8 +183,7 @@ class ProvideWorkApiControllerTest {
                 .willReturn(new ProvideWorkUpdateResult(provideWorkId));
 
         mockMvc.perform(patch(UPDATE_URL, serviceOfferingId, provideWorkId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("2", "14:00", "18:00")))
                 .andExpect(status().isOk())
@@ -203,8 +196,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("수정 시 SERVICE_PROVIDER가 아니면 403")
     void update_forbidden() throws Exception {
         mockMvc.perform(patch(UPDATE_URL, serviceOfferingId, UUID.randomUUID())
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "PATIENT")
+                        .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("2", "14:00", "18:00")))
                 .andExpect(status().isForbidden())
@@ -218,8 +210,7 @@ class ProvideWorkApiControllerTest {
                 .willThrow(new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND));
 
         mockMvc.perform(patch(UPDATE_URL, serviceOfferingId, UUID.randomUUID())
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("2", "14:00", "18:00")))
                 .andExpect(status().isNotFound())
@@ -230,8 +221,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("수정 시 day가 범위를 벗어나면 400")
     void update_invalidDay() throws Exception {
         mockMvc.perform(patch(UPDATE_URL, serviceOfferingId, UUID.randomUUID())
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("0", "14:00", "18:00")))
                 .andExpect(status().isBadRequest())
@@ -242,8 +232,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("삭제에 성공하면 204를 반환한다")
     void delete_success() throws Exception {
         mockMvc.perform(delete(DELETE_URL, serviceOfferingId, UUID.randomUUID())
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                 .andExpect(status().isNoContent());
     }
 
@@ -251,8 +240,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("삭제 시 SERVICE_PROVIDER가 아니면 403")
     void delete_forbidden() throws Exception {
         mockMvc.perform(delete(DELETE_URL, serviceOfferingId, UUID.randomUUID())
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "PATIENT"))
+                        .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
     }
@@ -264,8 +252,7 @@ class ProvideWorkApiControllerTest {
                 .when(provideWorkCommandService).delete(any());
 
         mockMvc.perform(delete(DELETE_URL, serviceOfferingId, UUID.randomUUID())
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("PROVIDE_WORK_NOT_FOUND"));
     }
@@ -274,8 +261,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("시각 형식이 HH:mm이 아니면 400")
     void create_invalidTimeFormat() throws Exception {
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body("1", "9시", "13:00")))
                 .andExpect(status().isBadRequest())
@@ -286,8 +272,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("JSON이 깨지면 400")
     void create_brokenJson() throws Exception {
         mockMvc.perform(post(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER")
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ \"day\": 1, "))
                 .andExpect(status().isBadRequest())
@@ -298,8 +283,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("지원하지 않는 메서드면 405")
     void methodNotAllowed() throws Exception {
         mockMvc.perform(put(BASE_URL, serviceOfferingId)
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                 .andExpect(status().isMethodNotAllowed())
                 .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"));
     }
@@ -308,8 +292,7 @@ class ProvideWorkApiControllerTest {
     @DisplayName("없는 경로면 404")
     void notFound() throws Exception {
         mockMvc.perform(get("/api/v1/not-exists")
-                        .header("X-User-Id", UUID.randomUUID().toString())
-                        .header("X-User-Role", "SERVICE_PROVIDER"))
+                        .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"));
     }

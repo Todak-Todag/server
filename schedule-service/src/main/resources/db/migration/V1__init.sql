@@ -1,10 +1,3 @@
-CREATE SCHEMA IF NOT EXISTS schedule_schema;
-
-CREATE TYPE schedule_schema.service_schedule_status AS ENUM (
-    'SCHEDULED', 'RESCHEDULING', 'CHANGED',
-    'COMPLETED', 'CANCELED', 'NO_SHOW'
-);
-
 CREATE TABLE IF NOT EXISTS schedule_schema.p_service_schedules (
     service_schedule_id UUID PRIMARY KEY,
 
@@ -17,7 +10,7 @@ CREATE TABLE IF NOT EXISTS schedule_schema.p_service_schedules (
     -- 논리 FK -> provider_schema.p_provide_service_offerings(service_offering_id)
     service_offering_id UUID NOT NULL,
 
-    status schedule_schema.service_schedule_status NOT NULL DEFAULT 'SCHEDULED',
+    status VARCHAR(255) NOT NULL DEFAULT 'SCHEDULED',
     date DATE NOT NULL,
     started_at TIMESTAMP NOT NULL,
     finished_at TIMESTAMP NOT NULL,
@@ -48,16 +41,12 @@ CREATE TABLE IF NOT EXISTS schedule_schema.p_care_plan_service_results (
     deleted_by UUID
 );
 
-CREATE TYPE schedule_schema.schedule_outbox_event_status AS ENUM (
-    'PENDING', 'SENT', 'FAILED'
-);
-
 CREATE TABLE IF NOT EXISTS schedule_schema.p_schedule_outbox_events (
     outbox_event_id UUID PRIMARY KEY,
     event_type VARCHAR(255) NOT NULL,
     aggregate_id UUID NOT NULL,
     payload TEXT NOT NULL,
-    status schedule_schema.schedule_outbox_event_status NOT NULL DEFAULT 'PENDING',
+    status VARCHAR(255) NOT NULL DEFAULT 'PENDING',
     retry_count INTEGER NOT NULL,
     last_error_message TEXT,
     published_at TIMESTAMPTZ,
@@ -76,14 +65,6 @@ CREATE TABLE IF NOT EXISTS schedule_schema.p_schedule_outbox_events (
 CREATE UNIQUE INDEX IF NOT EXISTS ux_schedule_outbox_events_care_plan_completed
     ON schedule_schema.p_schedule_outbox_events (aggregate_id)
     WHERE event_type = 'CarePlanCompleted';
-
-CREATE TYPE schedule_schema.service_matching_attempts_status AS ENUM (
-    'MATCHED', 'FAILED', 'EXPIRED'
-);
-
-CREATE TYPE schedule_schema.service_matching_attempts_preferred_time_slot AS ENUM (
-    'MORNING', 'AFTERNOON'
-);
 
 CREATE TABLE schedule_schema.p_service_matching_attempts (
     matching_attempt_id UUID PRIMARY KEY,
@@ -104,8 +85,8 @@ CREATE TABLE schedule_schema.p_service_matching_attempts (
     service_offering_id UUID,
 
     date DATE NOT NULL,
-    preferred_time_slot schedule_schema.service_matching_attempts_preferred_time_slot,
-    status schedule_schema.service_matching_attempts_status NOT NULL,
+    preferred_time_slot VARCHAR(255),
+    status VARCHAR(255) NOT NULL,
     failure_reason TEXT,
     matched_at TIMESTAMPTZ,
     failed_at TIMESTAMPTZ,
@@ -116,3 +97,16 @@ CREATE TABLE schedule_schema.p_service_matching_attempts (
     deleted_at TIMESTAMPTZ,
     deleted_by UUID
 );
+
+
+-- ─────────────────────────────────────────────
+-- 값 검증 (기존 ENUM 타입 대체). validate 는 CHECK 을 검사하지 않아 안전
+-- ─────────────────────────────────────────────
+ALTER TABLE schedule_schema.p_schedule_outbox_events
+    ADD CONSTRAINT ck_p_schedule_outbox_events_status CHECK (status IN ('PENDING','SENT','FAILED'));
+ALTER TABLE schedule_schema.p_service_matching_attempts
+    ADD CONSTRAINT ck_p_service_matching_attempts_preferred_time_slot CHECK (preferred_time_slot IN ('MORNING','AFTERNOON'));
+ALTER TABLE schedule_schema.p_service_matching_attempts
+    ADD CONSTRAINT ck_p_service_matching_attempts_status CHECK (status IN ('MATCHED','FAILED','EXPIRED'));
+ALTER TABLE schedule_schema.p_service_schedules
+    ADD CONSTRAINT ck_p_service_schedules_status CHECK (status IN ('SCHEDULED','RESCHEDULING','CHANGED','COMPLETED','CANCELED','NO_SHOW'));

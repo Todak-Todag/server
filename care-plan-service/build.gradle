@@ -29,8 +29,9 @@ dependencies {
     // API Docs Swagger
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.1.0'
 
-    // Security - 서비스 내부 인가 시
+    // Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
     testImplementation 'org.springframework.boot:spring-boot-starter-security-test'
 
     // Validation
@@ -75,6 +76,11 @@ dependencies {
     testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
     testImplementation 'org.testcontainers:testcontainers-rabbitmq'
     testImplementation 'org.testcontainers:testcontainers-postgresql'
+
+    // Flyway
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+    implementation 'org.springframework.boot:spring-boot-flyway'
 }
 
 dependencyManagement {

@@ -12,7 +12,6 @@ spring:
       minimum-idle: 2
       connection-timeout: 3000
 
-  # ⚠️ local 파일에서는 아래 jpa 설정들이 spring.rabbitmq 밑에 잘못 들어가 있음
   jpa:
     open-in-view: false
     show-sql: false
@@ -45,6 +44,12 @@ spring:
 
 internal:
   key: ${INTERNAL_API_KEY}
+
+internal-jwt:
+  jwk-set-uri: ${GATEWAY_JWKS_URI}
+  issuer: todak-api-gateway
+  audience: ${spring.application.name}
+  clock-skew: 30s
 
 schedule:
   outbox:

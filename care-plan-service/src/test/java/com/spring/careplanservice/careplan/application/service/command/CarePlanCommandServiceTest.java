@@ -6,7 +6,12 @@ import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpd
 import com.spring.careplanservice.careplan.application.event.*;
 import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
-import com.spring.careplanservice.careplan.application.result.*;
+import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
+import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
+import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
+import com.spring.careplanservice.careplan.application.result.ScheduleResultFindResult;
+import com.spring.careplanservice.careplan.application.support.CarePlanCompletedEventValidator;
+import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.*;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanCommandRepository;
 import com.spring.careplanservice.careplan.domain.repository.command.CarePlanServiceCommandRepository;
@@ -19,10 +24,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -78,6 +80,12 @@ class CarePlanCommandServiceTest {
 
     @Mock
     private ServicePreferenceCommandRepository servicePreferenceCommandRepository;
+
+    @Spy
+    private CarePlanCompletedEventValidator carePlanCompletedEventValidator = new CarePlanCompletedEventValidator();
+
+    @Spy
+    private CarePlanOwnerValidator carePlanOwnerValidator = new CarePlanOwnerValidator();
 
     @Nested
     @DisplayName("Care Plan 생성")
@@ -319,7 +327,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -353,7 +362,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -387,7 +397,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -452,7 +463,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -509,7 +521,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             given(carePlanCommandRepository.findById(carePlanId))
                     .willReturn(Optional.of(carePlan));
@@ -540,7 +553,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(CarePlanStatus.IN_PROGRESS);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             UUID otherCarePlanId = UUID.randomUUID();
 
@@ -611,10 +625,7 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(
-                    CarePlanStatus.CONFIRMED
-            );
-
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
             CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
                     userId,
                     UserRole.SERVICE_PROVIDER,
@@ -677,9 +688,7 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(
-                    CarePlanStatus.CONFIRMED
-            );
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
 
             CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
                     userId,
@@ -711,9 +720,8 @@ class CarePlanCommandServiceTest {
                     null
             );
 
-            carePlan.updateStatus(
-                    CarePlanStatus.IN_PROGRESS
-            );
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
                     userId,
@@ -722,13 +730,13 @@ class CarePlanCommandServiceTest {
                     CarePlanStatus.COMPLETED
             );
 
-            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+            given(carePlanCommandRepository.findById(carePlanId))
+                    .willReturn(Optional.of(carePlan));
 
             assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
                     carePlanStatusUpdateCommand,
                     null
             )).isInstanceOf(BusinessException.class);
-
             assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.IN_PROGRESS);
 
             verify(carePlanCommandRepository).findById(carePlanId);
@@ -829,7 +837,8 @@ class CarePlanCommandServiceTest {
                     LocalDate.of(2026, 9, 30),
                     null
             );
-            carePlan.updateStatus(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.CONFIRMED);
+            carePlan.transitionTo(CarePlanStatus.IN_PROGRESS);
 
             CarePlanDeleteCommand carePlanDeleteCommand = new CarePlanDeleteCommand(
                     userId,

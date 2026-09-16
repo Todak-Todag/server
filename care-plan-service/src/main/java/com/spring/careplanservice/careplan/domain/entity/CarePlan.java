@@ -1,7 +1,7 @@
 package com.spring.careplanservice.careplan.domain.entity;
 
 
-import com.spring.careplanservice.global.common.BaseAuditEntity;
+import com.spring.careplanservice.global.common.BaseAuditableEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -14,7 +14,7 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "p_care_plans")
-public class CarePlan extends BaseAuditEntity {
+public class CarePlan extends BaseAuditableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "care_plan_id")
@@ -58,24 +58,40 @@ public class CarePlan extends BaseAuditEntity {
         return carePlan;
     }
 
-    public boolean canTransitionTo(
+    // 일반 상태 변경 메서드에서는 IN_PROGRESS 이후 전이를 허용하지 않겠다
+    public boolean transitionTo(
             CarePlanStatus nextStatus
     ) {
-        return switch (
-                this.status
-                ) {
+        boolean transitionable = switch (this.status) {
             case UNDER_REVIEW -> nextStatus == CarePlanStatus.CONFIRMED;
-
             case CONFIRMED -> nextStatus == CarePlanStatus.IN_PROGRESS;
-
             case IN_PROGRESS, COMPLETED -> false;
         };
+
+        if (!transitionable) {
+            return false;
+        }
+
+        this.status = nextStatus;
+        return true;
     }
 
-    public void updateStatus(
-            CarePlanStatus status
-    ) {
-        this.status = status;
+    public boolean complete() {
+        if (this.status != CarePlanStatus.IN_PROGRESS) {
+            return false;
+        }
+
+        this.status = CarePlanStatus.COMPLETED;
+        return true;
+    }
+
+    public boolean completeByCancellation() {
+        if (this.status != CarePlanStatus.UNDER_REVIEW) {
+            return false;
+        }
+
+        this.status = CarePlanStatus.COMPLETED;
+        return true;
     }
 
     public boolean isUnderReview() {
@@ -84,16 +100,5 @@ public class CarePlan extends BaseAuditEntity {
 
     public void delete(UUID deletedBy) {
         markDeleted(deletedBy);
-    }
-
-    // 실제로 이번 호출에서 COMPLETED로 바뀐 경우에만 Outbox를 넣어야 함
-    public boolean complete() {
-        if (this.status != CarePlanStatus.IN_PROGRESS) {
-            return false;
-        }
-
-        this.status = CarePlanStatus.COMPLETED;
-
-        return true;
     }
 }

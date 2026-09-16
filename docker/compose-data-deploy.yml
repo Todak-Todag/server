@@ -1,0 +1,71 @@
+name: todak-data
+
+services:
+
+  postgres:
+    image: postgres:17
+    container_name: todak-postgres
+    restart: unless-stopped
+    mem_limit: 640m
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${DATA_PRIVATE_IP}:5432:5432"      # 프라이빗 IP에만 바인딩
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      # docker-entrypoint-initdb.d 마운트 없음 — 스키마는 마이그레이션이 생성
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks: [todak-data]
+
+  redis:
+    image: redis:7.4
+    container_name: todak-redis
+    restart: unless-stopped
+    mem_limit: 160m
+    command: ["redis-server", "--appendonly", "yes",
+              "--maxmemory", "96mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${DATA_PRIVATE_IP}:6379:6379"
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [todak-data]
+
+  rabbitmq:
+    image: rabbitmq:4.3.5-management
+    container_name: todak-rabbitmq
+    restart: unless-stopped
+    mem_limit: 448m
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "${DATA_PRIVATE_IP}:5672:5672"
+      - "127.0.0.1:15672:15672"            # 관리 UI — SSM 포워딩 전용
+    volumes: [rabbitmq-data:/var/lib/rabbitmq]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks: [todak-data]
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:
+
+networks:
+  todak-data:
+    external: true

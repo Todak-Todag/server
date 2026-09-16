@@ -27,6 +27,9 @@ spring:
         hbm2ddl:
           create_namespaces: true
 
+  flyway:
+    enabled: false
+
 eureka:
   client:
     enabled: false

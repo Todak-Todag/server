@@ -30,7 +30,7 @@ spring:
     open-in-view: false
     show-sql: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     properties:
       hibernate:
         format_sql: true
@@ -38,6 +38,10 @@ spring:
         default_batch_fetch_size: 100
         hbm2ddl:
           create_namespaces: true
+
+  flyway:
+    schemas: schedule_schema
+    default-schema: schedule_schema
 
 internal:
   key: ${INTERNAL_API_KEY}
