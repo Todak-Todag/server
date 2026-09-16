@@ -13,6 +13,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLRestriction;
+import jakarta.persistence.Version;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -28,6 +29,10 @@ public class Discharge extends BaseAuditableEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "discharge_id")
     private UUID id;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
 
     @Column(nullable = false)
     private UUID patientId;
