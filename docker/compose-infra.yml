@@ -320,6 +320,23 @@ services:
     networks:
       - todak-network
 
+  # 알림 관리.
+  alertmanager:
+    image: prom/alertmanager:v0.34.0
+    container_name: todak-alertmanager
+    restart: unless-stopped
+
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+    ports:
+      - "9093:9093"
+
+    networks:
+      - todak-network
 
   # 로그 저장소.
   loki:
