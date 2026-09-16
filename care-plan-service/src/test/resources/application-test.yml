@@ -35,3 +35,9 @@ eureka:
 
 internal:
   key: test-internal-key
+
+internal-jwt:
+  jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+  issuer: todak-api-gateway
+  audience: care-plan-service
+  clock-skew: 30s
