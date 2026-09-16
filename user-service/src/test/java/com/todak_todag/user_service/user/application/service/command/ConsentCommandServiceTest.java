@@ -376,7 +376,8 @@ class ConsentCommandServiceTest {
             User user =
                     org.mockito.Mockito.mock(User.class);
 
-            given(user.isPatient())
+            // approvePatientIfAllRequiredConsentsAgreed 는 이제 isPatientConsent() 를 검사한다.
+            given(user.isPatientConsent())
                     .willReturn(true);
 
             given(user.isWithdrawn())
@@ -636,7 +637,7 @@ class ConsentCommandServiceTest {
                     Optional.of(user)
             );
 
-            given(user.isPatient())
+            given(user.isPatientConsent())
                     .willReturn(false);
 
             // when

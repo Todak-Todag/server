@@ -18,6 +18,8 @@ public enum UserRole {
 	
 	MASTER("관리자"),
 	
+	PATIENT_CONSENT("퇴원 예정자")
+	
 	;
 	
 	private final String KoreaName;
