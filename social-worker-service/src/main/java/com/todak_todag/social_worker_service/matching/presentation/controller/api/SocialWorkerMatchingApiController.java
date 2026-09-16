@@ -20,10 +20,12 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/social-worker-matchings")
-public class SocialWorkerMatchingApiController {
+public class SocialWorkerMatchingApiController
+        implements SocialWorkerMatchingApiSpec {
 
     private final MatchingRequestCommandService matchingRequestCommandService;
 
+    @Override
     @PostMapping
     public ResponseEntity<ApiResponse<MatchingRequestResponse>>
     requestMatching(
