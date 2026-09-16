@@ -3,6 +3,7 @@ package com.todak_todag.user_service.user.application.service.command;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,6 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@Transactional(rollbackFor = Exception.class)
 public class AuthCommandService {
 	
 	private final Duration refreshExpiration;
@@ -86,6 +86,7 @@ public class AuthCommandService {
 		this.consentQueryRepo = consentQueryRepo;
 	}
 	
+	@Transactional(rollbackFor = Exception.class)
 	public AuthReissueResult reissue(String refreshToken) {
 		// 1. 리프레시 토큰 검증
 		tokenValidator.validateRefreshTokenCookie(refreshToken);
@@ -138,6 +139,7 @@ public class AuthCommandService {
 		return new AuthReissueResult(newAccessToken, newRefreshToken);
 	}
 
+	@Transactional(rollbackFor = Exception.class)
 	public void logout(AuthLogoutCommand command) {
 		Auth auth = authQueryRepo.findActiveByUserId(command.requesterId())
 				.orElse(null);
@@ -158,6 +160,45 @@ public class AuthCommandService {
 
 		log.info("[User] 로그아웃 완료 userId={}", command.requesterId());
 	}
+	
+	
+	@Transactional(rollbackFor = Exception.class)
+	public AuthLoginResult completeLogin(UUID userId, String accessToken, String jwtAccessToken, String refreshToken) {
+		User user = userQueryRepo.findLoginById(userId)
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+		
+		user.validateCanLogin();
+		
+		LocalDateTime now = LocalDateTime.now();
+		String refreshTokenHash = tokenPort.hashToken(refreshToken);
+		
+		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.map(existing -> {
+					existing.renew(refreshTokenHash, now.plus(refreshExpiration));
+					
+					return existing;
+				})
+				.orElseGet(() -> authCommandRepo.save(Auth.login(
+						user.getId(),
+						refreshTokenHash,
+						now.plus(refreshExpiration),
+						now))
+				);
+		
+		tokenStorePort.storeAccessToken(user.getId(), accessToken, jwtAccessToken);
+		
+		log.info(
+				"[User] 로그인 완료 userId={}, role={}, authId={}",
+				user.getId(),
+				user.getRole(),
+				loginSession.getId()
+		);
+		
+		return new AuthLoginResult(loginSession.getUserId(), accessToken, refreshToken);
+	}
+	
+	
+	
 	
 	public AuthLoginResult login(AuthLoginCommand loginCommand) {
 		// 1. 사용자 있나?
