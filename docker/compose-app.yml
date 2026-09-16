@@ -238,6 +238,9 @@ services:
       # Docker 내부 Eureka Server 주소
       EUREKA_SERVER_URL: http://eureka-server:8761/eureka/
 
+      # JWKS
+      GATEWAY_JWKS_URI: ${GATEWAY_JWKS_URI}
+
       # Docker 내부 PostgreSQL 주소
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
