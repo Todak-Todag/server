@@ -23,10 +23,11 @@ spring:
       maximum-pool-size: 5
       minimum-idle: 1
 
-  # 운영(config-repo)과 동일한 수신 재시도 설정 — 3회, DLQ 미운용
+  # 운영(config-repo)과 동일한 수신 재시도 설정 — 3회, 소진 시 DLQ로 이동
   rabbitmq:
     listener:
       simple:
+        default-requeue-rejected: false
         retry:
           enabled: true
           max-retries: 3
