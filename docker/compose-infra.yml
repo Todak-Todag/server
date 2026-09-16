@@ -308,6 +308,9 @@ services:
     container_name: todak-prometheus
     restart: unless-stopped
 
+    environment:
+      MONITORING_OWNER: ${MONITORING_OWNER}
+
     # Prometheus 설정 및 데이터 영속화.
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -329,9 +332,13 @@ services:
 
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
+      - --web.listen-address=:10001
 
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+    secrets:
+      - slack_webhook_url
 
     ports:
       - "10001:10001"
@@ -433,3 +440,7 @@ networks:
   todak-network:
     name: todak-network
     driver: bridge
+
+secrets:
+  slack_webhook_url:
+    environment: SLACK_WEBHOOK_URL

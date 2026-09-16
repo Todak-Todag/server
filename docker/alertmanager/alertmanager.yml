@@ -1,13 +1,33 @@
 global:
   resolve_timeout: 5m
+  slack_api_url_file: /run/secrets/slack_webhook_url
 
 route:
-  receiver: default-receiver
+  receiver: null-receiver
   group_by:
     - alertname
   group_wait: 10s
   group_interval: 5m
   repeat_interval: 1h
 
+  routes:
+    - matchers:
+        - environment="prod"
+      receiver: slack-prod
+
 receivers:
-  - name: default-receiver
+  - name: null-receiver
+
+  - name: slack-prod
+    slack_configs:
+      - send_resolved: true
+        channel: "#monitoring-prod"
+        title: "[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}"
+        text: >-
+          {{ range .Alerts }}
+          *Environment:* {{ .Labels.environment }}
+          *Service:* {{ .Labels.job }}
+          *Severity:* {{ .Labels.severity }}
+          *Summary:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          {{ end }}
