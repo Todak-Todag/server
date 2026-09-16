@@ -1,12 +1,9 @@
 package com.todak_todag.user_service.user.application.service.command;
 
-import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
@@ -19,14 +16,11 @@ import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
-import com.todak_todag.user_service.user.application.support.AddressValidator;
 import com.todak_todag.user_service.user.application.support.ConsentDocumentValidator;
-import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.ConsentCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
-import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -36,12 +30,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(rollbackFor = Exception.class)
 public class UserCreateService {
 	
 	private final ConsentDocumentValidator consentDocumentValidator;
-	
-	private final AddressValidator addressValidator;
 	
 	private final PasswordEncoderPort passwordEncoder;
 	
@@ -49,69 +40,10 @@ public class UserCreateService {
 	
 	private final UserQueryRepository userQueryRepo;
 	
-	private final RegionQueryRepository regionQueryRepo;
-	
 	private final ConsentCommandRepository consentCommandRepo;
 	
-	public UserSignupCreatedResult createUserSignup(UserSignupCommand signup) {
+	public UserSignupCreatedResult createUserSignup(UserSignupCommand signup, String passwordHsah, Set<UUID> agreedIds) {
 		
-		// 요청에 지역ID 존재하면 regionId 검증
-		if(signup.regionId() != null) {
-			if(!regionQueryRepo.existsAvailableRegion(signup.regionId())) {
-				log.info(
-						"[User] 존재하지 않는 지역으로 회원가입이 시도되었습니다. regionId={}",
-						signup.regionId()
-				);
-
-				throw new BusinessException(RegionErrorCode.REGION_NOT_FOUND);
-			}
-		}
-
-		// Username 중복 검증 : 가벼운 작업 위로
-		if(userQueryRepo.duplicateUsername(signup.username())) {
-			log.info(
-					"[User] 중복된 아이디로 회원가입이 시도되었습니다. username={}",
-					MaskingUtil.maskUsername(signup.username())
-			);
-
-			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
-		}
-		
-		// 현재 적용 중인 전체약관 조회
-		Set<UUID> agreedIds =  consentDocumentValidator.signupConsentDocumentValidate(signup);
-		
-		// 비밀번호 해시
-		String passwordHash = passwordEncoder.encode(signup.password());
-		
-		// 회원가입용 User 팩토리 생성자
-		User signupUser = User.createSignup(
-				signup.regionId(),
-				signup.username(),
-				passwordHash,
-				signup.name(),
-				signup.phone(),
-				signup.type()
-		);
-		
-		User user = userCommandRepo.save(signupUser);
-		
-		// Consent saveAll
-		LocalDateTime now = LocalDateTime.now();
-		List<Consent> consents = agreedIds.stream()
-				.map(verId -> Consent.agree(user.getId(), verId, now))
-				.toList();
-		
-		consentCommandRepo.saveAll(consents);
-
-		log.info(
-				"[User] 회원가입 완료 userId={}, role={}, regionId={}, agreedConsents={}",
-				user.getId(),
-				user.getRole(),
-				user.getRegionId(),
-				consents.size()
-		);
-
-		return new UserSignupCreatedResult(user.getId(), user.getName());
 	}
 	
 	public UserAdminCreatedResult createUserAdmin(UserAdminCreateCommand createAdmin) {
