@@ -59,10 +59,31 @@ public class UserCreateQueryService {
 	}
 	
 	public Region validateAdminCreate(UserAdminCreateCommand createAdmin) {
-		return null;
+		Region region = regionQueryRepo.findById(createAdmin.regionId())
+        .orElseThrow(() -> new BusinessException(RegionErrorCode.REGION_NOT_FOUND));
+		
+		if (userQueryRepo.duplicateUsername(createAdmin.username())) {
+      log.info(
+      		"[User] 중복된 아이디로 운영자 등록이 시도되었습니다. username={}",
+      		MaskingUtil.maskUsername(createAdmin.username())
+      );
+      
+      throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
+		}
+		
+		return region;
 	}
 	
 	public void validatePatientCreate(UserPatientCreateCommand createPatient) {
+		addressValidator.patientAddressValidate(createPatient);
 		
+		if(userQueryRepo.duplicateUsername(createPatient.username())) {
+			log.info(
+					"[User] 중복된 아이디로 퇴원 예정자 등록이 시도되었습니다. username={}",
+					MaskingUtil.maskUsername(createPatient.username())
+			);
+			
+			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
+		}
 	}
 }
