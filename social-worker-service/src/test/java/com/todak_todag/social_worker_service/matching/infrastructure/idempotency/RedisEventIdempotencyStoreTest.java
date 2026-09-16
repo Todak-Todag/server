@@ -46,7 +46,7 @@ class RedisEventIdempotencyStoreTest {
 
         when(
                 valueOperations.setIfAbsent(
-                        anyString(),
+                        eq("social-worker:event-idempotency:" + eventId),
                         eq("1"),
                         eq(Duration.ofHours(24))
                 )
@@ -70,7 +70,7 @@ class RedisEventIdempotencyStoreTest {
 
         when(
                 valueOperations.setIfAbsent(
-                        anyString(),
+                        eq("social-worker:event-idempotency:" + eventId),
                         eq("1"),
                         eq(Duration.ofHours(24))
                 )
