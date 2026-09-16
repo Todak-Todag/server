@@ -20,7 +20,7 @@ spring:
 
     listener:
       simple:
-        # DLQ 미운용 — 3회 후 폐기
+        # 수신 재시도 3회, 소진 시 원래 큐로 되돌리지 않고 DLQ로 이동
         default-requeue-rejected: false
         retry:
           enabled: true

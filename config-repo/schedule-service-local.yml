@@ -18,10 +18,10 @@ spring:
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
 
-    # 수신 재시도 — 3회, DLQ 미운용
-    # DLQ가 없으므로 3회 후 메시지는 폐기
+    # 수신 재시도 3회, 소진 시 원래 큐로 되돌리지 않고 DLQ로 이동
     listener:
       simple:
+        default-requeue-rejected: false
         retry:
           enabled: true
           max-retries: 3
