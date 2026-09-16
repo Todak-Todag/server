@@ -93,8 +93,7 @@ class DischargeCommandServiceTest {
 
         when(discharge.getHospitalStaffId())
                 .thenReturn(hospitalStaffId);
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.SCHEDULED);
+
         when(discharge.getId())
                 .thenReturn(dischargeId);
 
@@ -123,7 +122,7 @@ class DischargeCommandServiceTest {
     }
 
     @Test
-    void 예정된_퇴원건을_연기할_수_있다() {
+    void 퇴원_연기_요청을_도메인에_전달한다() {
         UUID dischargeId = UUID.randomUUID();
         UUID hospitalStaffId = UUID.randomUUID();
         LocalDate changedScheduledDate =
@@ -133,8 +132,7 @@ class DischargeCommandServiceTest {
 
         when(discharge.getHospitalStaffId())
                 .thenReturn(hospitalStaffId);
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.SCHEDULED);
+
         when(discharge.getId())
                 .thenReturn(dischargeId);
 
@@ -163,7 +161,7 @@ class DischargeCommandServiceTest {
     }
 
     @Test
-    void 예정된_퇴원건을_취소할_수_있다() {
+    void 퇴원_취소_요청을_도메인에_전달한다() {
         UUID dischargeId = UUID.randomUUID();
         UUID hospitalStaffId = UUID.randomUUID();
 
@@ -171,46 +169,7 @@ class DischargeCommandServiceTest {
 
         when(discharge.getHospitalStaffId())
                 .thenReturn(hospitalStaffId);
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.SCHEDULED);
-        when(discharge.getId())
-                .thenReturn(dischargeId);
 
-        when(dischargeQueryRepository.findById(dischargeId))
-                .thenReturn(Optional.of(discharge));
-
-        DischargeUpdateCommand command =
-                new DischargeUpdateCommand(
-                        dischargeId,
-                        hospitalStaffId,
-                        DischargeStatus.CANCELED,
-                        null
-                );
-
-        DischargeUpdateResult result =
-                dischargeCommandService.updateDischarge(command);
-
-        verify(discharge)
-                .update(
-                        DischargeStatus.CANCELED,
-                        null
-                );
-
-        assertThat(result.dischargeId())
-                .isEqualTo(dischargeId);
-    }
-
-    @Test
-    void 연기된_퇴원건을_취소할_수_있다() {
-        UUID dischargeId = UUID.randomUUID();
-        UUID hospitalStaffId = UUID.randomUUID();
-
-        Discharge discharge = mock(Discharge.class);
-
-        when(discharge.getHospitalStaffId())
-                .thenReturn(hospitalStaffId);
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.POSTPONED);
         when(discharge.getId())
                 .thenReturn(dischargeId);
 
@@ -356,8 +315,6 @@ class DischargeCommandServiceTest {
 
         when(discharge.getHospitalStaffId())
                 .thenReturn(hospitalStaffId);
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.SCHEDULED);
 
         when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.of(discharge));
@@ -396,8 +353,6 @@ class DischargeCommandServiceTest {
 
         when(discharge.getHospitalStaffId())
                 .thenReturn(hospitalStaffId);
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.SCHEDULED);
 
         when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.of(discharge));
@@ -428,127 +383,7 @@ class DischargeCommandServiceTest {
     }
 
     @Test
-    void 연기된_퇴원건을_예정_상태로_되돌릴_수_없다() {
-        UUID dischargeId = UUID.randomUUID();
-        UUID hospitalStaffId = UUID.randomUUID();
-
-        Discharge discharge = mock(Discharge.class);
-
-        when(discharge.getHospitalStaffId())
-                .thenReturn(hospitalStaffId);
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.POSTPONED);
-
-        when(dischargeQueryRepository.findById(dischargeId))
-                .thenReturn(Optional.of(discharge));
-
-        DischargeUpdateCommand command =
-                new DischargeUpdateCommand(
-                        dischargeId,
-                        hospitalStaffId,
-                        DischargeStatus.SCHEDULED,
-                        LocalDate.now().plusDays(1)
-                );
-
-        assertThatThrownBy(
-                () -> dischargeCommandService.updateDischarge(command)
-        )
-                .isInstanceOf(BusinessException.class)
-                .satisfies(
-                        exception -> {
-                            BusinessException businessException =
-                                    (BusinessException) exception;
-
-                            assertThat(businessException.getErrorCode())
-                                    .isEqualTo(
-                                            ErrorCode.DISCHARGE_INVALID_STATUS_TRANSITION
-                                    );
-                        }
-                );
-    }
-
-    @Test
-    void 완료된_퇴원건은_수정할_수_없다() {
-        UUID dischargeId = UUID.randomUUID();
-        UUID hospitalStaffId = UUID.randomUUID();
-
-        Discharge discharge = mock(Discharge.class);
-
-        when(discharge.getHospitalStaffId())
-                .thenReturn(hospitalStaffId);
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.COMPLETED);
-
-        when(dischargeQueryRepository.findById(dischargeId))
-                .thenReturn(Optional.of(discharge));
-
-        DischargeUpdateCommand command =
-                new DischargeUpdateCommand(
-                        dischargeId,
-                        hospitalStaffId,
-                        null,
-                        LocalDate.now().plusDays(1)
-                );
-
-        assertThatThrownBy(
-                () -> dischargeCommandService.updateDischarge(command)
-        )
-                .isInstanceOf(BusinessException.class)
-                .satisfies(
-                        exception -> {
-                            BusinessException businessException =
-                                    (BusinessException) exception;
-
-                            assertThat(businessException.getErrorCode())
-                                    .isEqualTo(
-                                            ErrorCode.DISCHARGE_INVALID_STATUS_TRANSITION
-                                    );
-                        }
-                );
-    }
-
-    @Test
-    void 취소된_퇴원건은_수정할_수_없다() {
-        UUID dischargeId = UUID.randomUUID();
-        UUID hospitalStaffId = UUID.randomUUID();
-
-        Discharge discharge = mock(Discharge.class);
-
-        when(discharge.getHospitalStaffId())
-                .thenReturn(hospitalStaffId);
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.CANCELED);
-
-        when(dischargeQueryRepository.findById(dischargeId))
-                .thenReturn(Optional.of(discharge));
-
-        DischargeUpdateCommand command =
-                new DischargeUpdateCommand(
-                        dischargeId,
-                        hospitalStaffId,
-                        null,
-                        LocalDate.now().plusDays(1)
-                );
-
-        assertThatThrownBy(
-                () -> dischargeCommandService.updateDischarge(command)
-        )
-                .isInstanceOf(BusinessException.class)
-                .satisfies(
-                        exception -> {
-                            BusinessException businessException =
-                                    (BusinessException) exception;
-
-                            assertThat(businessException.getErrorCode())
-                                    .isEqualTo(
-                                            ErrorCode.DISCHARGE_INVALID_STATUS_TRANSITION
-                                    );
-                        }
-                );
-    }
-
-    @Test
-    void 예정된_퇴원건을_완료할_수_있다() {
+    void 퇴원_완료_요청을_도메인에_전달한다() {
         UUID dischargeId = UUID.randomUUID();
         UUID hospitalStaffId = UUID.randomUUID();
         LocalDate actualDate = LocalDate.now();
@@ -558,14 +393,11 @@ class DischargeCommandServiceTest {
         when(discharge.getHospitalStaffId())
                 .thenReturn(hospitalStaffId);
 
-        when(discharge.getStatus())
-                .thenReturn(
-                        DischargeStatus.SCHEDULED,
-                        DischargeStatus.COMPLETED
-                );
-
         when(discharge.getId())
                 .thenReturn(dischargeId);
+
+        when(discharge.getStatus())
+                .thenReturn(DischargeStatus.COMPLETED);
 
         when(discharge.getActualDate())
                 .thenReturn(actualDate);
@@ -588,52 +420,6 @@ class DischargeCommandServiceTest {
 
         assertThat(result.dischargeId())
                 .isEqualTo(dischargeId);
-
-        assertThat(result.status())
-                .isEqualTo(DischargeStatus.COMPLETED);
-
-        assertThat(result.actualDate())
-                .isEqualTo(actualDate);
-    }
-
-    @Test
-    void 연기된_퇴원건을_완료할_수_있다() {
-        UUID dischargeId = UUID.randomUUID();
-        UUID hospitalStaffId = UUID.randomUUID();
-        LocalDate actualDate = LocalDate.now();
-
-        Discharge discharge = mock(Discharge.class);
-
-        when(discharge.getHospitalStaffId())
-                .thenReturn(hospitalStaffId);
-
-        when(discharge.getStatus())
-                .thenReturn(
-                        DischargeStatus.POSTPONED,
-                        DischargeStatus.COMPLETED
-                );
-
-        when(discharge.getId())
-                .thenReturn(dischargeId);
-
-        when(discharge.getActualDate())
-                .thenReturn(actualDate);
-
-        when(dischargeQueryRepository.findById(dischargeId))
-                .thenReturn(Optional.of(discharge));
-
-        DischargeCompleteCommand command =
-                new DischargeCompleteCommand(
-                        dischargeId,
-                        hospitalStaffId,
-                        actualDate
-                );
-
-        DischargeCompleteResult result =
-                dischargeCommandService.completeDischarge(command);
-
-        verify(discharge)
-                .complete(actualDate);
 
         assertThat(result.status())
                 .isEqualTo(DischargeStatus.COMPLETED);
@@ -712,7 +498,7 @@ class DischargeCommandServiceTest {
     }
 
     @Test
-    void 완료된_퇴원건은_다시_완료할_수_없다() {
+    void 실제_퇴원일은_필수이다() {
         UUID dischargeId = UUID.randomUUID();
         UUID hospitalStaffId = UUID.randomUUID();
 
@@ -721,9 +507,6 @@ class DischargeCommandServiceTest {
         when(discharge.getHospitalStaffId())
                 .thenReturn(hospitalStaffId);
 
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.COMPLETED);
-
         when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.of(discharge));
 
@@ -731,7 +514,7 @@ class DischargeCommandServiceTest {
                 new DischargeCompleteCommand(
                         dischargeId,
                         hospitalStaffId,
-                        LocalDate.now()
+                        null
                 );
 
         assertThatThrownBy(
@@ -745,47 +528,7 @@ class DischargeCommandServiceTest {
 
                             assertThat(businessException.getErrorCode())
                                     .isEqualTo(
-                                            ErrorCode.DISCHARGE_INVALID_STATUS_TRANSITION
-                                    );
-                        }
-                );
-    }
-
-    @Test
-    void 취소된_퇴원건은_완료할_수_없다() {
-        UUID dischargeId = UUID.randomUUID();
-        UUID hospitalStaffId = UUID.randomUUID();
-
-        Discharge discharge = mock(Discharge.class);
-
-        when(discharge.getHospitalStaffId())
-                .thenReturn(hospitalStaffId);
-
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.CANCELED);
-
-        when(dischargeQueryRepository.findById(dischargeId))
-                .thenReturn(Optional.of(discharge));
-
-        DischargeCompleteCommand command =
-                new DischargeCompleteCommand(
-                        dischargeId,
-                        hospitalStaffId,
-                        LocalDate.now()
-                );
-
-        assertThatThrownBy(
-                () -> dischargeCommandService.completeDischarge(command)
-        )
-                .isInstanceOf(BusinessException.class)
-                .satisfies(
-                        exception -> {
-                            BusinessException businessException =
-                                    (BusinessException) exception;
-
-                            assertThat(businessException.getErrorCode())
-                                    .isEqualTo(
-                                            ErrorCode.DISCHARGE_INVALID_STATUS_TRANSITION
+                                            ErrorCode.COMMON_INVALID_INPUT_VALUE
                                     );
                         }
                 );
@@ -800,9 +543,6 @@ class DischargeCommandServiceTest {
 
         when(discharge.getHospitalStaffId())
                 .thenReturn(hospitalStaffId);
-
-        when(discharge.getStatus())
-                .thenReturn(DischargeStatus.SCHEDULED);
 
         when(dischargeQueryRepository.findById(dischargeId))
                 .thenReturn(Optional.of(discharge));
