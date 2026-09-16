@@ -313,7 +313,7 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
   - 성공: `servicePreferenceId` + `serviceOfferingId` + `date` + `matchedAt`
   - 실패: `servicePreferenceId` + `date` + `failedAt`
 - 페이로드에 `finishedAt`이 없는 문제는 **MVP 단계에서 서비스 소요 시간을 1시간으로 고정**(`ServiceMatchingCommandService.DEFAULT_SERVICE_DURATION`)해 `finishedAt = startedAt + 1h`로 계산하는 것으로 처리했다. 서비스별 소요 시간이 달라지면 페이로드 확장이 필요하다.
-- 리스너는 `BusinessException`을 잡아 로그만 남기고 메시지를 버린다 (재시도해도 같은 결과이기 때문). 그 외 예외는 리스너 컨테이너의 재시도 설정을 따른다.
+- 리스너는 `BusinessException`을 잡아 로그를 남긴 뒤 다시 던진다. 재시도(3회)를 소진한 메시지는 폐기되지 않고 `schedule.dlx.exchange`를 거쳐 각 큐의 DLQ(`schedule.*.dlq.queue`)에 보존되며, 원인 해결 후 원래 큐로 되돌려 재처리한다(멱등 대체 키가 중복 적재를 막는다).
 
 ### 5.4 내부 API — Provider-Service → Schedule-Service (06번, 수신 방향)
 

@@ -39,7 +39,7 @@ Provider-Service가 발행한 `ProviderMatched` 이벤트를 RabbitMQ로 수신�
 | --- | --- | --- |
 | 0건 | 신규 매칭 | 새 일정만 생성 |
 | 1건 | 재매칭 | 기존 일정 → `CHANGED`, 새 일정 생성 |
-| 2건 이상 | 데이터 이상 | `409 SERVICE_SCHEDULE_MULTIPLE_RESCHEDULING` (리스너가 로그 후 메시지 폐기) |
+| 2건 이상 | 데이터 이상 | `409 SERVICE_SCHEDULE_MULTIPLE_RESCHEDULING` (리스너가 로그 후 재시도 소진 → DLQ 이동) |
 
 ### 멱등 처리
 
@@ -53,7 +53,11 @@ servicePreferenceId + serviceOfferingId + date + matchedAt  → 이미 MATCHED �
 
 ### 예외 처리
 
-리스너는 `BusinessException`을 잡아 **에러 로그만 남기고 메시지를 폐기**한다 (재시도해도 같은 결과이기 때문). 그 외 예외는 리스너 컨테이너의 재시도 설정(`spring.rabbitmq.listener.simple.retry`, 3회)을 따른다.
+리스너는 `BusinessException`을 잡아 에러 로그를 남긴 뒤 **그대로 다시 던진다.** 그 외 예외와 동일하게 리스너 컨테이너의 재시도 설정(`spring.rabbitmq.listener.simple.retry`, 3회)을 따르고, 소진하면 메시지를 폐기하지 않고 DLQ(`schedule.provider-matched.dlq.queue`)로 옮긴다.
+
+`RESCHEDULING` 중복이나 상태 불일치는 **메시지가 아니라 수신 측 DB 상태의 문제**라, 데이터를 정리한 뒤 DLQ의 메시지를 원래 큐로 되돌리면 정상 처리된다. 아래 멱등 대체 키가 중복 적재를 막으므로 재투입이 안전하다.
+
+삼키지 않는 이유는 `applyMatched`가 한 트랜잭션이기 때문이다 — 실패하면 일정도 매칭 이력도 남지 않아, 메시지를 버리면 provider-service와 영구 불일치가 된다.
 
 ## 메시징 정보
 
@@ -62,7 +66,9 @@ servicePreferenceId + serviceOfferingId + date + matchedAt  → 이미 MATCHED �
 | Exchange | `provider.exchange` (Direct) |
 | Routing Key | `provider.matched.key` |
 | Queue | `schedule.provider-matched.queue` |
-| 재시도 | 3회(리스너 컨테이너), DLQ 미운용 |
+| 재시도 | 3회(리스너 컨테이너), 소진 시 DLQ로 이동 |
+| DLX | `schedule.dlx.exchange` (Direct) |
+| DLQ | `schedule.provider-matched.dlq.queue` (routing key `schedule.provider-matched.dlq.key`) |
 
 > Exchange/Queue/Binding은 수신 측(schedule-service)에서도 선언해 두어, 발행 측보다 먼저 뜨더라도 메시지가 유실되지 않게 한다.
 >
@@ -91,7 +97,7 @@ servicePreferenceId + serviceOfferingId + date + matchedAt  → 이미 MATCHED �
 
 ### 일정 생성 시 불변식
 
-`ServiceSchedule.confirm`이 검증하며, 위반 시 `400 INVALID_PARAMETER`가 발생해 메시지가 폐기된다.
+`ServiceSchedule.confirm`이 검증하며, 위반 시 `400 INVALID_PARAMETER`가 발생해 재시도 소진 후 메시지가 DLQ로 이동한다. 대부분 발행 측 버그이므로 원본 메시지를 보존해 조사한다.
 
 - `date`는 **오늘 이후**여야 한다 (당일 일정 생성 불가)
 - `startedAt`/`finishedAt`은 `date`와 같은 날짜여야 한다

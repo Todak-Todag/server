@@ -44,7 +44,7 @@ Provider-Service가 발행한 `ProviderMatchFailed` 이벤트를 RabbitMQ로 수
 | --- | --- | --- |
 | 0건 | 초기 매칭 실패 | 이력만 기록 |
 | 1건 | 재매칭 실패 | 해당 일정을 `SCHEDULED`로 복구 |
-| 2건 이상 | 데이터 이상 | `409 SERVICE_SCHEDULE_MULTIPLE_RESCHEDULING` (리스너가 로그 후 메시지 폐기) |
+| 2건 이상 | 데이터 이상 | `409 SERVICE_SCHEDULE_MULTIPLE_RESCHEDULING` (리스너가 로그 후 재시도 소진 → DLQ 이동) |
 
 ### 멱등 처리
 
@@ -56,7 +56,7 @@ servicePreferenceId + date + failedAt  → 이미 FAILED 이력이 있으면 ski
 
 ### 예외 처리
 
-리스너는 `BusinessException`을 잡아 **에러 로그만 남기고 메시지를 폐기**한다. 그 외 예외는 리스너 컨테이너의 재시도 설정(3회)을 따른다.
+리스너는 `BusinessException`을 잡아 에러 로그를 남긴 뒤 **그대로 다시 던진다.** 그 외 예외와 동일하게 리스너 컨테이너의 재시도 설정(3회)을 따르고, 소진하면 메시지를 폐기하지 않고 DLQ(`schedule.provider-match-failed.dlq.queue`)로 옮긴다. 원인(데이터 이상/페이로드 오류)을 해결한 뒤 원래 큐로 되돌려 재처리한다 — 멱등 대체 키가 중복 적재를 막는다.
 
 ## 메시징 정보
 
@@ -65,7 +65,9 @@ servicePreferenceId + date + failedAt  → 이미 FAILED 이력이 있으면 ski
 | Exchange | `provider.exchange` (Direct) |
 | Routing Key | `provider.match-failed.key` |
 | Queue | `schedule.provider-match-failed.queue` |
-| 재시도 | 3회(리스너 컨테이너), DLQ 미운용 |
+| 재시도 | 3회(리스너 컨테이너), 소진 시 DLQ로 이동 |
+| DLX | `schedule.dlx.exchange` (Direct) |
+| DLQ | `schedule.provider-match-failed.dlq.queue` (routing key `schedule.provider-match-failed.dlq.key`) |
 
 ## 이벤트 페이로드 (Consume)
 
