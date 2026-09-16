@@ -50,6 +50,12 @@ eureka:
 internal:
   key: 01234567890123456789012345678901
 
+internal-jwt:
+  jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+  issuer: todak-api-gateway
+  audience: ${spring.application.name}
+  clock-skew: 30s
+
 schedule:
   outbox:
     relay:

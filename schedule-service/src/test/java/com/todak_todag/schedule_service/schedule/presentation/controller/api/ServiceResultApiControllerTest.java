@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.presentation.controller.api;
 
+import com.todak_todag.schedule_service.global.common.UserRole;
 import com.todak_todag.schedule_service.global.config.SecurityConfig;
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
@@ -29,10 +30,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static com.todak_todag.schedule_service.support.AuthenticatedRequestSupport.asUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -81,8 +84,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body("2026-09-01T09:00:00", "2026-09-01T10:00:00", "정상적으로 서비스 제공 완료")))
                     .andExpect(status().isCreated())
@@ -103,8 +105,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body("2026-09-01T09:00:00", "2026-09-01T10:00:00", "예약 부도")))
                     .andExpect(status().isCreated())
@@ -123,8 +124,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(bodyWithoutNote("2026-09-01T09:00:00", "2026-09-01T10:00:00")))
                     .andExpect(status().isCreated())
@@ -140,8 +140,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body("2026-09-01T09:00:00", "2026-09-01T10:00:00", null)))
                     .andExpect(status().isConflict())
@@ -158,8 +157,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body("2026-09-01T09:00:00", "2026-09-01T10:00:00", null)))
                     .andExpect(status().isConflict())
@@ -175,8 +173,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body("2026-09-01T09:00:00", "2026-09-01T10:00:00", null)))
                     .andExpect(status().isForbidden())
@@ -192,8 +189,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body("2026-09-01T09:00:00", "2026-09-01T10:00:00", null)))
                     .andExpect(status().isForbidden())
@@ -206,8 +202,7 @@ class ServiceResultApiControllerTest {
         void register_missingStartedAt_badRequest() throws Exception {
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     { "finishedAt": "2026-09-01T10:00:00" }
@@ -222,8 +217,7 @@ class ServiceResultApiControllerTest {
         void register_missingFinishedAt_badRequest() throws Exception {
             // when & then
             mockMvc.perform(post(REGISTER_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     { "startedAt": "2026-09-01T09:00:00" }
@@ -256,8 +250,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.code").value(200))
@@ -283,8 +276,7 @@ class ServiceResultApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", patientId.toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(patientId, UserRole.PATIENT)))
                     .andExpect(status().isOk());
 
             // then
@@ -303,8 +295,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.content[0].serviceResultId").value(result.serviceResultId().toString()))
                     .andExpect(jsonPath("$.data.pageInfo.paginationType").value("OFFSET"));
@@ -319,8 +310,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.content").isArray())
@@ -342,8 +332,7 @@ class ServiceResultApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .param("page", "2")
                             .param("size", "30"))
                     .andExpect(status().isOk());
@@ -364,8 +353,7 @@ class ServiceResultApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk());
 
             // then
@@ -384,8 +372,7 @@ class ServiceResultApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .param("size", "20"))
                     .andExpect(status().isOk());
 
@@ -404,8 +391,7 @@ class ServiceResultApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk());
 
             // then
@@ -425,8 +411,7 @@ class ServiceResultApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .param("sort", "createdAt,ASC"))
                     .andExpect(status().isOk());
 
@@ -464,8 +449,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(serviceResultId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.code").value(200))
@@ -489,8 +473,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(serviceResultId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.serviceResultId").value(serviceResultId.toString()))
@@ -510,8 +493,7 @@ class ServiceResultApiControllerTest {
 
             // when
             mockMvc.perform(get(DETAIL_URI.formatted(serviceResultId))
-                            .header("X-User-Id", providerId.toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(providerId, UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isOk());
 
             // then
@@ -532,8 +514,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(serviceResultId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.serviceResultId").value(serviceResultId.toString()))
                     .andExpect(jsonPath("$.data.note").doesNotExist());
@@ -548,8 +529,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"))
@@ -565,8 +545,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"))
@@ -582,8 +561,7 @@ class ServiceResultApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
         }
@@ -593,11 +571,47 @@ class ServiceResultApiControllerTest {
         void detail_invalidUuid_badRequest() throws Exception {
             // when & then
             mockMvc.perform(get("/api/v1/service-results/not-a-uuid")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+        }
+    }
+
+    @Nested
+    @DisplayName("인증")
+    class authenticationTest {
+
+        @Test
+        @DisplayName("인증 정보가 없으면 서비스 수행 결과 등록은 401을 반환한다")
+        void register_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(post(REGISTER_URI.formatted(UUID.randomUUID()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body("2026-09-01T09:00:00", "2026-09-01T10:00:00", "비고")))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceResultFacade);
+        }
+
+        @Test
+        @DisplayName("인증 정보가 없으면 서비스 수행 결과 목록 조회는 401을 반환한다")
+        void search_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(get(SEARCH_URI))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceResultFacade);
+        }
+
+        @Test
+        @DisplayName("인증 정보가 없으면 서비스 수행 결과 상세 조회는 401을 반환한다")
+        void detail_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID())))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceResultFacade);
         }
     }
 }
