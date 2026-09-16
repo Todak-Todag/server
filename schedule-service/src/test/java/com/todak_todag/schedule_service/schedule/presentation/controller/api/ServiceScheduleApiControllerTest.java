@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.presentation.controller.api;
 
+import com.todak_todag.schedule_service.global.common.UserRole;
 import com.todak_todag.schedule_service.global.config.SecurityConfig;
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
@@ -33,10 +34,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import static com.todak_todag.schedule_service.support.AuthenticatedRequestSupport.asUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -114,8 +117,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.serviceScheduleId").value(serviceScheduleId.toString()))
@@ -135,8 +137,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.serviceScheduleId").value(serviceScheduleId.toString()));
         }
@@ -150,8 +151,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
@@ -166,8 +166,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
         }
@@ -181,8 +180,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
         }
@@ -201,8 +199,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.status").value("CANCELED"))
                     .andExpect(jsonPath("$.data.cancelReason").value("개인 사정으로 취소합니다"))
@@ -220,8 +217,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.cancelReason").doesNotExist())
                     .andExpect(jsonPath("$.data.canceledAt").doesNotExist());
@@ -232,8 +228,7 @@ class ServiceScheduleApiControllerTest {
         void detail_unsupportedRole_forbidden() throws Exception {
             // when & then
             mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SOCIAL_WORKER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SOCIAL_WORKER)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
         }
@@ -263,8 +258,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.content[0].serviceScheduleId").value(result.serviceScheduleId().toString()))
@@ -282,8 +276,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.content[0].serviceScheduleId").value(result.serviceScheduleId().toString()));
         }
@@ -298,8 +291,7 @@ class ServiceScheduleApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .param("status", "SCHEDULED"))
                     .andExpect(status().isOk());
 
@@ -318,8 +310,7 @@ class ServiceScheduleApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .param("date", "2026-09-01"))
                     .andExpect(status().isOk());
 
@@ -333,8 +324,7 @@ class ServiceScheduleApiControllerTest {
         void search_invalidStatus_badRequest() throws Exception {
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .param("status", "INVALID_STATUS"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))
@@ -351,8 +341,7 @@ class ServiceScheduleApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .param("size", "20"))
                     .andExpect(status().isOk());
 
@@ -370,8 +359,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.content").isArray())
                     .andExpect(jsonPath("$.data.content").isEmpty())
@@ -389,8 +377,7 @@ class ServiceScheduleApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .param("page", "2")
                             .param("size", "30"))
                     .andExpect(status().isOk());
@@ -412,8 +399,7 @@ class ServiceScheduleApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .param("sort", "createdAt,ASC"))
                     .andExpect(status().isOk());
 
@@ -432,8 +418,7 @@ class ServiceScheduleApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk());
 
             // then
@@ -446,8 +431,7 @@ class ServiceScheduleApiControllerTest {
         void search_unsupportedRole_forbidden() throws Exception {
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SOCIAL_WORKER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SOCIAL_WORKER)))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
         }
@@ -468,8 +452,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(requestedDate.toString())))
                     .andExpect(status().isOk())
@@ -491,8 +474,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(requestedDate.toString())))
                     .andExpect(status().isOk())
@@ -510,8 +492,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(LocalDate.now().toString())))
                     .andExpect(status().isBadRequest())
@@ -530,8 +511,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(LocalDate.now().plusDays(4).toString())))
                     .andExpect(status().isBadRequest())
@@ -549,8 +529,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(LocalDate.now().plusDays(2).toString())))
                     .andExpect(status().isBadRequest())
@@ -568,8 +547,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(LocalDate.now().plusDays(1).toString())))
                     .andExpect(status().isBadRequest())
@@ -587,8 +565,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(LocalDate.now().plusDays(2).toString())))
                     .andExpect(status().isForbidden())
@@ -606,8 +583,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body(LocalDate.now().plusDays(2).toString())))
                     .andExpect(status().isForbidden())
@@ -619,8 +595,7 @@ class ServiceScheduleApiControllerTest {
         void reschedule_missingDate_badRequest() throws Exception {
             // when & then
             mockMvc.perform(patch(URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isBadRequest())
@@ -633,8 +608,7 @@ class ServiceScheduleApiControllerTest {
         void reschedule_malformedDate_badRequest() throws Exception {
             // when & then
             mockMvc.perform(patch(URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(body("2026/09/01")))
                     .andExpect(status().isBadRequest())
@@ -658,8 +632,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(CANCEL_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cancelBody("개인 사정으로 취소합니다")))
                     .andExpect(status().isOk())
@@ -677,8 +650,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(CANCEL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cancelBody("취소 사유")))
                     .andExpect(status().isConflict())
@@ -694,8 +666,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(CANCEL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cancelBody("취소 사유")))
                     .andExpect(status().isConflict())
@@ -711,8 +682,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(CANCEL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cancelBody("취소 사유")))
                     .andExpect(status().isForbidden())
@@ -728,8 +698,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(CANCEL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cancelBody("취소 사유")))
                     .andExpect(status().isForbidden())
@@ -741,8 +710,7 @@ class ServiceScheduleApiControllerTest {
         void cancel_missingReason_badRequest() throws Exception {
             // when & then
             mockMvc.perform(patch(CANCEL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isBadRequest())
@@ -755,8 +723,7 @@ class ServiceScheduleApiControllerTest {
         void cancel_blankReason_badRequest() throws Exception {
             // when & then
             mockMvc.perform(patch(CANCEL_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT")
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(cancelBody("")))
                     .andExpect(status().isBadRequest())
@@ -779,8 +746,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(COMPLETE_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(completeBody("COMPLETED")))
                     .andExpect(status().isOk())
@@ -801,8 +767,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(COMPLETE_URI.formatted(serviceScheduleId))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(completeBody("NO_SHOW")))
                     .andExpect(status().isOk())
@@ -818,8 +783,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(COMPLETE_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(completeBody("COMPLETED")))
                     .andExpect(status().isConflict())
@@ -835,8 +799,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(COMPLETE_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(completeBody("COMPLETED")))
                     .andExpect(status().isForbidden())
@@ -852,8 +815,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(COMPLETE_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(completeBody("COMPLETED")))
                     .andExpect(status().isForbidden())
@@ -869,8 +831,7 @@ class ServiceScheduleApiControllerTest {
 
             // when & then
             mockMvc.perform(patch(COMPLETE_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(completeBody("COMPLETED")))
                     .andExpect(status().isBadRequest())
@@ -882,8 +843,7 @@ class ServiceScheduleApiControllerTest {
         void complete_missingStatus_badRequest() throws Exception {
             // when & then
             mockMvc.perform(patch(COMPLETE_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isBadRequest())
@@ -896,13 +856,73 @@ class ServiceScheduleApiControllerTest {
         void complete_invalidStatusValue_badRequest() throws Exception {
             // when & then
             mockMvc.perform(patch(COMPLETE_URI.formatted(UUID.randomUUID()))
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER")
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(completeBody("CANCELED")))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
+        }
+    }
+
+    @Nested
+    @DisplayName("인증")
+    class authenticationTest {
+
+        @Test
+        @DisplayName("인증 정보가 없으면 서비스 일정 목록 조회는 401을 반환한다")
+        void search_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(get(SEARCH_URI))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceScheduleFacade);
+        }
+
+        @Test
+        @DisplayName("인증 정보가 없으면 서비스 일정 상세 조회는 401을 반환한다")
+        void detail_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID())))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceScheduleFacade);
+        }
+
+        @Test
+        @DisplayName("인증 정보가 없으면 서비스 일정 변경은 401을 반환한다")
+        void reschedule_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(patch(URI.formatted(UUID.randomUUID()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body(LocalDate.now().plusDays(3).toString())))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceScheduleFacade);
+        }
+
+        @Test
+        @DisplayName("인증 정보가 없으면 서비스 일정 취소는 401을 반환한다")
+        void cancel_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(patch(CANCEL_URI.formatted(UUID.randomUUID()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(cancelBody("개인 사정으로 취소합니다")))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceScheduleFacade);
+        }
+
+        @Test
+        @DisplayName("인증 정보가 없으면 서비스 수행 완료는 401을 반환한다")
+        void complete_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(patch(COMPLETE_URI.formatted(UUID.randomUUID()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(completeBody("COMPLETED")))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceScheduleFacade);
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.schedule.presentation.controller.api;
 
+import com.todak_todag.schedule_service.global.common.UserRole;
 import com.todak_todag.schedule_service.global.config.SecurityConfig;
 import com.todak_todag.schedule_service.schedule.application.facade.ServiceMatchingAttemptFacade;
 import com.todak_todag.schedule_service.schedule.application.query.MatchingAttemptSearchQuery;
@@ -27,11 +28,13 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import static com.todak_todag.schedule_service.support.AuthenticatedRequestSupport.asUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -89,8 +92,7 @@ class MatchingAttemptApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
 
@@ -108,8 +110,7 @@ class MatchingAttemptApiControllerTest {
             // when
             mockMvc.perform(get(SEARCH_URI)
                             .param("status", "MATCHED")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk());
 
             // then
@@ -124,8 +125,7 @@ class MatchingAttemptApiControllerTest {
             // given & when & then
             mockMvc.perform(get(SEARCH_URI)
                             .param("status", "WRONG")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false))
                     .andExpect(jsonPath("$.code").value("INVALID_PARAMETER"));
@@ -148,8 +148,7 @@ class MatchingAttemptApiControllerTest {
             // when
             mockMvc.perform(get(SEARCH_URI)
                             .param("size", "7")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk());
 
             // then
@@ -167,8 +166,7 @@ class MatchingAttemptApiControllerTest {
             // when
             mockMvc.perform(get(SEARCH_URI)
                             .param("size", "30")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk());
 
             // then
@@ -184,8 +182,7 @@ class MatchingAttemptApiControllerTest {
 
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.content").isArray())
                     .andExpect(jsonPath("$.data.content").isEmpty())
@@ -215,8 +212,7 @@ class MatchingAttemptApiControllerTest {
 
             // when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.code").value(200))
@@ -260,8 +256,7 @@ class MatchingAttemptApiControllerTest {
             // when & then
             mockMvc.perform(get(SEARCH_URI)
                             .param("status", "MATCHED")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.content[0].preferredTimeSlot").value(org.hamcrest.Matchers.nullValue()))
                     .andExpect(jsonPath("$.data.content[0].failureReason").value(org.hamcrest.Matchers.nullValue()))
@@ -279,8 +274,7 @@ class MatchingAttemptApiControllerTest {
         void search_nonPatient_forbidden() throws Exception {
             // given & when & then
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "SERVICE_PROVIDER"))
+                            .with(asUser(UUID.randomUUID(), UserRole.SERVICE_PROVIDER)))
                     .andExpect(status().isForbidden());
 
             verify(serviceMatchingAttemptFacade, never()).search(any());
@@ -297,8 +291,7 @@ class MatchingAttemptApiControllerTest {
 
             // when
             mockMvc.perform(get(SEARCH_URI)
-                            .header("X-User-Id", userId.toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(userId, UserRole.PATIENT)))
                     .andExpect(status().isOk());
 
             // then
@@ -330,8 +323,7 @@ class MatchingAttemptApiControllerTest {
             mockMvc.perform(post(RETRY_URI.formatted(matchingAttemptId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"date\":\"2026-09-10\",\"preferredTimeSlot\":\"MORNING\"}")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isAccepted())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.code").value(202))
@@ -361,8 +353,7 @@ class MatchingAttemptApiControllerTest {
             mockMvc.perform(post(RETRY_URI.formatted(matchingAttemptId))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"date\":\"2026-09-10\"}")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isAccepted())
                     .andExpect(jsonPath("$.data.preferredTimeSlot").doesNotExist());
         }
@@ -374,12 +365,38 @@ class MatchingAttemptApiControllerTest {
             mockMvc.perform(post(RETRY_URI.formatted(UUID.randomUUID()))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}")
-                            .header("X-User-Id", UUID.randomUUID().toString())
-                            .header("X-User-Role", "PATIENT"))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.success").value(false));
 
             verify(serviceMatchingAttemptFacade, never()).retry(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("인증")
+    class authenticationTest {
+
+        @Test
+        @DisplayName("인증 정보가 없으면 매칭 실패 내역 조회는 401을 반환한다")
+        void search_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(get(SEARCH_URI))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceMatchingAttemptFacade);
+        }
+
+        @Test
+        @DisplayName("인증 정보가 없으면 재매칭 시도는 401을 반환한다")
+        void retry_withoutAuthentication_unauthorized() throws Exception {
+            // given & when & then
+            mockMvc.perform(post(RETRY_URI.formatted(UUID.randomUUID()))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"date\":\"2026-09-10\"}"))
+                    .andExpect(status().isUnauthorized());
+
+            verifyNoInteractions(serviceMatchingAttemptFacade);
         }
     }
 }

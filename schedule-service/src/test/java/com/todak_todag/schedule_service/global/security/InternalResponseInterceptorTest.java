@@ -1,5 +1,6 @@
 package com.todak_todag.schedule_service.global.security;
 
+import com.todak_todag.schedule_service.global.common.UserRole;
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
 import com.todak_todag.schedule_service.support.PostgresTestSupport;
@@ -15,6 +16,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
 
+import static com.todak_todag.schedule_service.support.AuthenticatedRequestSupport.asUser;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -148,10 +150,9 @@ class InternalResponseInterceptorTest extends PostgresTestSupport {
 
     @Test
     void 외부_API_경로에는_Interceptor가_적용되지_않는다() throws Exception {
-        // given
-
-        // when & then
-        mockMvc.perform(get("/api/v1/service-schedules/{serviceScheduleId}", UUID.randomUUID()))
+        // given & when & then
+        mockMvc.perform(get("/api/v1/service-schedules/{serviceScheduleId}", UUID.randomUUID())
+                        .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
                 .andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(401));
     }
 }
