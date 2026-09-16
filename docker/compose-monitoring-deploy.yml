@@ -16,6 +16,7 @@ services:
       - "${DATA_PRIVATE_IP}:9090:9090"
     volumes:
       - ./prometheus/prometheus-deploy.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules.yml:/etc/prometheus/rules.yml:ro
       - prometheus-data:/prometheus
     networks: [ todak-data ]
 

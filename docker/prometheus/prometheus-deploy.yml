@@ -4,6 +4,15 @@ global:
   external_labels:
     environment: prod
 
+rule_files:
+  - /etc/prometheus/rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:10001
+
 scrape_configs:
   # Prometheus 자체 상태 (수집 지연, TSDB 크기)
   - job_name: prometheus
