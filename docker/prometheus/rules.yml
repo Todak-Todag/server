@@ -1,0 +1,13 @@
+groups:
+  - name: service-alerts
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"api-gateway|user-service|discharge-service|social-worker-service|provider-service|schedule-service|care-plan-service"} == 0
+        for: 5m
+
+        labels:
+          severity: critical
+
+        annotations:
+          summary: "{{ $labels.job }} Down"
+          description: "{{ $labels.job }}가 5분 이상 Prometheus에 응답하지 않습니다."
