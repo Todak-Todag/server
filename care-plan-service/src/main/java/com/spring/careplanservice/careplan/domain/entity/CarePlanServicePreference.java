@@ -1,7 +1,7 @@
 package com.spring.careplanservice.careplan.domain.entity;
 
 
-import com.spring.careplanservice.global.common.BaseAuditEntity;
+import com.spring.careplanservice.global.common.BaseAuditableEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -14,7 +14,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "p_care_plan_service_preferences")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class CarePlanServicePreference extends BaseAuditEntity {
+public class CarePlanServicePreference extends BaseAuditableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "service_preference_id")

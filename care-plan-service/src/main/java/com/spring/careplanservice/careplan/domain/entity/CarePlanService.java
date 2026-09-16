@@ -1,7 +1,7 @@
 package com.spring.careplanservice.careplan.domain.entity;
 
 
-import com.spring.careplanservice.global.common.BaseCreateDeleteEntity;
+import com.spring.careplanservice.global.common.BaseDeletableEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -13,7 +13,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "p_care_plan_services")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class CarePlanService extends BaseCreateDeleteEntity {
+public class CarePlanService extends BaseDeletableEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "plan_service_id")

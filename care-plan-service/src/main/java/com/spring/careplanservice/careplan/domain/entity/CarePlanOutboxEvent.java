@@ -1,6 +1,6 @@
 package com.spring.careplanservice.careplan.domain.entity;
 
-import com.spring.careplanservice.global.common.BaseAuditEntity;
+import com.spring.careplanservice.global.common.BaseUpdatableEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -19,7 +19,7 @@ import java.util.UUID;
         schema = "care_plan_schema"
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class CarePlanOutboxEvent extends BaseAuditEntity {
+public class CarePlanOutboxEvent extends BaseUpdatableEntity {
     public static final int MAX_RETRY_COUNT = 3;
 
     @Id
