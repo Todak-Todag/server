@@ -33,6 +33,26 @@ public class CarePlanServiceResultQueryRepositoryImpl implements CarePlanService
     }
 
     @Override
+    public Optional<UUID> findCarePlanIdByServiceResultId(UUID serviceResultId) {
+        QCarePlanServiceResult result = QCarePlanServiceResult.carePlanServiceResult;
+        QServiceSchedule schedule = QServiceSchedule.serviceSchedule;
+
+        UUID carePlanId = jpaQueryFactory
+                .select(schedule.carePlanId)
+                .from(result)
+                // 연관관계 매핑이 아니라 논리 FK이므로 on 절로 직접 조인
+                .join(schedule).on(result.serviceScheduleId.eq(schedule.id))
+                .where(
+                        result.serviceResultId.eq(serviceResultId),
+                        result.deletedAt.isNull(),
+                        schedule.deletedAt.isNull()
+                )
+                .fetchFirst();
+
+        return Optional.ofNullable(carePlanId);
+    }
+
+    @Override
     public Page<CarePlanServiceResult> search(
             List<UUID> servicePreferenceIds,
             List<UUID> serviceOfferingIds,

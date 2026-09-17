@@ -17,7 +17,8 @@ public interface ServiceResultInternalApiSpec {
             summary = "서비스 수행 결과 조회",
             description = "Care-Plan-Service가 CarePlanCompleted 이벤트 페이로드에 담긴 serviceResultId가 " +
                     "실제로 존재하는 데이터인지 검증하기 위해 호출한다. deletedAt IS NULL인 수행 결과만 반환하며, " +
-                    "존재하지 않거나 논리 삭제된 경우 404를 반환한다."
+                    "존재하지 않거나 논리 삭제된 경우 404를 반환한다. " +
+                    "수신 측이 '그 결과가 이벤트의 carePlanId 소속인지' 교차 검증할 수 있도록 carePlanId를 함께 반환한다."
     )
     @ApiResponses
     ResponseEntity<ApiResponse<InternalServiceResultResponse>> detail(
