@@ -27,9 +27,12 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+    template:
+      observation-enabled: true
     # 수신 재시도 3회, 소진 시 원본 큐로 재큐잉하지 않고 DLQ로 이동
     listener:
       simple:
+        observation-enabled: true
         default-requeue-rejected: false
         retry:
           enabled: true
