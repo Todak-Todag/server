@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
 import com.todak_todag.user_service.user.application.command.AuthLogoutCommand;
+import com.todak_todag.user_service.user.application.facade.AuthFacade;
 import com.todak_todag.user_service.user.application.result.AuthLoginResult;
 import com.todak_todag.user_service.user.application.result.AuthReissueResult;
 import com.todak_todag.user_service.user.application.service.command.AuthCommandService;
@@ -39,14 +40,17 @@ public class AuthApiController implements AuthApiSpec {
 	
 	private final AuthCommandService authCommandService;
 
+	private final AuthFacade authFacade;
+
 	private final CookieProvider cookieProvider;
-	
+
 	public AuthApiController(
 			@Value("${jwt.access.max-age}") Duration accessMaxAge,
 			@Value("${jwt.refresh.max-age}") Duration refreshMaxAge,
 			@Value("${authentication.access-token.cookie-name}") String accessTokenCookieName,
 			@Value("${authentication.refresh-token.cookie-name}") String refreshTokenCookieName,
 			AuthCommandService authCommandService,
+			AuthFacade authFacade,
 			CookieProvider cookieProvider
 	) {
 		if(accessTokenCookieName == null || accessTokenCookieName.isBlank()) {
@@ -92,6 +96,7 @@ public class AuthApiController implements AuthApiSpec {
 		this.accessMaxAge = accessMaxAge;
 		this.refreshMaxAge = refreshMaxAge;
 		this.authCommandService = authCommandService;
+		this.authFacade = authFacade;
 		this.cookieProvider = cookieProvider;
 		this.accessTokenCookieName = accessTokenCookieName;
 		this.refreshTokenCookieName = refreshTokenCookieName;
@@ -106,7 +111,7 @@ public class AuthApiController implements AuthApiSpec {
 			HttpServletResponse httpServletResponse
 	) {
 		
-		AuthLoginResult result = authCommandService.login(userLoginRequest.toCommand());
+		AuthLoginResult result = authFacade.login(userLoginRequest.toCommand());
 		
 		// AccessToken Cookie Set
 		cookieProvider.addCookie(

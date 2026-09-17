@@ -39,7 +39,7 @@ import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
-import com.todak_todag.user_service.user.application.service.command.UserCreateService;
+import com.todak_todag.user_service.user.application.facade.UserFacade;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
 import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
@@ -62,7 +62,7 @@ class UserApiControllerTest {
 	private UserQueryService userQueryService;
 
 	@MockitoBean
-	private UserCreateService userCreateService;
+	private UserFacade userFacade;
 
 	@MockitoBean
 	private UserUpdateService userUpdateService;
@@ -201,7 +201,7 @@ class UserApiControllerTest {
 					.andExpect(jsonPath("$.success").value(false))
 					.andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
 
-			then(userCreateService).should(never()).createUserPatient(any());
+			then(userFacade).should(never()).createUserPatient(any());
 		}
 	}
 
@@ -215,7 +215,7 @@ class UserApiControllerTest {
 		@DisplayName("정상 요청이면 200과 함께 사용자 식별자를 반환한다")
 		void passwordUpdateTest_success() throws Exception {
 			// given
-			given(userUpdateService.passwordUpdate(any())).willReturn(USER_ID);
+			given(userFacade.passwordUpdate(any())).willReturn(USER_ID);
 
 			// when & then
 			mockMvc.perform(patch(PASSWORD_URI)
@@ -248,7 +248,7 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().isBadRequest());
 
-			then(userUpdateService).should(never()).passwordUpdate(any());
+			then(userFacade).should(never()).passwordUpdate(any());
 		}
 
 		@Test
@@ -266,7 +266,7 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().isBadRequest());
 
-			then(userUpdateService).should(never()).passwordUpdate(any());
+			then(userFacade).should(never()).passwordUpdate(any());
 		}
 
 		@Test
@@ -283,14 +283,14 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().is4xxClientError());
 
-			then(userUpdateService).should(never()).passwordUpdate(any());
+			then(userFacade).should(never()).passwordUpdate(any());
 		}
 
 		@Test
 		@DisplayName("기존 비밀번호가 일치하지 않으면 409 에러 응답을 반환한다")
 		void passwordUpdateTest_fail_mismatched() throws Exception {
 			// given
-			given(userUpdateService.passwordUpdate(any()))
+			given(userFacade.passwordUpdate(any()))
 					.willThrow(new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD));
 
 			// when & then
@@ -312,7 +312,7 @@ class UserApiControllerTest {
 		@DisplayName("정상 요청이면 AccessToken/RefreshToken 쿠키를 즉시 만료시킨다")
 		void passwordUpdateTest_success_expiresCookies() throws Exception {
 			// given
-			given(userUpdateService.passwordUpdate(any())).willReturn(USER_ID);
+			given(userFacade.passwordUpdate(any())).willReturn(USER_ID);
 
 			// when
 			mockMvc.perform(patch(PASSWORD_URI)
@@ -336,7 +336,7 @@ class UserApiControllerTest {
 		void passwordUpdateTest_success_passesAccessTokenFromCookie() throws Exception {
 			// given
 			given(cookieProvider.getCookieValue(eq("AccessToken"), any())).willReturn("access-token-value");
-			given(userUpdateService.passwordUpdate(any())).willReturn(USER_ID);
+			given(userFacade.passwordUpdate(any())).willReturn(USER_ID);
 
 			// when
 			mockMvc.perform(patch(PASSWORD_URI)
@@ -353,7 +353,7 @@ class UserApiControllerTest {
 			// then
 			ArgumentCaptor<UserPasswordUpdateCommand> captor =
 					ArgumentCaptor.forClass(UserPasswordUpdateCommand.class);
-			then(userUpdateService).should().passwordUpdate(captor.capture());
+			then(userFacade).should().passwordUpdate(captor.capture());
 
 			assertThat(captor.getValue().accessToken()).isEqualTo("access-token-value");
 			assertThat(captor.getValue().requesterId()).isEqualTo(USER_ID);
@@ -363,7 +363,7 @@ class UserApiControllerTest {
 		@DisplayName("기존 비밀번호가 일치하지 않으면 쿠키를 만료시키지 않는다")
 		void passwordUpdateTest_fail_doesNotExpireCookies() throws Exception {
 			// given
-			given(userUpdateService.passwordUpdate(any()))
+			given(userFacade.passwordUpdate(any()))
 					.willThrow(new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD));
 
 			// when
@@ -391,7 +391,7 @@ class UserApiControllerTest {
 		@DisplayName("정상 요청이면 204를 반환하고 AccessToken/RefreshToken 쿠키를 즉시 만료시킨다")
 		void userDeleteTest_success() throws Exception {
 			// given
-			willDoNothing().given(userUpdateService).userDelete(any());
+			willDoNothing().given(userFacade).userDelete(any());
 
 			// when & then
 			mockMvc.perform(delete(URI)
@@ -404,7 +404,7 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().isNoContent());
 
-			then(userUpdateService).should().userDelete(any());
+			then(userFacade).should().userDelete(any());
 			then(cookieProvider).should().addCookie(eq("AccessToken"), eq(Duration.ZERO), eq(""), any());
 			then(cookieProvider).should().addCookie(eq("RefreshToken"), eq(Duration.ZERO), eq(""), any());
 		}
@@ -413,7 +413,7 @@ class UserApiControllerTest {
 		@DisplayName("탈퇴는 사용자 식별자 기준으로 세션을 무효화하므로 쿠키에서 AccessToken 을 읽지 않는다")
 		void userDeleteTest_success_doesNotReadAccessTokenCookie() throws Exception {
 			// given
-			willDoNothing().given(userUpdateService).userDelete(any());
+			willDoNothing().given(userFacade).userDelete(any());
 
 			// when
 			mockMvc.perform(delete(URI)
@@ -444,7 +444,7 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().isBadRequest());
 
-			then(userUpdateService).should(never()).userDelete(any());
+			then(userFacade).should(never()).userDelete(any());
 		}
 
 		@Test
@@ -460,7 +460,7 @@ class UserApiControllerTest {
 									"""))
 					.andExpect(status().is4xxClientError());
 
-			then(userUpdateService).should(never()).userDelete(any());
+			then(userFacade).should(never()).userDelete(any());
 		}
 
 		@Test
@@ -468,7 +468,7 @@ class UserApiControllerTest {
 		void userDeleteTest_fail_passwordMismatch() throws Exception {
 			// given
 			willThrow(new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD))
-					.given(userUpdateService).userDelete(any());
+					.given(userFacade).userDelete(any());
 
 			// when & then
 			mockMvc.perform(delete(URI)
@@ -491,7 +491,7 @@ class UserApiControllerTest {
 		void userDeleteTest_fail_userNotFound() throws Exception {
 			// given
 			willThrow(new BusinessException(UserErrorCode.USER_NOT_FOUND))
-					.given(userUpdateService).userDelete(any());
+					.given(userFacade).userDelete(any());
 
 			// when & then
 			mockMvc.perform(delete(URI)

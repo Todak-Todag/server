@@ -18,6 +18,10 @@ public class UserCommandRepositoryImpl implements UserCommandRepository {
 	public User save(User user) {
 		return jpaRepo.save(user);
 	}
-	
-	
+
+	@Override
+	public User saveAndFlush(User user) {
+		return jpaRepo.saveAndFlush(user);
+	}
+
 }

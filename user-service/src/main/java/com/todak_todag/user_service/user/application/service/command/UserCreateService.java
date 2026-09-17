@@ -5,11 +5,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
-import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.global.support.MaskingUtil;
 import com.todak_todag.user_service.user.application.command.UserAdminCreateCommand;
@@ -19,14 +19,11 @@ import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
-import com.todak_todag.user_service.user.application.support.AddressValidator;
-import com.todak_todag.user_service.user.application.support.ConsentDocumentValidator;
 import com.todak_todag.user_service.user.domain.entity.Consent;
 import com.todak_todag.user_service.user.domain.entity.Region;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.ConsentCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
-import com.todak_todag.user_service.user.domain.repository.query.RegionQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -36,180 +33,97 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(rollbackFor = Exception.class)
 public class UserCreateService {
-	
-	private final ConsentDocumentValidator consentDocumentValidator;
-	
-	private final AddressValidator addressValidator;
-	
-	private final PasswordEncoderPort passwordEncoder;
-	
-	private final UserCommandRepository userCommandRepo;
-	
-	private final UserQueryRepository userQueryRepo;
-	
-	private final RegionQueryRepository regionQueryRepo;
-	
-	private final ConsentCommandRepository consentCommandRepo;
-	
-	public UserSignupCreatedResult createUserSignup(UserSignupCommand signup) {
-		
-		// 요청에 지역ID 존재하면 regionId 검증
-		if(signup.regionId() != null) {
-			if(!regionQueryRepo.existsAvailableRegion(signup.regionId())) {
-				log.info(
-						"[User] 존재하지 않는 지역으로 회원가입이 시도되었습니다. regionId={}",
-						signup.regionId()
-				);
 
-				throw new BusinessException(RegionErrorCode.REGION_NOT_FOUND);
-			}
-		}
+    private final UserCommandRepository userCommandRepo;
+    private final UserQueryRepository userQueryRepo;
+    private final ConsentCommandRepository consentCommandRepo;
+    private final PasswordEncoderPort passwordEncoder; // createUserMaster용으로만 남는다
 
-		// Username 중복 검증 : 가벼운 작업 위로
-		if(userQueryRepo.duplicateUsername(signup.username())) {
-			log.info(
-					"[User] 중복된 아이디로 회원가입이 시도되었습니다. username={}",
-					MaskingUtil.maskUsername(signup.username())
-			);
+    @Transactional(rollbackFor = Exception.class)
+    public UserSignupCreatedResult createUserSignup(UserSignupCommand signup, String passwordHash, Set<UUID> agreedIds) {
+        // 저장 직전 재검증 — BCrypt 도는 동안 같은 아이디가 먼저 가입했을 수 있다
+        assertUsernameStillAvailable(signup.username(), "회원가입");
 
-			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
-		}
-		
-		// 현재 적용 중인 전체약관 조회
-		Set<UUID> agreedIds =  consentDocumentValidator.signupConsentDocumentValidate(signup);
-		
-		// 비밀번호 해시
-		String passwordHash = passwordEncoder.encode(signup.password());
-		
-		// 회원가입용 User 팩토리 생성자
-		User signupUser = User.createSignup(
-				signup.regionId(),
-				signup.username(),
-				passwordHash,
-				signup.name(),
-				signup.phone(),
-				signup.type()
-		);
-		
-		User user = userCommandRepo.save(signupUser);
-		
-		// Consent saveAll
-		LocalDateTime now = LocalDateTime.now();
-		List<Consent> consents = agreedIds.stream()
-				.map(verId -> Consent.agree(user.getId(), verId, now))
-				.toList();
-		
-		consentCommandRepo.saveAll(consents);
+        User signupUser = User.createSignup(
+                signup.regionId(), signup.username(), passwordHash, signup.name(), signup.phone(), signup.type()
+        );
 
-		log.info(
-				"[User] 회원가입 완료 userId={}, role={}, regionId={}, agreedConsents={}",
-				user.getId(),
-				user.getRole(),
-				user.getRegionId(),
-				consents.size()
-		);
+        User user = saveOrThrowDuplicate(signupUser, signup.username(), "회원가입");
 
-		return new UserSignupCreatedResult(user.getId(), user.getName());
-	}
-	
-	public UserAdminCreatedResult createUserAdmin(UserAdminCreateCommand createAdmin) {
-		Region region = regionQueryRepo.findById(createAdmin.regionId())
-        .orElseThrow(() -> new BusinessException(RegionErrorCode.REGION_NOT_FOUND));
-		
-		// Username 중복 검증
-		if(userQueryRepo.duplicateUsername(createAdmin.username())) {
-			log.info(
-					"[User] 중복된 아이디로 운영자 등록이 시도되었습니다. username={}",
-					MaskingUtil.maskUsername(createAdmin.username())
-			);
+        LocalDateTime now = LocalDateTime.now();
+        List<Consent> consents = agreedIds.stream()
+                .map(verId -> Consent.agree(user.getId(), verId, now))
+                .toList();
+        consentCommandRepo.saveAll(consents);
 
-			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
-		}
-		
-		// 비밀번호 해시
-		String passwordHash = passwordEncoder.encode(createAdmin.password());
-		
-		User admin = User.createAdmin(
-				createAdmin.regionId(),
-				createAdmin.username(),
-				passwordHash,
-				createAdmin.name(),
-				createAdmin.phone()
-		);
-		
-		User user = userCommandRepo.save(admin);
+        log.info("[User] 회원가입 완료 userId={}, role={}, regionId={}, agreedConsents={}",
+                user.getId(), user.getRole(), user.getRegionId(), consents.size());
 
-		// 권한이 높은 계정의 생성은 감사 대상이라 성공도 남긴다.
-		log.info(
-				"[User] 운영자 계정 생성 완료 userId={}, regionId={}",
-				user.getId(),
-				user.getRegionId()
-		);
+        return new UserSignupCreatedResult(user.getId(), user.getName());
+    }
 
-		return new UserAdminCreatedResult(user.getId(), user.getName(), region.getProvince(), region.getDistrict());
-	}
-	
-	public UserPatientCreatedResult createUserPatient(UserPatientCreateCommand createPatient) {
-		// 1. 지역 정보 검증
-		addressValidator.patientAddressValidate(createPatient);
-		
-		// 2. 중복 username 검증
-		if(userQueryRepo.duplicateUsername(createPatient.username())) {
-			log.info(
-					"[User] 중복된 아이디로 퇴원 예정자 등록이 시도되었습니다. username={}",
-					MaskingUtil.maskUsername(createPatient.username())
-			);
+    @Transactional(rollbackFor = Exception.class)
+    public UserAdminCreatedResult createUserAdmin(UserAdminCreateCommand createAdmin, String passwordHash, Region region) {
+        assertUsernameStillAvailable(createAdmin.username(), "운영자 등록");
 
-			throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
-		}
-		
-		// 3. passwordHash
-		String passwordHash = passwordEncoder.encode(createPatient.password());
-		
-		// 4. 퇴원 예정자 생성
-		User patient = User.createPatient(
-				createPatient.regionId(),
-				createPatient.username(),
-				passwordHash,
-				createPatient.name(),
-				createPatient.phone(),
-				createPatient.address()
-		);
-		
-		// 5. 저장
-		User saved = userCommandRepo.save(patient);
+        User admin = User.createAdmin(
+                createAdmin.regionId(), createAdmin.username(), passwordHash, createAdmin.name(), createAdmin.phone()
+        );
 
-		log.info(
-				"[User] 퇴원 예정자 등록 완료 userId={}, requesterId={}, regionId={}",
-				saved.getId(),
-				createPatient.requesterId(),
-				saved.getRegionId()
-		);
+        User user = saveOrThrowDuplicate(admin, createAdmin.username(), "운영자 등록");
 
-		return new UserPatientCreatedResult(
-				saved.getId(),
-				createPatient.requesterId(),
-				saved.getName(),
-				saved.getPhone(),
-				createPatient.regionId()
-		);
-	}
+        log.info("[User] 운영자 계정 생성 완료 userId={}, regionId={}", user.getId(), user.getRegionId());
 
-	// 서버 최초 구동 시 마스터 계정이 없으면 생성한다 (있으면 아무 것도 하지 않음)
-	public void createUserMaster(UUID userId, String username, String rawPassword, String name, String phone) {
-		if(userQueryRepo.initMasterDuplicate(userId)) {
-			return;
-		}
+        return new UserAdminCreatedResult(user.getId(), user.getName(), region.getProvince(), region.getDistrict());
+    }
 
-		String passwordHash = passwordEncoder.encode(rawPassword);
+    @Transactional(rollbackFor = Exception.class)
+    public UserPatientCreatedResult createUserPatient(UserPatientCreateCommand createPatient, String passwordHash) {
+        assertUsernameStillAvailable(createPatient.username(), "퇴원 예정자 등록");
 
-		User master = User.createMaster(userId, username, passwordHash, name, phone);
+        User patient = User.createPatient(
+                createPatient.regionId(), createPatient.username(), passwordHash,
+                createPatient.name(), createPatient.phone(), createPatient.address()
+        );
 
-		userCommandRepo.save(master);
+        User saved = saveOrThrowDuplicate(patient, createPatient.username(), "퇴원 예정자 등록");
 
-		log.info("[User] 마스터 계정 최초 생성 완료 userId={}", userId);
-	}
-	
+        log.info("[User] 퇴원 예정자 등록 완료 userId={}, requesterId={}, regionId={}",
+                saved.getId(), createPatient.requesterId(), saved.getRegionId());
+
+        return new UserPatientCreatedResult(
+                saved.getId(), createPatient.requesterId(), saved.getName(), saved.getPhone(), createPatient.regionId()
+        );
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public void createUserMaster(UUID userId, String username, String rawPassword, String name, String phone) {
+        // 기동 시 1회 — 분리 대상 아님. 기존 로직 그대로
+        if (userQueryRepo.initMasterDuplicate(userId)) return;
+
+        String passwordHash = passwordEncoder.encode(rawPassword);
+        User master = User.createMaster(userId, username, passwordHash, name, phone);
+        userCommandRepo.save(master);
+
+        log.info("[User] 마스터 계정 최초 생성 완료 userId={}", userId);
+    }
+
+    private void assertUsernameStillAvailable(String username, String action) {
+        if (userQueryRepo.duplicateUsername(username)) {
+            log.info("[User] 중복된 아이디로 {}이 시도되었습니다. username={}", action, MaskingUtil.maskUsername(username));
+            throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
+        }
+    }
+
+    // 재검증까지 통과한 뒤 그 찰나에 커밋된 동시 요청 — 유니크 인덱스(ux_p_users_username_active)가 최종 방어선
+    // saveAndFlush로 이 자리에서 바로 INSERT를 실행해야 유니크 제약 위반이 여기서 잡힌다.
+    private User saveOrThrowDuplicate(User user, String username, String action) {
+        try {
+            return userCommandRepo.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            log.info("[User] 동시 요청으로 {} 중 아이디 중복 충돌이 발생했습니다. username={}", action, MaskingUtil.maskUsername(username));
+            throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
+        }
+    }
 }

@@ -32,8 +32,8 @@ import com.todak_todag.user_service.global.config.SecurityConfig;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
+import com.todak_todag.user_service.user.application.facade.UserFacade;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
-import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
 
@@ -52,7 +52,7 @@ class UserAdminApiControllerTest {
 	private MockMvc mockMvc;
 
 	@MockitoBean
-	private UserCreateService userCreateService;
+	private UserFacade userFacade;
 
 	@MockitoBean
 	private UserUpdateService userUpdateService;

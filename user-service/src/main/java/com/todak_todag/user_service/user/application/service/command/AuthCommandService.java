@@ -3,6 +3,7 @@ package com.todak_todag.user_service.user.application.service.command;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -11,10 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.todak_todag.user_service.global.exception.AuthErrorCode;
 import com.todak_todag.user_service.global.exception.BusinessException;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
-import com.todak_todag.user_service.global.support.MaskingUtil;
-import com.todak_todag.user_service.user.application.command.AuthLoginCommand;
 import com.todak_todag.user_service.user.application.command.AuthLogoutCommand;
-import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenPort;
 import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.AuthLoginResult;
@@ -24,14 +22,12 @@ import com.todak_todag.user_service.user.domain.entity.auth.Auth;
 import com.todak_todag.user_service.user.domain.entity.user.User;
 import com.todak_todag.user_service.user.domain.repository.command.AuthCommandRepository;
 import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
-import com.todak_todag.user_service.user.domain.repository.query.ConsentQueryRepository;
 import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
-@Transactional(rollbackFor = Exception.class)
 public class AuthCommandService {
 	
 	private final Duration refreshExpiration;
@@ -41,27 +37,21 @@ public class AuthCommandService {
 	private final TokenStorePort tokenStorePort;
 
 	private final TokenPort tokenPort;
-	
-	private final PasswordEncoderPort passwordEncoder;
-	
+
 	private final AuthCommandRepository authCommandRepo;
-	
+
 	private final AuthQueryRepository authQueryRepo;
-	
+
 	private final UserQueryRepository userQueryRepo;
-	
-	private final ConsentQueryRepository consentQueryRepo;
-	
+
 	public AuthCommandService(
 			@Value("${jwt.refresh.expiration}") Duration refreshExpiration,
 			TokenValidator tokenValidator,
 			TokenStorePort tokenStorePort,
 			TokenPort tokenPort,
-			PasswordEncoderPort passwordEncoder,
 			AuthCommandRepository authCommandRepo,
 			AuthQueryRepository authQueryRepo,
-			UserQueryRepository userQueryRepo,
-			ConsentQueryRepository consentQueryRepo
+			UserQueryRepository userQueryRepo
 	) {
 		if(refreshExpiration == null) {
 			log.error("[User] 서버 구동 실패 jwt.refresh.expiration 설정 값이 비어있습니다.");
@@ -79,13 +69,12 @@ public class AuthCommandService {
 		this.refreshExpiration = refreshExpiration;
 		this.tokenStorePort = tokenStorePort;
 		this.tokenPort = tokenPort;
-		this.passwordEncoder = passwordEncoder;
 		this.authCommandRepo = authCommandRepo;
 		this.authQueryRepo = authQueryRepo;
 		this.userQueryRepo = userQueryRepo;
-		this.consentQueryRepo = consentQueryRepo;
 	}
 	
+	@Transactional(rollbackFor = Exception.class)
 	public AuthReissueResult reissue(String refreshToken) {
 		// 1. 리프레시 토큰 검증
 		tokenValidator.validateRefreshTokenCookie(refreshToken);
@@ -138,6 +127,7 @@ public class AuthCommandService {
 		return new AuthReissueResult(newAccessToken, newRefreshToken);
 	}
 
+	@Transactional(rollbackFor = Exception.class)
 	public void logout(AuthLogoutCommand command) {
 		Auth auth = authQueryRepo.findActiveByUserId(command.requesterId())
 				.orElse(null);
@@ -159,101 +149,41 @@ public class AuthCommandService {
 		log.info("[User] 로그아웃 완료 userId={}", command.requesterId());
 	}
 	
-	public AuthLoginResult login(AuthLoginCommand loginCommand) {
-		// 1. 사용자 있나?
-		User loginUser = userQueryRepo.findLoginByUsername(loginCommand.username())
-				.orElseThrow(() -> {
-					// 존재하지 않는 계정이라 userId 가 없다. 남길 수 있는 식별 정보는 마스킹된 아이디뿐이다.
-					log.warn(
-							"[User] 존재하지 않는 아이디로 로그인이 시도되었습니다. username={}",
-							MaskingUtil.maskUsername(loginCommand.username())
-					);
-
-					return new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
-				});
-
-		// 2. 로그인이 가능한 상태인가?
-		loginUser.validateCanLogin();
-
-		// 3. 로그인 가능한 상태니까 아이디와 비밀번호 검증
-		if(!passwordEncoder.matches(loginCommand.password(), loginUser.getPasswordHash())) {
-			// 계정은 확인됐으므로 마스킹된 아이디 대신 userId 로 남긴다. 반복 시도 추적에 쓰인다.
-			log.warn(
-					"[User] 비밀번호가 일치하지 않는 로그인이 시도되었습니다. userId={}",
-					loginUser.getId()
-			);
-
-			throw new BusinessException(UserErrorCode.USER_LOGIN_MISMATCHED);
-		}
+	
+	@Transactional(rollbackFor = Exception.class)
+	public AuthLoginResult completeLogin(UUID userId, String accessToken, String jwtAccessToken, String refreshToken) {
+		User user = userQueryRepo.findLoginById(userId)
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
 		
-		// 4. 로그인은 가능한데 WITHDRAWN 상태인가? - 치명적인 버그 발견
-		if(loginUser.isWithdrawn()) {
-
-			// WITHDRAWN 이면서 PATIENT 이면 - 첫 로그인 시점일 가능성이 있다.
-			if(loginUser.isPatientConsent()) {
-			
-				// 동의했던 내역이 존재하면 첫 로그인 시점이 아닌 퇴원 예정자가 동의를 철회한 것이다.
-				if(consentQueryRepo.findAllByUserId(loginUser.getId()).isEmpty()) {
-					log.info(
-							"[User] 퇴원 예정자 첫 로그인으로 3분 임시 토큰을 발급합니다. userId={}",
-							loginUser.getId()
-					);
-
-					String accessToken = tokenPort.createToken();
-					
-					String jwtAccessToken = tokenPort.createJwtAccessToken(loginUser.getId(), loginUser.getRole());
-					
-					String refreshToken = tokenPort.createToken();
-					
-					// 3분짜리 임시 토큰 발급
-					tokenStorePort.storeAccessTokenTemp(loginUser.getId(), accessToken, jwtAccessToken, Duration.ofMinutes(3));
-					
-					return new AuthLoginResult(loginUser.getId(), accessToken, refreshToken);
-				}
-			}
-
-			// 비밀번호까지 맞았는데 탈퇴한 계정이다. 본인일 가능성이 높지만 재가입 안내가 필요한 상황.
-			log.info("[User] 탈퇴한 계정으로 로그인이 시도되었습니다. userId={}", loginUser.getId());
-
-			throw new BusinessException(UserErrorCode.USER_LOGIN_WITHDRAWN);
-		}
+		user.validateCanLogin();
 		
-		// 5. 랜덤 액세스 토큰 발급
-		String accessToken = tokenPort.createToken();
-		
-		// 6. JWT 형식의 액세스 토큰 발급
-		String jwtAccessToken = tokenPort.createJwtAccessToken(loginUser.getId(), loginUser.getRole());
-		
-		// 7. 리프레시 토큰 발급
-		String refreshToken = tokenPort.createToken();
-		
-		// 8. 현재 시간 구하기
 		LocalDateTime now = LocalDateTime.now();
-		
-		// 9. 기존 활성 세션이 있으면 갱신, 없으면 새로 생성 - 멱등처리
 		String refreshTokenHash = tokenPort.hashToken(refreshToken);
 
-		Auth loginSession = authQueryRepo.findActiveByUserId(loginUser.getId())
-				.map(existingSession -> {
-					existingSession.renew(refreshTokenHash, now.plus(refreshExpiration));
-					return existingSession;
+		// 동시 로그인 시 두 요청이 모두 "활성 세션 없음"을 보고 둘 다 INSERT를 시도할 수 있다.
+		// ux_p_auths_user_active 유니크 인덱스가 하나만 통과시키는데, PostgreSQL은 한 트랜잭션
+		// 안에서 statement 하나가 실패하면 그 트랜잭션 전체가 abort 상태가 되어 같은 트랜잭션
+		// 안에서는 더 이상 아무 것도 할 수 없다. 그래서 재시도는 여기서 하지 않고, 새 트랜잭션으로
+		// 다시 호출해야 하는 호출자(AuthFacade)에게 예외를 그대로 던진다.
+		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
+				.map(existing -> {
+					existing.renew(refreshTokenHash, now.plus(refreshExpiration));
+					return existing;
 				})
 				.orElseGet(() -> authCommandRepo.save(
-						Auth.login(loginUser.getId(), refreshTokenHash, now.plus(refreshExpiration), now)
+						Auth.login(user.getId(), refreshTokenHash, now.plus(refreshExpiration), now)
 				));
 
-		// 10. 발급한 AccessToken을 Redis에 저장 (실패 시 트랜잭션 전체 롤백)
-		tokenStorePort.storeAccessToken(loginUser.getId(), accessToken, jwtAccessToken);
+		tokenStorePort.storeAccessToken(user.getId(), accessToken, jwtAccessToken);
 
-		// 실패만 남기면 "언제부터 침입자가 들어와 있었는지" 판단할 기준이 없다.
 		log.info(
 				"[User] 로그인 완료 userId={}, role={}, authId={}",
-				loginUser.getId(),
-				loginUser.getRole(),
+				user.getId(),
+				user.getRole(),
 				loginSession.getId()
 		);
 
 		return new AuthLoginResult(loginSession.getUserId(), accessToken, refreshToken);
 	}
-	
+
 }

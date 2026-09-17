@@ -19,10 +19,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.response.PageResponse;
 import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.application.facade.UserFacade;
 import com.todak_todag.user_service.user.application.result.UserAdminCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.application.result.UserSearchResult;
-import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
 import com.todak_todag.user_service.user.presentation.request.UserAdminCreateRequest;
@@ -43,8 +43,8 @@ import lombok.RequiredArgsConstructor;
 @Validated
 public class UserAdminApiController implements UserAdminApiSpec {
 	
-	private final UserCreateService userCreateService;
-	
+	private final UserFacade userFacade;
+
 	private final UserUpdateService userUpdateService;
 	
 	private final UserQueryService userQueryService;
@@ -55,7 +55,7 @@ public class UserAdminApiController implements UserAdminApiSpec {
 	public ResponseEntity<ApiResponse<UserAdminCreatedResponse>> createAdmin(
 			@Valid @RequestBody UserAdminCreateRequest userAdminCreateRequest
 	) {
-		UserAdminCreatedResult result = userCreateService.createUserAdmin(userAdminCreateRequest.toCommand());
+		UserAdminCreatedResult result = userFacade.createUserAdmin(userAdminCreateRequest.toCommand());
 		
 		UserAdminCreatedResponse response = new UserAdminCreatedResponse(
 				result.userId(),

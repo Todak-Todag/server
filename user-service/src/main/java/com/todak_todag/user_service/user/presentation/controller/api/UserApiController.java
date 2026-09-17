@@ -18,10 +18,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.application.facade.UserFacade;
 import com.todak_todag.user_service.user.application.result.UserPatientCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserSignupCreatedResult;
 import com.todak_todag.user_service.user.application.result.UserUpdateResult;
-import com.todak_todag.user_service.user.application.service.command.UserCreateService;
 import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
 import com.todak_todag.user_service.user.application.service.query.UserQueryService;
 import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
@@ -51,25 +51,25 @@ public class UserApiController implements UserApiSpec {
 	private final String refreshTokenCookieName;
 	
 	private final CookieProvider cookieProvider;
-	
-	private final UserCreateService userCreateService;
-	
+
+	private final UserFacade userFacade;
+
 	private final UserUpdateService userUpdateService;
-	
+
 	private final UserQueryService userQueryService;
-	
+
 	public UserApiController(
 			@Value("${authentication.access-token.cookie-name}") String accessTokenCookieName,
 			@Value("${authentication.refresh-token.cookie-name}") String refreshTokenCookieName,
 			CookieProvider cookieProvider,
-			UserCreateService userCreateService,
+			UserFacade userFacade,
 			UserUpdateService userUpdateService,
 			UserQueryService userQueryService
 	) {
 		this.accessTokenCookieName = accessTokenCookieName;
 		this.refreshTokenCookieName = refreshTokenCookieName;
 		this.cookieProvider = cookieProvider;
-		this.userCreateService = userCreateService;
+		this.userFacade = userFacade;
 		this.userUpdateService = userUpdateService;
 		this.userQueryService = userQueryService;
 	}
@@ -79,7 +79,7 @@ public class UserApiController implements UserApiSpec {
 	public ResponseEntity<ApiResponse<UserSignupCreatedResponse>> createUserSignup(
 			@Valid @RequestBody UserSignupRequest userSignupRequest
 	) {
-		UserSignupCreatedResult result = userCreateService.createUserSignup(userSignupRequest.toCommand());
+		UserSignupCreatedResult result = userFacade.createUserSignup(userSignupRequest.toCommand());
 		
 		UserSignupCreatedResponse response = UserSignupCreatedResponse.of(result);
 		
@@ -110,7 +110,7 @@ public class UserApiController implements UserApiSpec {
 			@AuthenticationPrincipal UserContext user
 	) {
 		
-		UserPatientCreatedResult result = userCreateService.createUserPatient(userPatientCreateRequest.toCommand(user));
+		UserPatientCreatedResult result = userFacade.createUserPatient(userPatientCreateRequest.toCommand(user));
 		
 		UserPatientCreatedResponse response = new UserPatientCreatedResponse(
 				result.patientId(),
@@ -133,7 +133,7 @@ public class UserApiController implements UserApiSpec {
 	) {
 		String accessToken = cookieProvider.getCookieValue(accessTokenCookieName, servletRequest);
 		
-		UUID userId = userUpdateService.passwordUpdate(userPasswordUpdateRequest.toCommand(accessToken, user));
+		UUID userId = userFacade.passwordUpdate(userPasswordUpdateRequest.toCommand(accessToken, user));
 		
 		cookieProvider.addCookie(accessTokenCookieName, Duration.ZERO, "", servletResponse);
 		cookieProvider.addCookie(refreshTokenCookieName, Duration.ZERO, "", servletResponse);
@@ -174,7 +174,7 @@ public class UserApiController implements UserApiSpec {
 			HttpServletResponse response
 	) {
 		
-		userUpdateService.userDelete(userDeleteRequest.toCommand(user));
+		userFacade.userDelete(userDeleteRequest.toCommand(user));
 		
 		cookieProvider.addCookie(accessTokenCookieName, Duration.ZERO, "", response);
 		cookieProvider.addCookie(refreshTokenCookieName, Duration.ZERO, "", response);

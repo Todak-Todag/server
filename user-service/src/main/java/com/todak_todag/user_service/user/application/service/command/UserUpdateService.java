@@ -15,7 +15,6 @@ import com.todak_todag.user_service.user.application.command.UserDeleteCommand;
 import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
 import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
 import com.todak_todag.user_service.user.application.command.UserUpdateCommand;
-import com.todak_todag.user_service.user.application.port.PasswordEncoderPort;
 import com.todak_todag.user_service.user.application.port.TokenStorePort;
 import com.todak_todag.user_service.user.application.result.UserApprovalResult;
 import com.todak_todag.user_service.user.application.result.UserUpdateResult;
@@ -31,41 +30,38 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(rollbackFor = Exception.class)
 public class UserUpdateService {
 
 	private final TokenStorePort tokenStorePort;
-	
+
 	private final AddressValidator addressValidator;
-	
-	private final PasswordEncoderPort passwordEncoder;
-	
+
 	private final UserQueryRepository userQueryRepo;
-	
+
 	private final AuthQueryRepository authQueryRepo;
-	
+
+	// Facade가 BCrypt 검증 전에 조회하는 짧은 읽기 트랜잭션. userDelete/passwordUpdate가 공유한다.
+	@Transactional(readOnly = true)
+	public String findPasswordHashForVerification(UUID requesterId) {
+		User user = userQueryRepo.findActiveById(requesterId)
+				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+		return user.getPasswordHash();
+	}
+
+	@Transactional(rollbackFor = Exception.class)
 	public void userDelete(UserDeleteCommand command) {
-		// 1. 요청자 조회
+		// 1. 재조회 — BCrypt 도는 동안 이미 탈퇴/상태 변경됐을 수 있어 다시 확인한다
 		User user = userQueryRepo.findActiveById(command.requesterId())
 				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
-		
-		// 2. 현재 비밀번호 검증
-		if(!passwordEncoder.matches(command.currentPassword(), user.getPasswordHash())) {
-			log.warn(
-					"[User] 현재 비밀번호와 일치하지 않은 회원탈퇴 요청이 들어왔습니다. userId={}",
-					user.getId()
-			);
 
-			throw new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
-		}
-		
-		// 3. 회원탈퇴 진행
+		// 2. 회원탈퇴 진행
 		user.delete(command.requesterId());
-		
-		// 4. 로그인 세션 만료
+
+		// 3. 로그인 세션 만료
 		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
 				.orElse(null);
-		
+
 		if(loginSession != null) {
 			loginSession.logout();
 		} else {
@@ -74,13 +70,14 @@ public class UserUpdateService {
 					user.getId()
 			);
 		}
-		
-		// 5. 저장된 액세스 토큰 삭제
+
+		// 4. 저장된 액세스 토큰 삭제
 		tokenStorePort.revokeAllSessions(user.getId());
 
 		log.info("[User] 회원탈퇴 완료 userId={}", user.getId());
 	}
-	
+
+	@Transactional(rollbackFor = Exception.class)
 	public UserUpdateResult userUpdate(UserUpdateCommand command) {
 		// 0. regionId가 넘어오지 않았는데 address 가 존재하는 경우 빠른 실패 시키기 위해 Validator 밖에서 처리
 		
@@ -129,33 +126,19 @@ public class UserUpdateService {
 		);
 	}
 	
-	public UUID passwordUpdate(UserPasswordUpdateCommand command) {
-		// 1. 요청자 조회
+	@Transactional(rollbackFor = Exception.class)
+	public UUID passwordUpdate(UserPasswordUpdateCommand command, String newPasswordHash) {
+		// 1. 재조회 — 비밀번호 검증(BCrypt)은 Facade에서 이미 끝났다. 여기선 상태만 재확인한다.
 		User user = userQueryRepo.findActiveById(command.requesterId())
 				.orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
-		
-		// 2. 기존 비번과 새 비번 일치 검증
-		String currentPasswordHash = user.getPasswordHash();
-		if(!passwordEncoder.matches(command.currentPassword(), currentPasswordHash)) {
-			log.warn(
-					"[User] 기존 비밀번호와 일치하지 않은 비밀번호 변경 요청이 들어왔습니다. userId={}",
-					command.requesterId()
-			);
 
-			throw new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD);
-		}
-		
-		// 3. 비번이 같으면 새 비밀번호를 해시한다.
-		String newPasswordHash = passwordEncoder.encode(command.newPassword());
-		
-		// 4. 변경한다.
+		// 2. 변경한다.
 		user.changePassword(newPasswordHash);
-		
-		// 5. 사용자의 현재 세션을 만료시킨다.
+
+		// 3. 사용자의 현재 세션을 만료시킨다.
 		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
 				.orElse(null);
-		
-		// 6. 로그인 세션을 만료 시킨다.
+
 		if(loginSession != null) {
 			loginSession.logout();
 		} else {
@@ -165,14 +148,15 @@ public class UserUpdateService {
 			);
 		}
 
-		// 7. 로그인 세션을 만료 시킨 후 Redis 에도 반영한다.
+		// 4. 로그인 세션을 만료 시킨 후 Redis 에도 반영한다.
 		tokenStorePort.revokeAllSessions(user.getId());
 
 		log.info("[User] 비밀번호 변경 완료 userId={}", user.getId());
 
 		return user.getId();
 	}
-	
+
+	@Transactional(rollbackFor = Exception.class)
 	public UserApprovalResult approval(UserApprovalCommand command) {
 		// 1. 요청자의 신원이 뭐니?
 		UserRole requesterRole = command.requesterRole();
@@ -220,6 +204,7 @@ public class UserUpdateService {
 		);
 	}
 	
+	@Transactional(rollbackFor = Exception.class)
 	public UUID suspend(UserSuspendCommand command) {
 		// 1. 요청자의 신원이 뭐니?
 		UserRole requesterRole = command.requesterRole();
