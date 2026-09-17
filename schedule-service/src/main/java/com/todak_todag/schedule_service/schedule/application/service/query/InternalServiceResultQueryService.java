@@ -17,11 +17,13 @@ public class InternalServiceResultQueryService {
     private final CarePlanServiceResultQueryRepository carePlanServiceResultQueryRepository;
 
     // [내부 API] 서비스 수행 결과 조회
+    // 존재 검증과 carePlanId 확보를 조인 쿼리 한 번으로 처리 — 결과/일정 중 하나라도 유효하지 않으면 검증 실패로 보고 404
     @Transactional(readOnly = true)
     public InternalServiceResultDetailResult findById(UUID serviceResultId) {
 
-        return carePlanServiceResultQueryRepository.findById(serviceResultId)
-                .map(InternalServiceResultDetailResult::from)
+        UUID carePlanId = carePlanServiceResultQueryRepository.findCarePlanIdByServiceResultId(serviceResultId)
                 .orElseThrow(() -> new BusinessException(ScheduleErrorCode.SERVICE_RESULTS_NOT_FOUND));
+
+        return InternalServiceResultDetailResult.of(carePlanId, serviceResultId);
     }
 }

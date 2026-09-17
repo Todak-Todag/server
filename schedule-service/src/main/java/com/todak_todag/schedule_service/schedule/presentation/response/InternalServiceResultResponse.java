@@ -6,10 +6,11 @@ import java.util.UUID;
 
 // [내부 API] 서비스 수행 결과 조회 응답
 public record InternalServiceResultResponse(
+        UUID carePlanId,
         UUID serviceResultId
 ) {
 
     public static InternalServiceResultResponse from(InternalServiceResultDetailResult result) {
-        return new InternalServiceResultResponse(result.serviceResultId());
+        return new InternalServiceResultResponse(result.carePlanId(), result.serviceResultId());
     }
 }
