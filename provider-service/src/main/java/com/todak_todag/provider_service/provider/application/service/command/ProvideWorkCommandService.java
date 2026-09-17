@@ -113,7 +113,7 @@ public class ProvideWorkCommandService {
     }
 
     // 같은 제공 서비스 안에서 요일이 같고 시간이 겹치는 일정은 등록·수정할 수 없다
-    // 수정인 경우 자기 자신은 겹침 대상에서 제외한다
+    // 잠금 구간을 짧게 유지하기 위해 전체 조회 대신 존재 여부만 쿼리로 확인한다
     private void validateNotOverlapped(
             UUID serviceOfferingId,
             UUID excludedProvideWorkId,
@@ -121,13 +121,9 @@ public class ProvideWorkCommandService {
             LocalTime startedAt,
             LocalTime finishedAt
     ) {
-        List<ProvideWork> provideWorks =
-                provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId);
-
-        boolean overlapped = provideWorks.stream()
-                .filter(provideWork -> excludedProvideWorkId == null
-                        || !excludedProvideWorkId.equals(provideWork.getId()))
-                .anyMatch(provideWork -> provideWork.overlaps(day, startedAt, finishedAt));
+        boolean overlapped = provideWorkQueryRepository.existsOverlapped(
+                serviceOfferingId, excludedProvideWorkId, day, startedAt, finishedAt
+        );
 
         if (overlapped) {
             throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_TIME_OVERLAP);
