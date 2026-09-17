@@ -33,6 +33,22 @@ spring:
     username: ${RABBITMQ_USERNAME}
     password: ${RABBITMQ_PASSWORD}
 
+    # 발행·수신 구간을 추적에 포함시킨다 — 기본값이 false라 리스너 로그에 traceId/spanId가 비어 나온다
+    template:
+      observation-enabled: true
+
+    listener:
+      simple:
+        observation-enabled: true
+
+        # 수신 재시도 3회, 소진 시 원래 큐로 되돌리지 않고 DLQ(provider.*.dlq.queue)로 이동
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1000
+          multiplier: 2
+
 internal:
   key: ${INTERNAL_API_KEY}
 
@@ -41,6 +57,13 @@ internal-jwt:
   issuer: todak-api-gateway
   audience: ${spring.application.name}
   clock-skew: 30s
+
+# 아웃박스에 쌓인 미발행 이벤트를 주기적으로 브로커에 내보낸다
+provider:
+  outbox:
+    relay:
+      enabled: true
+      fixed-delay-ms: 1000
 
 eureka:
   client:
