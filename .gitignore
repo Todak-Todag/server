@@ -38,3 +38,6 @@ out/
 
 ### Secret ###
 .env
+
+docker/rehearsal/
+docker/compose-rehearsal-*.yml
