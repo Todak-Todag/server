@@ -37,6 +37,7 @@ spring:
 
     listener:
       simple:
+        observation-enabled: true
         retry:
           enabled: true
           max-retries: 3

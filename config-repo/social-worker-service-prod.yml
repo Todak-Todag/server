@@ -41,6 +41,7 @@ spring:
 
     listener:
       simple:
+        observation-enabled: true
         # DLQ 미운용 — 재시도 소진 시 폐기. 재큐잉하면 무한 반복됨
         default-requeue-rejected: false
         retry:
