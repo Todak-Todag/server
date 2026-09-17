@@ -23,7 +23,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -34,6 +33,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+// 겹침 판정은 DB 쿼리(existsOverlapped)로 옮겼으므로, 이 테스트는 "판정 결과에 따라 서비스가 어떻게 동작하는가"만 검증한다
+// 요일·시각 경계 규칙 자체(요일이 다르면 안 겹침, 종료-시작이 맞닿으면 안 겹침 등)는 리포지토리 테스트에서 검증한다
 @ExtendWith(MockitoExtension.class)
 @DisplayName("제공 가능 일정 등록")
 class ProvideWorkCommandServiceTest {
@@ -89,6 +90,12 @@ class ProvideWorkCommandServiceTest {
         return provideWork;
     }
 
+    // 겹침 조회 결과를 고정한다 (실제 판정은 리포지토리 쿼리가 담당)
+    private void givenOverlapped(boolean overlapped) {
+        given(provideWorkQueryRepository.existsOverlapped(any(), any(), any(), any(), any()))
+                .willReturn(overlapped);
+    }
+
     @Nested
     @DisplayName("성공")
     class Success {
@@ -100,7 +107,7 @@ class ProvideWorkCommandServiceTest {
             ProvideWork saved = savedProvideWork();
 
             given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId)).willReturn(List.of());
+            givenOverlapped(false);
             given(provideWorkCommandRepository.save(any(ProvideWork.class))).willReturn(saved);
 
             ProvideWorkCreateResult result = provideWorkCommandService.create(
@@ -111,39 +118,20 @@ class ProvideWorkCommandServiceTest {
         }
 
         @Test
-        @DisplayName("요일이 다르면 시간이 같아도 등록된다")
-        void create_differentDay() {
+        @DisplayName("겹침 조회에 제공 서비스·요일·시간이 그대로 전달된다")
+        void create_passesQueryArguments() {
             ServiceOffering offering = ownedOffering();
             ProvideWork saved = savedProvideWork();
-            ProvideWork existing = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
             given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
-                    .willReturn(List.of(existing));
+            givenOverlapped(false);
             given(provideWorkCommandRepository.save(any(ProvideWork.class))).willReturn(saved);
 
-            ProvideWorkCreateResult result = provideWorkCommandService.create(
-                    command(TUESDAY, LocalTime.of(9, 0), LocalTime.of(13, 0)));
+            provideWorkCommandService.create(command(TUESDAY, LocalTime.of(9, 0), LocalTime.of(13, 0)));
 
-            assertThat(result.provideWorkId()).isEqualTo(provideWorkId);
-        }
-
-        @Test
-        @DisplayName("앞 일정의 종료 시각과 시작 시각이 같으면 겹치지 않는다")
-        void create_adjacentTime() {
-            ServiceOffering offering = ownedOffering();
-            ProvideWork saved = savedProvideWork();
-            ProvideWork morning = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
-
-            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
-                    .willReturn(List.of(morning));
-            given(provideWorkCommandRepository.save(any(ProvideWork.class))).willReturn(saved);
-
-            ProvideWorkCreateResult result = provideWorkCommandService.create(
-                    command(MONDAY, LocalTime.of(13, 0), LocalTime.of(18, 0)));
-
-            assertThat(result.provideWorkId()).isEqualTo(provideWorkId);
+            // 등록이므로 제외 대상(excludedProvideWorkId)은 null이어야 한다
+            verify(provideWorkQueryRepository).existsOverlapped(
+                    serviceOfferingId, null, TUESDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
         }
     }
 
@@ -162,7 +150,7 @@ class ProvideWorkCommandServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND);
 
-            verify(provideWorkQueryRepository, never()).findAllByServiceOfferingId(any());
+            verify(provideWorkQueryRepository, never()).existsOverlapped(any(), any(), any(), any(), any());
             verify(provideWorkCommandRepository, never()).save(any());
         }
 
@@ -180,41 +168,20 @@ class ProvideWorkCommandServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.AUTH_FORBIDDEN);
 
-            verify(provideWorkQueryRepository, never()).findAllByServiceOfferingId(any());
+            verify(provideWorkQueryRepository, never()).existsOverlapped(any(), any(), any(), any(), any());
             verify(provideWorkCommandRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("같은 요일에 시간이 겹치면 PROVIDE_WORK_TIME_OVERLAP")
+        @DisplayName("겹치는 일정이 있으면 PROVIDE_WORK_TIME_OVERLAP")
         void timeOverlap() {
             ServiceOffering offering = ownedOffering();
-            ProvideWork existing = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
             given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
-                    .willReturn(List.of(existing));
+            givenOverlapped(true);
 
             assertThatThrownBy(() -> provideWorkCommandService.create(
                     command(MONDAY, LocalTime.of(12, 0), LocalTime.of(15, 0))))
-                    .isInstanceOf(BusinessException.class)
-                    .extracting(e -> ((BusinessException) e).getErrorCode())
-                    .isEqualTo(ProviderErrorCode.PROVIDE_WORK_TIME_OVERLAP);
-
-            verify(provideWorkCommandRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("기존 일정을 완전히 포함해도 PROVIDE_WORK_TIME_OVERLAP")
-        void timeOverlap_contains() {
-            ServiceOffering offering = ownedOffering();
-            ProvideWork existing = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(10, 0), LocalTime.of(11, 0));
-
-            given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
-                    .willReturn(List.of(existing));
-
-            assertThatThrownBy(() -> provideWorkCommandService.create(
-                    command(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0))))
                     .isInstanceOf(BusinessException.class)
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.PROVIDE_WORK_TIME_OVERLAP);
@@ -228,7 +195,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = ownedOffering();
 
             given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId)).willReturn(List.of());
+            givenOverlapped(false);
 
             assertThatThrownBy(() -> provideWorkCommandService.create(
                     command(MONDAY, LocalTime.of(13, 0), LocalTime.of(9, 0))))
@@ -245,7 +212,7 @@ class ProvideWorkCommandServiceTest {
             ServiceOffering offering = ownedOffering();
 
             given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId)).willReturn(List.of());
+            givenOverlapped(false);
 
             assertThatThrownBy(() -> provideWorkCommandService.create(
                     command(MONDAY, LocalTime.of(9, 0), LocalTime.of(9, 0))))
@@ -269,8 +236,7 @@ class ProvideWorkCommandServiceTest {
 
             given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
-                    .willReturn(List.of(provideWork));
+            givenOverlapped(false);
 
             ProvideWorkUpdateResult result = provideWorkCommandService.update(
                     updateCommand(TUESDAY, LocalTime.of(14, 0), LocalTime.of(18, 0)));
@@ -282,21 +248,24 @@ class ProvideWorkCommandServiceTest {
         }
 
         @Test
-        @DisplayName("시간을 바꾸지 않고 요일만 수정해도 자기 자신과는 겹치지 않는다")
+        @DisplayName("겹침 조회에 자기 자신이 제외 대상으로 전달된다")
         void update_excludesItself() {
             ServiceOffering offering = ownedOffering();
             ProvideWork provideWork = existingProvideWork(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
 
             given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
-                    .willReturn(List.of(provideWork));
+            givenOverlapped(false);
 
             ProvideWorkUpdateResult result = provideWorkCommandService.update(
                     updateCommand(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0)));
 
             assertThat(result.provideWorkId()).isEqualTo(provideWorkId);
             assertThat(provideWork.getDay()).isEqualTo(MONDAY);
+
+            // 수정 대상 자신은 겹침 대상에서 빠져야 하므로 provideWorkId가 제외 인자로 넘어간다
+            verify(provideWorkQueryRepository).existsOverlapped(
+                    serviceOfferingId, provideWorkId, MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
         }
 
         @Test
@@ -304,13 +273,10 @@ class ProvideWorkCommandServiceTest {
         void update_timeOverlap() {
             ServiceOffering offering = ownedOffering();
             ProvideWork target = existingProvideWork(MONDAY, LocalTime.of(9, 0), LocalTime.of(13, 0));
-            ProvideWork other = ProvideWork.of(serviceOfferingId, MONDAY, LocalTime.of(13, 0), LocalTime.of(18, 0));
-            ReflectionTestUtils.setField(other, "id", UUID.randomUUID());
 
             given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(target));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
-                    .willReturn(List.of(target, other));
+            givenOverlapped(true);
 
             assertThatThrownBy(() -> provideWorkCommandService.update(
                     updateCommand(MONDAY, LocalTime.of(12, 0), LocalTime.of(15, 0))))
@@ -383,7 +349,7 @@ class ProvideWorkCommandServiceTest {
                     .extracting(e -> ((BusinessException) e).getErrorCode())
                     .isEqualTo(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND);
 
-            verify(provideWorkQueryRepository, never()).findAllByServiceOfferingId(any());
+            verify(provideWorkQueryRepository, never()).existsOverlapped(any(), any(), any(), any(), any());
         }
 
         @Test
@@ -394,8 +360,7 @@ class ProvideWorkCommandServiceTest {
 
             given(serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)).willReturn(Optional.of(offering));
             given(provideWorkQueryRepository.findById(provideWorkId)).willReturn(Optional.of(provideWork));
-            given(provideWorkQueryRepository.findAllByServiceOfferingId(serviceOfferingId))
-                    .willReturn(List.of(provideWork));
+            givenOverlapped(false);
 
             assertThatThrownBy(() -> provideWorkCommandService.update(
                     updateCommand(MONDAY, LocalTime.of(18, 0), LocalTime.of(14, 0))))
