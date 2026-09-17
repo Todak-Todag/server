@@ -18,8 +18,12 @@ spring:
     username: ${RABBITMQ_USERNAME}
     password: ${RABBITMQ_PASSWORD}
 
+    template:
+      observation-enabled: true
+
     listener:
       simple:
+        observation-enabled: true
         # 수신 재시도 3회, 소진 시 원래 큐로 되돌리지 않고 DLQ로 이동
         default-requeue-rejected: false
         retry:
