@@ -4,6 +4,7 @@ import com.todak_todag.discharge_service.global.response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -222,6 +223,24 @@ public class GlobalExceptionHandler {
                 Map.of(
                         "reason",
                         ErrorCode.AUTH_FORBIDDEN.getMessage()
+                )
+        );
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockingFailure(
+            ObjectOptimisticLockingFailureException e
+    ) {
+        log.warn(
+                "[Discharge][OptimisticLockingFailure] message={}",
+                e.getMessage()
+        );
+
+        return createResponse(
+                ErrorCode.DISCHARGE_CONCURRENT_MODIFICATION,
+                Map.of(
+                        "reason",
+                        "동일한 퇴원건이 이미 변경되었습니다. 최신 상태를 확인한 후 다시 시도해주세요."
                 )
         );
     }

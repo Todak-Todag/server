@@ -58,6 +58,11 @@ public enum ErrorCode {
             "허용되지 않은 퇴원 상태 변경입니다."
     ),
 
+    DISCHARGE_CONCURRENT_MODIFICATION(
+            HttpStatus.CONFLICT,
+            "동일한 퇴원건이 이미 변경되었습니다."
+    ),
+
     COMMON_INTERNAL_SERVER_ERROR(
             HttpStatus.INTERNAL_SERVER_ERROR,
             "서버 내부 오류가 발생했습니다."
