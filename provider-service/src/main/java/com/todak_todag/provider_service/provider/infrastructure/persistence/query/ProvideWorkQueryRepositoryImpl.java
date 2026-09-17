@@ -6,6 +6,7 @@ import com.todak_todag.provider_service.provider.infrastructure.persistence.JpaP
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,5 +30,18 @@ public class ProvideWorkQueryRepositoryImpl implements ProvideWorkQueryRepositor
     @Override
     public List<ProvideWork> findAllByServiceOfferingIdIn(List<UUID> serviceOfferingIds) {
         return jpaProvideWorkRepository.findAllByServiceOfferingIdIn(serviceOfferingIds);
+    }
+
+    @Override
+    public boolean existsOverlapped(
+            UUID serviceOfferingId,
+            UUID excludedProvideWorkId,
+            Integer day,
+            LocalTime startedAt,
+            LocalTime finishedAt
+    ) {
+        return jpaProvideWorkRepository.existsOverlapped(
+                serviceOfferingId, excludedProvideWorkId, day, startedAt, finishedAt
+        );
     }
 }
