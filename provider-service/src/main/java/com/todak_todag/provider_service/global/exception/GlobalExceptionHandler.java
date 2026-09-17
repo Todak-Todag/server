@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -123,6 +124,17 @@ public class GlobalExceptionHandler {
         log.error("[Provider] 외부 서비스 호출 실패 status={}", e.status(), e);
         return ResponseEntity.status(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE.getStatus())
                 .body(ErrorResponse.of(ProviderErrorCode.EXTERNAL_SERVICE_UNAVAILABLE));
+    }
+
+    // 커넥션 풀이 고갈돼 커넥션을 받지 못한 경우다
+    // 트랜잭션이 시작조차 되지 않아 데이터는 변경되지 않았고, 재시도하면 성공할 수 있다
+    // 일반 500으로 내보내면 클라이언트가 재시도 가능 여부를 판단할 수 없어 따로 구분한다
+    @ExceptionHandler(CannotCreateTransactionException.class)
+    public ResponseEntity<ErrorResponse> handleConnectionTimeout(CannotCreateTransactionException e) {
+        log.warn("[Provider] DB 커넥션 획득 실패 — 재시도 가능", e);
+
+        return ResponseEntity.status(CommonErrorCode.SERVICE_BUSY.getStatus())
+                .body(ErrorResponse.of(CommonErrorCode.SERVICE_BUSY));
     }
 
     @ExceptionHandler(Exception.class)
