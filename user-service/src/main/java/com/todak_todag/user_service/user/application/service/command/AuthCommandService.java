@@ -159,29 +159,30 @@ public class AuthCommandService {
 		
 		LocalDateTime now = LocalDateTime.now();
 		String refreshTokenHash = tokenPort.hashToken(refreshToken);
-		
+
+		// 동시 로그인 시 두 요청이 모두 "활성 세션 없음"을 보고 둘 다 INSERT를 시도할 수 있다.
+		// ux_p_auths_user_active 유니크 인덱스가 하나만 통과시키는데, PostgreSQL은 한 트랜잭션
+		// 안에서 statement 하나가 실패하면 그 트랜잭션 전체가 abort 상태가 되어 같은 트랜잭션
+		// 안에서는 더 이상 아무 것도 할 수 없다. 그래서 재시도는 여기서 하지 않고, 새 트랜잭션으로
+		// 다시 호출해야 하는 호출자(AuthFacade)에게 예외를 그대로 던진다.
 		Auth loginSession = authQueryRepo.findActiveByUserId(user.getId())
 				.map(existing -> {
 					existing.renew(refreshTokenHash, now.plus(refreshExpiration));
-					
 					return existing;
 				})
-				.orElseGet(() -> authCommandRepo.save(Auth.login(
-						user.getId(),
-						refreshTokenHash,
-						now.plus(refreshExpiration),
-						now))
-				);
-		
+				.orElseGet(() -> authCommandRepo.save(
+						Auth.login(user.getId(), refreshTokenHash, now.plus(refreshExpiration), now)
+				));
+
 		tokenStorePort.storeAccessToken(user.getId(), accessToken, jwtAccessToken);
-		
+
 		log.info(
 				"[User] 로그인 완료 userId={}, role={}, authId={}",
 				user.getId(),
 				user.getRole(),
 				loginSession.getId()
 		);
-		
+
 		return new AuthLoginResult(loginSession.getUserId(), accessToken, refreshToken);
 	}
 

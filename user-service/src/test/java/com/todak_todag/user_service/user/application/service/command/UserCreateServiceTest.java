@@ -141,13 +141,13 @@ class UserCreateServiceTest {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			UserSignupCreatedResult result = userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
-			verify(userCommandRepo, times(1)).save(any(User.class));
+			verify(userCommandRepo, times(1)).saveAndFlush(any(User.class));
 			assertThat(result.userId()).isEqualTo(SAVED_USER_ID);
 			assertThat(result.name()).isEqualTo(NAME);
 		}
@@ -158,14 +158,14 @@ class UserCreateServiceTest {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.SOCIAL_WORKER);
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
+			verify(userCommandRepo).saveAndFlush(captor.capture());
 
 			assertThat(captor.getValue().getStatus()).isEqualTo(UserStatus.PENDING);
 		}
@@ -176,14 +176,14 @@ class UserCreateServiceTest {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.SERVICE_PROVIDER);
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
+			verify(userCommandRepo).saveAndFlush(captor.capture());
 
 			assertThat(captor.getValue().getPasswordHash())
 					.isEqualTo(HASHED_PASSWORD)
@@ -196,14 +196,14 @@ class UserCreateServiceTest {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
+			verify(userCommandRepo).saveAndFlush(captor.capture());
 
 			User saved = captor.getValue();
 
@@ -227,7 +227,7 @@ class UserCreateServiceTest {
 					.extracting(e -> ((BusinessException) e).getErrorCode())
 					.isEqualTo(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 
-			verify(userCommandRepo, never()).save(any(User.class));
+			verify(userCommandRepo, never()).saveAndFlush(any(User.class));
 		}
 
 		@ParameterizedTest(name = "{0} 유형은 회원가입할 수 없다")
@@ -244,7 +244,7 @@ class UserCreateServiceTest {
 					.extracting(e -> ((BusinessException) e).getErrorCode())
 					.isEqualTo(UserErrorCode.USER_INVALID_CREATE_ROLE);
 
-			verify(userCommandRepo, never()).save(any(User.class));
+			verify(userCommandRepo, never()).saveAndFlush(any(User.class));
 		}
 
 		@Test
@@ -253,7 +253,7 @@ class UserCreateServiceTest {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
@@ -261,7 +261,7 @@ class UserCreateServiceTest {
 			// Then
 			InOrder inOrder = inOrder(userQueryRepo, userCommandRepo, consentCommandRepo);
 			inOrder.verify(userQueryRepo).duplicateUsername(USERNAME);
-			inOrder.verify(userCommandRepo).save(any(User.class));
+			inOrder.verify(userCommandRepo).saveAndFlush(any(User.class));
 			inOrder.verify(consentCommandRepo).saveAll(any());
 		}
 
@@ -271,7 +271,7 @@ class UserCreateServiceTest {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of(TERMS_ID));
@@ -292,7 +292,7 @@ class UserCreateServiceTest {
 			// Given
 			UserSignupCommand command = signupCommand(UserRole.HOSPITAL_STAFF);
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserSignup(command, HASHED_PASSWORD, Set.of());
@@ -319,13 +319,13 @@ class UserCreateServiceTest {
 			// Given
 			Region region = region();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			UserAdminCreatedResult result = userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region);
 
 			// Then
-			verify(userCommandRepo, times(1)).save(any(User.class));
+			verify(userCommandRepo, times(1)).saveAndFlush(any(User.class));
 			assertThat(result.userId()).isEqualTo(SAVED_USER_ID);
 			assertThat(result.name()).isEqualTo(NAME);
 			assertThat(result.province()).isEqualTo("전라남도");
@@ -337,14 +337,14 @@ class UserCreateServiceTest {
 		void createUserAdminTest_statusAndRole() {
 			// Given
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region());
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
+			verify(userCommandRepo).saveAndFlush(captor.capture());
 
 			assertThat(captor.getValue().getStatus()).isEqualTo(UserStatus.APPROVED);
 			assertThat(captor.getValue().getRole()).isEqualTo(UserRole.ADMIN);
@@ -355,14 +355,14 @@ class UserCreateServiceTest {
 		void createUserAdminTest_storesGivenPasswordHash() {
 			// Given
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region());
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
+			verify(userCommandRepo).saveAndFlush(captor.capture());
 
 			assertThat(captor.getValue().getPasswordHash())
 					.isEqualTo(HASHED_PASSWORD)
@@ -374,14 +374,14 @@ class UserCreateServiceTest {
 		void createUserAdminTest_fieldMapping() {
 			// Given
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region());
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
+			verify(userCommandRepo).saveAndFlush(captor.capture());
 
 			User saved = captor.getValue();
 
@@ -404,7 +404,7 @@ class UserCreateServiceTest {
 					.extracting(e -> ((BusinessException) e).getErrorCode())
 					.isEqualTo(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 
-			verify(userCommandRepo, never()).save(any(User.class));
+			verify(userCommandRepo, never()).saveAndFlush(any(User.class));
 		}
 
 		@Test
@@ -412,7 +412,7 @@ class UserCreateServiceTest {
 		void createUserAdminTest_executionOrder() {
 			// Given
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserAdmin(adminCreateCommand(), HASHED_PASSWORD, region());
@@ -420,7 +420,7 @@ class UserCreateServiceTest {
 			// Then
 			InOrder inOrder = inOrder(userQueryRepo, userCommandRepo);
 			inOrder.verify(userQueryRepo).duplicateUsername(USERNAME);
-			inOrder.verify(userCommandRepo).save(any(User.class));
+			inOrder.verify(userCommandRepo).saveAndFlush(any(User.class));
 		}
 	}
 
@@ -434,13 +434,13 @@ class UserCreateServiceTest {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			UserPatientCreatedResult result = userCreateService.createUserPatient(command, HASHED_PASSWORD);
 
 			// Then
-			verify(userCommandRepo, times(1)).save(any(User.class));
+			verify(userCommandRepo, times(1)).saveAndFlush(any(User.class));
 			assertThat(result.patientId()).isEqualTo(SAVED_USER_ID);
 			assertThat(result.hospitalStaffId()).isEqualTo(HOSPITAL_STAFF_ID);
 			assertThat(result.name()).isEqualTo(NAME);
@@ -454,14 +454,14 @@ class UserCreateServiceTest {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserPatient(command, HASHED_PASSWORD);
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
+			verify(userCommandRepo).saveAndFlush(captor.capture());
 
 			assertThat(captor.getValue().getStatus()).isEqualTo(UserStatus.WITHDRAWN);
 			// 약관 동의 전까지는 PATIENT 가 아니라 PATIENT_CONSENT 로 발급된다.
@@ -476,14 +476,14 @@ class UserCreateServiceTest {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserPatient(command, HASHED_PASSWORD);
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
+			verify(userCommandRepo).saveAndFlush(captor.capture());
 
 			assertThat(captor.getValue().getPasswordHash())
 					.isEqualTo(HASHED_PASSWORD)
@@ -496,14 +496,14 @@ class UserCreateServiceTest {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserPatient(command, HASHED_PASSWORD);
 
 			// Then
 			ArgumentCaptor<User> captor = ArgumentCaptor.forClass(User.class);
-			verify(userCommandRepo).save(captor.capture());
+			verify(userCommandRepo).saveAndFlush(captor.capture());
 
 			User saved = captor.getValue();
 
@@ -527,7 +527,7 @@ class UserCreateServiceTest {
 					.extracting(e -> ((BusinessException) e).getErrorCode())
 					.isEqualTo(UserErrorCode.USER_DUPLICATE_LOGIN_ID);
 
-			verify(userCommandRepo, never()).save(any(User.class));
+			verify(userCommandRepo, never()).saveAndFlush(any(User.class));
 		}
 
 		@Test
@@ -536,7 +536,7 @@ class UserCreateServiceTest {
 			// Given
 			UserPatientCreateCommand command = patientCreateCommand();
 			given(userQueryRepo.duplicateUsername(USERNAME)).willReturn(false);
-			given(userCommandRepo.save(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
+			given(userCommandRepo.saveAndFlush(any(User.class))).willAnswer(i -> withGeneratedId(i.getArgument(0)));
 
 			// When
 			userCreateService.createUserPatient(command, HASHED_PASSWORD);
@@ -544,7 +544,7 @@ class UserCreateServiceTest {
 			// Then
 			InOrder inOrder = inOrder(userQueryRepo, userCommandRepo);
 			inOrder.verify(userQueryRepo).duplicateUsername(USERNAME);
-			inOrder.verify(userCommandRepo).save(any(User.class));
+			inOrder.verify(userCommandRepo).saveAndFlush(any(User.class));
 		}
 	}
 

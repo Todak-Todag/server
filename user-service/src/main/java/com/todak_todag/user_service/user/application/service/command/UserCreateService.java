@@ -117,9 +117,10 @@ public class UserCreateService {
     }
 
     // 재검증까지 통과한 뒤 그 찰나에 커밋된 동시 요청 — 유니크 인덱스(ux_p_users_username_active)가 최종 방어선
+    // saveAndFlush로 이 자리에서 바로 INSERT를 실행해야 유니크 제약 위반이 여기서 잡힌다.
     private User saveOrThrowDuplicate(User user, String username, String action) {
         try {
-            return userCommandRepo.save(user);
+            return userCommandRepo.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
             log.info("[User] 동시 요청으로 {} 중 아이디 중복 충돌이 발생했습니다. username={}", action, MaskingUtil.maskUsername(username));
             throw new BusinessException(UserErrorCode.USER_DUPLICATE_LOGIN_ID);

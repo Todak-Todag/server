@@ -1,7 +1,9 @@
 package com.todak_todag.user_service.user.application.facade;
 
 import java.time.Duration;
+import java.util.UUID;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
@@ -81,7 +83,23 @@ public class AuthFacade {
 		String accessToken = tokenPort.createToken();
 		String jwtAccessToken = tokenPort.createJwtAccessToken(snapshot.userId(), snapshot.role());
 		String refreshToken = tokenPort.createToken();
-		
-		return authCommandService.completeLogin(snapshot.userId(), accessToken, jwtAccessToken, refreshToken);
+
+		return completeLoginWithRetry(snapshot.userId(), accessToken, jwtAccessToken, refreshToken);
+	}
+
+	// 동시 로그인으로 세션 생성이 유니크 제약(ux_p_auths_user_active)에 걸리면
+	// completeLogin의 트랜잭션 전체가 롤백되며 예외가 여기까지 올라온다.
+	// PostgreSQL은 실패한 트랜잭션을 이어서 쓸 수 없으므로, 완전히 새 트랜잭션으로 한 번 더 시도한다.
+	// 재시도 시점엔 먼저 이긴 요청의 세션이 이미 커밋되어 있어 renew 경로로 정상 처리된다.
+	private AuthLoginResult completeLoginWithRetry(
+			UUID userId, String accessToken, String jwtAccessToken, String refreshToken
+	) {
+		try {
+			return authCommandService.completeLogin(userId, accessToken, jwtAccessToken, refreshToken);
+		} catch (DataIntegrityViolationException e) {
+			log.info("[User] 동시 로그인으로 세션 생성이 충돌해 재시도합니다. userId={}", userId);
+
+			return authCommandService.completeLogin(userId, accessToken, jwtAccessToken, refreshToken);
+		}
 	}
 }

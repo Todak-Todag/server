@@ -18,5 +18,5 @@ public class AuthCommandRepositoryImpl implements AuthCommandRepository {
 	public Auth save(Auth auth) {
 		return jpaRepo.save(auth);
 	}
-	
+
 }
