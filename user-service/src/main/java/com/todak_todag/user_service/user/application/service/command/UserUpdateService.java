@@ -206,6 +206,11 @@ public class UserUpdateService {
 	
 	@Transactional(rollbackFor = Exception.class)
 	public UUID suspend(UserSuspendCommand command) {
+		// 0. 정지시 정지사유 검증
+		if(command.suspendReason() == null || command.suspendReason().isBlank()) {
+			throw new BusinessException(UserErrorCode.USER_SUSPEND_NOT_MESSAGE);
+		}
+		
 		// 1. 요청자의 신원이 뭐니?
 		UserRole requesterRole = command.requesterRole();
 		
