@@ -11,3 +11,15 @@ groups:
         annotations:
           summary: "{{ $labels.job }} Down"
           description: "{{ $labels.job }}가 5분 이상 Prometheus에 응답하지 않습니다."
+
+      # 서비스별 CPU 사용률이 50% 이상으로 5분 지속되면 알림
+      - alert: ServiceHighCpu
+        expr: process_cpu_usage{job=~"api-gateway|user-service|discharge-service|social-worker-service|provider-service|schedule-service|care-plan-service"} * 100 >= 50
+        for: 5m
+
+        labels:
+          severity: warning
+
+        annotations:
+          summary: "{{ $labels.job }} CPU 사용률 높음"
+          description: "{{ $labels.job }}의 CPU 사용률이 5분 이상 50% 이상입니다. 현재 값: {{ printf \"%.1f\" $value }}%"
