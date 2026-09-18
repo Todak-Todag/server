@@ -235,7 +235,7 @@ public class UserUpdateService {
 						user.getId()
 				);
 
-				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+				throw new BusinessException(CommonErrorCode.AUTH_FORBIDDEN);
 			}
 			
 			// 3-2. ADMIN 은 같은 지역내 사용자만 정지가 가능하다.
@@ -249,7 +249,7 @@ public class UserUpdateService {
 						user.getId()
 				);
 
-				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+				throw new BusinessException(CommonErrorCode.AUTH_FORBIDDEN);
 			}
 		}
 		
