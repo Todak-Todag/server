@@ -28,7 +28,7 @@ public class UserQueryRepositoryImpl implements UserQueryRepository {
 
 	@Override
 	public Optional<User> findLoginByUsername(String username) {
-		return jpaRepo.findByUsernameAndStatusInAndDeletedAtIsNull(username, List.of(UserStatus.APPROVED, UserStatus.WITHDRAWN, UserStatus.PENDING));
+		return jpaRepo.findByUsernameAndStatusInAndDeletedAtIsNull(username, List.of(UserStatus.APPROVED, UserStatus.WITHDRAWN, UserStatus.PENDING, UserStatus.SUSPENDED));
 	}
 
 	@Override
