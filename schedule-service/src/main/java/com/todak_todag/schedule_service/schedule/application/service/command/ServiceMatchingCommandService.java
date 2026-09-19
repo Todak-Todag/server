@@ -11,6 +11,7 @@ import com.todak_todag.schedule_service.schedule.domain.repository.command.Servi
 import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,9 +74,12 @@ public class ServiceMatchingCommandService {
         restoreRescheduledIfPresent(event);
     }
 
-    // 동일 이벤트 중복 수신 방어
+    // 동일 이벤트 중복 수신 방어 (1차) — 이미 처리된 재전송을 조용히 skip 시키는 정상 경로
     // 페이로드에 이벤트 ID가 없어, 같은 매칭 결과를 특정하는 값들의 조합을 대체 키로 사용
     // matchedAt(매칭 확정 일시)이 포함되어 있어, 같은 희망 일정이 나중에 다시 매칭되는 정상 케이스와는 구분
+    //
+    // 이 조회만으로는 check-then-act 사이에 끼어든 동시 수신을 막지 못해, 같은 조합의 부분 유니크
+    // 인덱스를 V2에 추가해 DB를 최종 방어선으로 사용 (recordAttempt의 catch 참고)
     private boolean alreadyApplied(ProviderMatchedEvent event) {
         return serviceMatchingAttemptCommandRepository.existsMatched(
                 event.servicePreferenceId(),
@@ -103,7 +107,20 @@ public class ServiceMatchingCommandService {
                 null
         );
 
-        serviceMatchingAttemptCommandRepository.save(attempt);
+        // 위 alreadyApplied와 이 적재 사이에 같은 이벤트가 끼어들면 V2의 유니크 인덱스에 걸림
+        // Postgres는 제약 위반 시 트랜잭션 전체를 abort하므로 여기서 정상 흐름으로 되돌릴 수는 없고,
+        // 커밋 시점의 불투명한 실패 대신 원인이 드러나는 로그를 남기는 것이 이 catch의 목적
+        // (중복이라 아무것도 이중 기록되지 않은 상태이므로, DLQ로 간 메시지는 폐기해도 안전)
+        try {
+            serviceMatchingAttemptCommandRepository.save(attempt);
+        } catch (DataIntegrityViolationException e) {
+            log.error(
+                    "[Schedule] 같은 ProviderMatched가 이미 기록되어 있어 중복 적재에 실패했습니다 "
+                            + "servicePreferenceId={} serviceOfferingId={} date={} matchedAt={}",
+                    event.servicePreferenceId(), event.serviceOfferingId(), event.date(), event.matchedAt(), e
+            );
+            throw e;
+        }
 
         log.info(
                 "[Schedule] 매칭 시도 결과 기록 matchingAttemptId={} servicePreferenceId={} serviceOfferingId={}",
@@ -111,7 +128,7 @@ public class ServiceMatchingCommandService {
         );
     }
 
-    // 동일 실패 이벤트 중복 수신 방어
+    // 동일 실패 이벤트 중복 수신 방어 (1차) — 성공 쪽과 같은 이유로 DB 부분 유니크 인덱스가 뒤를 받침
     // 실패 페이로드에는 serviceOfferingId가 없어 failedAt(실패 판정 일시)을 대체 키에 포함
     private boolean alreadyApplied(ProviderMatchFailedEvent event) {
         return serviceMatchingAttemptCommandRepository.existsFailed(
@@ -139,7 +156,17 @@ public class ServiceMatchingCommandService {
                 event.failedAt()
         );
 
-        serviceMatchingAttemptCommandRepository.save(attempt);
+        // 성공 경로와 같은 이유 — 동시 수신이 유니크 인덱스에 걸렸을 때 원인을 남기고 다시 던짐
+        try {
+            serviceMatchingAttemptCommandRepository.save(attempt);
+        } catch (DataIntegrityViolationException e) {
+            log.error(
+                    "[Schedule] 같은 ProviderMatchFailed가 이미 기록되어 있어 중복 적재에 실패했습니다 "
+                            + "servicePreferenceId={} date={} failedAt={}",
+                    event.servicePreferenceId(), event.date(), event.failedAt(), e
+            );
+            throw e;
+        }
 
         log.info(
                 "[Schedule] 매칭 실패 결과 기록 matchingAttemptId={} servicePreferenceId={} date={} failureReason={}",
