@@ -62,6 +62,13 @@ schedule/
 | matched_at | Instant |  |  | O | 매칭 성공 일시 |
 | failed_at | Instant |  |  | O | 매칭 실패 일시 |
 
+매칭 이벤트 중복 수신을 DB에서 막기 위해 부분 유니크 인덱스 2개를 둔다 (V2). 각각 `ServiceMatchingCommandService.alreadyApplied`가 쓰는 대체 키와 컬럼 구성·조건이 일치해야 한다 — 자세한 배경은 5.3절과 13번 문서 참고.
+
+| 인덱스 | 컬럼 | 조건 |
+| --- | --- | --- |
+| `ux_p_service_matching_attempts_matched` | `service_preference_id`, `service_offering_id`, `date`, `matched_at` | `status = 'MATCHED' AND deleted_at IS NULL` |
+| `ux_p_service_matching_attempts_failed` | `service_preference_id`, `date`, `failed_at` | `status = 'FAILED' AND deleted_at IS NULL` |
+
 ### `p_service_schedules` — 서비스 일정 (`BaseAuditableEntity`)
 
 | 컬럼명 | 타입 | PK | FK/참조 | Nullable | 제약조건/기본값 | 설명 |
@@ -312,6 +319,9 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
 - **중복 수신 방어**: 페이로드에 이벤트 ID가 없어, 같은 매칭 결과를 특정하는 값 조합을 대체 키로 쓴다.
   - 성공: `servicePreferenceId` + `serviceOfferingId` + `date` + `matchedAt`
   - 실패: `servicePreferenceId` + `date` + `failedAt`
+  - 방어선은 **두 겹**이다. 애플리케이션(`alreadyApplied`)이 이미 처리된 재전송을 skip하고, 그 조회와 적재 사이를 파고든 동시 수신은 `p_service_matching_attempts`의 부분 유니크 인덱스(`ux_..._matched` / `ux_..._failed`, V2)가 막는다. 인덱스의 컬럼 구성과 `status`/`deleted_at` 조건은 두 `exists` 쿼리와 반드시 일치해야 한다.
+  - 위반 시 `DataIntegrityViolationException`을 로그 후 재던진다 — Postgres가 트랜잭션을 abort해 정상 복귀가 불가능하기 때문이며, `CarePlanCompleted` 아웃박스 유니크 인덱스와 같은 처리다.
+  - **남은 한계**: 대체 키에 타임스탬프가 들어가는 한 마이크로초 이상 어긋난 재전송은 별개 매칭으로 처리된다. 실제 재전송 경로(아웃박스 릴레이 재시도/브로커 재전달/DLQ 재투입)는 provider-service가 저장된 페이로드를 그대로 재발행해 타임스탬프가 바뀌지 않으므로 이 상황에 닿지 않지만, 근본 해결은 발행 측이 `eventId`(provider 아웃박스의 `outbox_event_id`)를 페이로드에 싣는 것이며, **후속 작업으로 남아있다** → `13_이벤트수신_ProviderMatched.md`의 "남아있는 한계" 참고.
 - 페이로드에 `finishedAt`이 없는 문제는 **MVP 단계에서 서비스 소요 시간을 1시간으로 고정**(`ServiceMatchingCommandService.DEFAULT_SERVICE_DURATION`)해 `finishedAt = startedAt + 1h`로 계산하는 것으로 처리했다. 서비스별 소요 시간이 달라지면 페이로드 확장이 필요하다.
 - 리스너는 `BusinessException`을 잡아 로그를 남긴 뒤 다시 던진다. 재시도(3회)를 소진한 메시지는 폐기되지 않고 `schedule.dlx.exchange`를 거쳐 각 큐의 DLQ(`schedule.*.dlq.queue`)에 보존되며, 원인 해결 후 원래 큐로 되돌려 재처리한다(멱등 대체 키가 중복 적재를 막는다).
 
