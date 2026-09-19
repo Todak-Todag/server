@@ -28,8 +28,8 @@ public class ServiceMatchingAttemptCommandRepositoryImpl implements ServiceMatch
     }
 
     @Override
-    public Optional<ServiceMatchingAttempt> findById(UUID matchingAttemptId) {
-        return springDataServiceMatchingAttemptRepository.findByIdAndDeletedAtIsNull(matchingAttemptId);
+    public Optional<ServiceMatchingAttempt> findByIdForUpdate(UUID matchingAttemptId) {
+        return springDataServiceMatchingAttemptRepository.findByIdForUpdate(matchingAttemptId);
     }
 
     @Override

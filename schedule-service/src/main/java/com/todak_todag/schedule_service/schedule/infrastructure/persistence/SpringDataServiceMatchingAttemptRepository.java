@@ -2,8 +2,10 @@ package com.todak_todag.schedule_service.schedule.infrastructure.persistence;
 
 import com.todak_todag.schedule_service.schedule.domain.entity.MatchingAttemptStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +20,17 @@ public interface SpringDataServiceMatchingAttemptRepository extends JpaRepositor
 
     // 소프트 삭제된 기록은 조회 대상에서 제외
     Optional<ServiceMatchingAttempt> findByIdAndDeletedAtIsNull(UUID id);
+
+    // 위와 같은 단건 조회지만 로우에 쓰기 락을 걸어 같은 매칭 시도에 대한 동시 재시도 접수를 직렬화
+    // 락 획득 순간의 최신 상태를 읽어야 하므로 1차 캐시가 아닌 DB를 다시 보게 되는 경로여야 함
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select attempt
+            from ServiceMatchingAttempt attempt
+            where attempt.id = :id
+              and attempt.deletedAt is null
+            """)
+    Optional<ServiceMatchingAttempt> findByIdForUpdate(@Param("id") UUID id);
 
     // 해당 희망 일정에서 성사된(MATCHED) 가장 최근 매칭 시도 1건 — 소프트 삭제분은 제외
     Optional<ServiceMatchingAttempt> findFirstByServicePreferenceIdAndStatusAndDeletedAtIsNullOrderByMatchedAtDescCreatedAtDesc(
