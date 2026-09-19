@@ -160,6 +160,8 @@ public class ServiceMatchingCommandService {
         }
 
         // 한 희망 일정에 RESCHEDULING이 둘 이상 존재할 경우 오류 반환
+        // 일정 변경 접수가 로우 쓰기 락으로 직렬화된 뒤로는 정상 경로에서 도달하지 않지만,
+        // 과거 데이터나 수동 보정으로 생긴 이상 상태를 조용히 넘기지 않기 위한 방어선으로 남김
         if (rescheduling.size() > 1) {
             throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_MULTIPLE_RESCHEDULING);
         }
@@ -187,6 +189,8 @@ public class ServiceMatchingCommandService {
         }
 
         // 한 희망 일정에 RESCHEDULING이 둘 이상 존재할 경우 오류 반환
+        // 일정 변경 접수가 로우 쓰기 락으로 직렬화된 뒤로는 정상 경로에서 도달하지 않지만,
+        // 과거 데이터나 수동 보정으로 생긴 이상 상태를 조용히 넘기지 않기 위한 방어선으로 남김
         if (rescheduling.size() > 1) {
             throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_MULTIPLE_RESCHEDULING);
         }
