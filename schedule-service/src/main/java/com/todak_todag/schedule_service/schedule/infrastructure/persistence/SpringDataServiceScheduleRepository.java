@@ -2,7 +2,9 @@ package com.todak_todag.schedule_service.schedule.infrastructure.persistence;
 
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
 import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,6 +18,17 @@ public interface SpringDataServiceScheduleRepository extends JpaRepository<Servi
 
     // 소프트 삭제된 일정은 조회 대상에서 제외
     Optional<ServiceSchedule> findByIdAndDeletedAtIsNull(UUID id);
+
+    // 위와 같은 단건 조회지만 로우에 쓰기 락을 걸어 같은 일정에 대한 동시 상태 전이를 직렬화
+    // 락 획득 순간의 최신 상태를 읽어야 하므로 1차 캐시가 아닌 DB를 다시 보게 되는 경로여야 함
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select schedule
+            from ServiceSchedule schedule
+            where schedule.id = :id
+              and schedule.deletedAt is null
+            """)
+    Optional<ServiceSchedule> findByIdForUpdate(@Param("id") UUID id);
 
     // 케어플랜의 마지막 일정 1건 — 재매칭으로 대체된 이력(CHANGED)과 소프트 삭제분은 제외
     Optional<ServiceSchedule> findFirstByCarePlanIdAndStatusNotAndDeletedAtIsNullOrderByFinishedAtDescCreatedAtDesc(

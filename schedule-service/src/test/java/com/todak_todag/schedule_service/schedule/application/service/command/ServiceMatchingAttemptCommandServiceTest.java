@@ -117,7 +117,7 @@ class ServiceMatchingAttemptCommandServiceTest {
     @DisplayName("대상 매칭 시도가 FAILED면 ProviderReMatched가 아웃박스에 적재된다")
     void FAILED면_이벤트가_적재된다() {
         // given
-        when(serviceMatchingAttemptCommandRepository.findById(MATCHING_ATTEMPT_ID))
+        when(serviceMatchingAttemptCommandRepository.findByIdForUpdate(MATCHING_ATTEMPT_ID))
                 .thenReturn(Optional.of(attempt(MatchingAttemptStatus.FAILED)));
         when(scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(
                 ProviderReMatchEventPort.EVENT_TYPE, MATCHING_ATTEMPT_ID)
@@ -160,7 +160,7 @@ class ServiceMatchingAttemptCommandServiceTest {
     @DisplayName("매칭 시도 이력을 동기적으로 새로 생성하지 않는다")
     void 매칭_시도_이력을_생성하지_않는다() {
         // given
-        when(serviceMatchingAttemptCommandRepository.findById(MATCHING_ATTEMPT_ID))
+        when(serviceMatchingAttemptCommandRepository.findByIdForUpdate(MATCHING_ATTEMPT_ID))
                 .thenReturn(Optional.of(attempt(MatchingAttemptStatus.FAILED)));
         when(scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(anyString(), any()))
                 .thenReturn(false);
@@ -176,7 +176,7 @@ class ServiceMatchingAttemptCommandServiceTest {
     @DisplayName("존재하지 않는 매칭 시도면 403을 던진다")
     void 존재하지_않으면_403을_던진다() {
         // given
-        when(serviceMatchingAttemptCommandRepository.findById(MATCHING_ATTEMPT_ID))
+        when(serviceMatchingAttemptCommandRepository.findByIdForUpdate(MATCHING_ATTEMPT_ID))
                 .thenReturn(Optional.empty());
 
         // when & then
@@ -195,7 +195,7 @@ class ServiceMatchingAttemptCommandServiceTest {
     @DisplayName("본인 소유가 아닌 서비스 희망 일정이면 403을 던진다")
     void 본인_소유가_아니면_403을_던진다() {
         // given
-        when(serviceMatchingAttemptCommandRepository.findById(MATCHING_ATTEMPT_ID))
+        when(serviceMatchingAttemptCommandRepository.findByIdForUpdate(MATCHING_ATTEMPT_ID))
                 .thenReturn(Optional.of(attempt(MatchingAttemptStatus.FAILED)));
 
         UUID otherRequesterId = UUID.randomUUID();
@@ -216,7 +216,7 @@ class ServiceMatchingAttemptCommandServiceTest {
     @DisplayName("매칭 시도 상태가 FAILED가 아니면 409를 던진다")
     void FAILED가_아니면_409를_던진다() {
         // given
-        when(serviceMatchingAttemptCommandRepository.findById(MATCHING_ATTEMPT_ID))
+        when(serviceMatchingAttemptCommandRepository.findByIdForUpdate(MATCHING_ATTEMPT_ID))
                 .thenReturn(Optional.of(attempt(MatchingAttemptStatus.MATCHED)));
 
         // when & then
@@ -235,7 +235,7 @@ class ServiceMatchingAttemptCommandServiceTest {
     @DisplayName("같은 매칭 시도로 이미 재시도가 접수됐으면 409를 던진다")
     void 이미_재시도_중이면_409를_던진다() {
         // given
-        when(serviceMatchingAttemptCommandRepository.findById(MATCHING_ATTEMPT_ID))
+        when(serviceMatchingAttemptCommandRepository.findByIdForUpdate(MATCHING_ATTEMPT_ID))
                 .thenReturn(Optional.of(attempt(MatchingAttemptStatus.FAILED)));
         when(scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(
                 ProviderReMatchEventPort.EVENT_TYPE, MATCHING_ATTEMPT_ID)
@@ -257,7 +257,7 @@ class ServiceMatchingAttemptCommandServiceTest {
     @DisplayName("재매칭 희망 날짜가 Care Plan 범위를 벗어나면 400을 던진다")
     void 범위를_벗어나면_400을_던진다() {
         // given
-        when(serviceMatchingAttemptCommandRepository.findById(MATCHING_ATTEMPT_ID))
+        when(serviceMatchingAttemptCommandRepository.findByIdForUpdate(MATCHING_ATTEMPT_ID))
                 .thenReturn(Optional.of(attempt(MatchingAttemptStatus.FAILED)));
         when(scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(anyString(), any()))
                 .thenReturn(false);

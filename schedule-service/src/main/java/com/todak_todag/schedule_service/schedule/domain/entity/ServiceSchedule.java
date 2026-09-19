@@ -103,6 +103,7 @@ public class ServiceSchedule extends BaseAuditableEntity {
 
     // 예정된 일정을 변경
     // SCHEDULED 상태에서만 일정 변경이 가능
+    // 이 검사만으로는 동시 요청을 막을 수 없어(둘 다 SCHEDULED를 읽고 통과) 호출 측이 로우 쓰기 락으로 읽어야 함
     public void rescheduling() {
         if (status != ScheduleStatus.SCHEDULED) {
             throw new BusinessException(ScheduleErrorCode.SERVICE_SCHEDULE_INVALID_STATUS_FOR_RESCHEDULING);

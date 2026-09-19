@@ -80,8 +80,8 @@ class CarePlanCompletionSweepIntegrationTest extends PostgresTestSupport {
     // CarePlanCompletionSweepFacade.GRACE_PERIOD_DAYS와 동일해야함
     private static final int GRACE_PERIOD_DAYS = 14;
 
-    // docker/postgres/schedule-service.sql의 ux_schedule_outbox_events_care_plan_completed와 동일해야 함
-    // 테스트 DB는 ddl-auto=create-drop이라 운영 DDL이 적용되지 않으므로 여기서 직접 만듦
+    // V1__init.sql의 ux_schedule_outbox_events_care_plan_completed와 동일해야 함
+    // 테스트 DB는 flyway가 꺼져 있고 ddl-auto=create-drop이라 마이그레이션이 적용되지 않으므로 여기서 직접 만듦
     private static final String PARTIAL_UNIQUE_INDEX = """
             CREATE UNIQUE INDEX IF NOT EXISTS ux_schedule_outbox_events_care_plan_completed
                 ON schedule_schema.p_schedule_outbox_events (aggregate_id)

@@ -20,14 +20,16 @@ public class ServiceMatchingAttemptCommandRepositoryImpl implements ServiceMatch
 
     private final SpringDataServiceMatchingAttemptRepository springDataServiceMatchingAttemptRepository;
 
+    // 즉시 플러시 — V2의 부분 유니크 인덱스 위반을 커밋 시점이 아니라 호출 지점에서 잡기 위함
+    // 아웃박스 적재(ScheduleOutboxEventCommandRepositoryImpl)와 같은 이유·같은 방식
     @Override
     public ServiceMatchingAttempt save(ServiceMatchingAttempt serviceMatchingAttempt) {
-        return springDataServiceMatchingAttemptRepository.save(serviceMatchingAttempt);
+        return springDataServiceMatchingAttemptRepository.saveAndFlush(serviceMatchingAttempt);
     }
 
     @Override
-    public Optional<ServiceMatchingAttempt> findById(UUID matchingAttemptId) {
-        return springDataServiceMatchingAttemptRepository.findByIdAndDeletedAtIsNull(matchingAttemptId);
+    public Optional<ServiceMatchingAttempt> findByIdForUpdate(UUID matchingAttemptId) {
+        return springDataServiceMatchingAttemptRepository.findByIdForUpdate(matchingAttemptId);
     }
 
     @Override

@@ -47,7 +47,12 @@ public class ServiceScheduleCommandService {
     public ServiceScheduleRescheduleResult reschedule(ServiceScheduleRescheduleCommand rescheduleCommand, CarePlanPort.CarePlanRange carePlanRange) {
 
         // facade가 이미 존재를 확인했지만, facade의 조회와 이 트랜잭션 사이 시점 차이를 방어하기 위해 다시 조회
-        ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findById(rescheduleCommand.serviceScheduleId())
+        //
+        // 락 없이 읽으면 이중 클릭 시 두 요청이 모두 SCHEDULED를 읽어 RESCHEDULING이 2건 생기고,
+        // 이후 매칭 결과 이벤트가 findRescheduling()에서 2건을 보고 던지는 예외는 재시도로 해소되지 않아 영구 DLQ가 됨
+        // 따라서 "상태 확인 → 전이 → 저장"을 로우 쓰기 락 안에서 수행한다 — 늦게 온 요청은 대기 후
+        // RESCHEDULING을 읽어 rescheduling()의 기존 400으로 걸러짐 (잠글 로우가 있어 advisory lock은 불필요)
+        ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findByIdForUpdate(rescheduleCommand.serviceScheduleId())
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
 
         // 일정 변경을 위한 검증 진행

@@ -38,7 +38,10 @@ public class ServiceMatchingAttemptCommandService {
     public MatchingAttemptRetryResult retry(MatchingAttemptRetryCommand retryCommand, CarePlanPort.CarePlanRange carePlanRange) {
 
         // facade가 이미 존재를 확인했지만, facade의 조회와 이 트랜잭션 사이 시점 차이를 방어하기 위해 다시 조회
-        ServiceMatchingAttempt attempt = serviceMatchingAttemptCommandRepository.findById(retryCommand.matchingAttemptId())
+        //
+        // 락 없이 읽으면 이중 클릭 시 두 요청이 모두 alreadyRequested()를 false로 읽어 ProviderReMatched가 2건 적재됨
+        // 따라서 "접수 여부 확인 → 적재"를 로우 쓰기 락 안에서 수행 — 늦게 온 요청은 대기 후 기존 409로 걸러짐
+        ServiceMatchingAttempt attempt = serviceMatchingAttemptCommandRepository.findByIdForUpdate(retryCommand.matchingAttemptId())
                 .orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
 
         // 소유권 검증(403)을 상태/날짜 검증보다 먼저 — 비소유자가 409/400 응답으로 대상의 존재나 상태를 알아내지 못하게 함
@@ -76,6 +79,7 @@ public class ServiceMatchingAttemptCommandService {
     }
 
     // "이미 재시도 중"인지 판별 — 같은 매칭 시도로 ProviderRematched가 이미 적재됐는지 확인
+    // 이 조회만으로는 check-then-act 사이에 끼어든 동시 요청을 막지 못해, 호출 측이 대상 로우를 쓰기 락으로 읽어야 함
     private boolean alreadyRequested(ServiceMatchingAttempt attempt) {
         return scheduleOutboxEventCommandRepository.existsByEventTypeAndAggregateId(
                 ProviderReMatchEventPort.EVENT_TYPE, attempt.getId()

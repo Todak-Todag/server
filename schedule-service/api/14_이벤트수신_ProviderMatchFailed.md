@@ -54,6 +54,19 @@ Provider-Service가 발행한 `ProviderMatchFailed` 이벤트를 RabbitMQ로 수
 servicePreferenceId + date + failedAt  → 이미 FAILED 이력이 있으면 skip
 ```
 
+성공 경로(13번)와 동일하게 **애플리케이션 조회 + DB 부분 유니크 인덱스** 두 겹으로 막는다. 애플리케이션 조회만으로는 check-then-act 사이에 끼어든 동시 수신을 막지 못하기 때문이다.
+
+```sql
+CREATE UNIQUE INDEX ux_p_service_matching_attempts_failed
+    ON schedule_schema.p_service_matching_attempts (service_preference_id, date, failed_at)
+    WHERE status = 'FAILED' AND deleted_at IS NULL;
+```
+
+> `status = 'FAILED'` 조건이 붙은 이유: 방치된 실패 이력은 보정 스윕이 `EXPIRED`로 종결하는데(11번), 그러면 `existsFailed`의 조회 대상에서도 빠지므로 인덱스에서도 함께 빠져야 애플리케이션과 DB의 판정이 어긋나지 않는다. `deleted_at IS NULL`도 같은 이유로 `existsFailed`와 맞춘 것이다.
+>
+
+위반 시 처리(에러 로그 후 재던짐)와 남아있는 한계(마이크로초 이상 어긋난 타임스탬프는 별개 실패로 처리 — `eventId` 도입이 후속 작업)는 13번의 "멱등 처리" 절과 같다.
+
 ### 예외 처리
 
 리스너는 `BusinessException`을 잡아 에러 로그를 남긴 뒤 **그대로 다시 던진다.** 그 외 예외와 동일하게 리스너 컨테이너의 재시도 설정(3회)을 따르고, 소진하면 메시지를 폐기하지 않고 DLQ(`schedule.provider-match-failed.dlq.queue`)로 옮긴다. 원인(데이터 이상/페이로드 오류)을 해결한 뒤 원래 큐로 되돌려 재처리한다 — 멱등 대체 키가 중복 적재를 막는다.
@@ -107,6 +120,7 @@ servicePreferenceId + date + failedAt  → 이미 FAILED 이력이 있으면 ski
 | 초기 매칭 실패 | `p_service_matching_attempts`에 `FAILED` 이력 추가. `p_service_schedules`는 변경 없음 |
 | 재매칭 실패 | 위에 더해, 기존 `RESCHEDULING` 일정을 `SCHEDULED`로 복구 |
 | 중복 수신 | 아무 작업도 하지 않고 로그만 남김 |
+| 동일 이벤트 동시 수신 | 한쪽만 반영되고, 늦은 쪽은 유니크 인덱스에 막혀 롤백 → 에러 로그 후 재시도 소진 시 DLQ (이중 기록 없음) |
 
 > **해소됨**: 초기 매칭 실패가 `p_service_schedules`에 레코드를 남기지 않아 `CarePlanCompleted`(11번)가 조기 발행되던 문제는, 11번의 완료 판정이 **미해소 `FAILED` 이력**까지 함께 보도록 보강해 해결했다. 상세 조건은 `11_이벤트발행_CarePlanCompleted.md`의 "매칭 기준이 필요한 이유" 참고.
 >

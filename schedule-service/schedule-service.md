@@ -32,6 +32,17 @@ schedule/
 
 ## 2. 도메인 모델
 
+### 스키마와 마이그레이션
+
+DDL은 **Flyway**가 관리한다(`src/main/resources/db/migration/`). 런타임 JPA는 `ddl-auto: validate`라 스키마를 만들지 않으므로, **컬럼·인덱스·제약을 추가하려면 반드시 새 마이그레이션 파일을 써야 한다.** 스키마명은 `schedule_schema`다.
+
+| 파일 | 내용 |
+| --- | --- |
+| `V1__init.sql` | 4개 테이블, `CarePlanCompleted` 아웃박스 부분 유니크 인덱스, 전 `status`/`preferred_time_slot` CHECK 제약 |
+| `V2__add_service_matching_attempt_unique_index.sql` | 매칭 이벤트 중복 수신 방어용 부분 유니크 인덱스 2개 (5.3절) |
+
+> ⚠️ 아래 표들이 타입을 `ENUM`으로 적은 컬럼은 **DB에서 Postgres ENUM 타입이 아니라 `VARCHAR(255)` + `CHECK` 제약**이다(`ck_*_status` 등). 자바 `enum`에 값을 추가하면 **CHECK 제약도 새 마이그레이션으로 함께 갱신**해야 한다. 테스트는 Flyway를 끄고 `ddl-auto: create-drop`으로 도는 탓에 CHECK 제약이 아예 생성되지 않아, **누락돼도 테스트에서는 드러나지 않고 운영에서만 INSERT가 실패한다.** `MatchingAttemptStatus.EXPIRED`를 추가할 때 실제로 겪은 함정이다.
+
 공통 감사 컬럼은 상속으로 처리한다.
 
 | 상위 클래스 | 포함 컬럼 |
@@ -61,6 +72,13 @@ schedule/
 | failure_reason | TEXT |  |  | O | 매칭 실패 사유 |
 | matched_at | Instant |  |  | O | 매칭 성공 일시 |
 | failed_at | Instant |  |  | O | 매칭 실패 일시 |
+
+매칭 이벤트 중복 수신을 DB에서 막기 위해 부분 유니크 인덱스 2개를 둔다 (V2). 각각 `ServiceMatchingCommandService.alreadyApplied`가 쓰는 대체 키와 컬럼 구성·조건이 일치해야 한다 — 자세한 배경은 5.3절과 13번 문서 참고.
+
+| 인덱스 | 컬럼 | 조건 |
+| --- | --- | --- |
+| `ux_p_service_matching_attempts_matched` | `service_preference_id`, `service_offering_id`, `date`, `matched_at` | `status = 'MATCHED' AND deleted_at IS NULL` |
+| `ux_p_service_matching_attempts_failed` | `service_preference_id`, `date`, `failed_at` | `status = 'FAILED' AND deleted_at IS NULL` |
 
 ### `p_service_schedules` — 서비스 일정 (`BaseAuditableEntity`)
 
@@ -118,6 +136,8 @@ schedule/
 | `CarePlanCompleted` | `carePlanId` | 케어플랜당 1회 발행 보장(멱등) 키 |
 
 `CarePlanCompleted`에 한해 `aggregate_id`에 부분 유니크 인덱스(`ux_schedule_outbox_events_care_plan_completed`, `WHERE event_type = 'CarePlanCompleted'`)를 둬 케어플랜당 1건을 DB가 보장한다. `ProviderReMatched`는 03번 경로에서 같은 `serviceScheduleId`로 재적재되는 것이 정상이라 제약 대상이 아니다.
+
+그래서 16번 경로의 이중 클릭(같은 `matchingAttemptId`로 2건 적재)은 DB 제약으로 막을 수 없고, **대상 매칭 시도 로우의 쓰기 락**으로 막는다 (4.5절, `16_...md`). 위 표처럼 두 경로가 `aggregate_id`에 서로 다른 종류의 ID를 담고 있어, 판별 컬럼 없이는 부분 유니크 인덱스로도 두 경로를 구분할 수 없기 때문이다.
 
 ---
 
@@ -180,6 +200,7 @@ schedule/
 - 소유권·범위 검증에 필요한 `carePlanId`/`finishDate`/`patientId`는 `servicePreferenceId`를 기준으로 **care-plan-service Internal API(Feign)** 를 호출해 조회한다 (5.5절).
 - 검증 순서는 **소유권(403) → 마감 시각 → 날짜 규칙 → 상태 전이**다. 비소유자가 400/409 응답으로 대상의 존재나 상태를 알아내지 못하게 하기 위함이다.
 - 변경 요청이 접수되면 `status`가 `RESCHEDULING`으로 바뀌고, **같은 트랜잭션에서** `ProviderReMatched` 이벤트가 아웃박스에 적재된다.
+  - 대상 일정은 **로우 쓰기 락으로 읽는다**(`findByIdForUpdate`). 락이 없으면 이중 클릭 시 두 요청이 모두 `SCHEDULED`를 읽어 `RESCHEDULING`이 2건 생기고, 이후 매칭 결과 수신이 `SERVICE_SCHEDULE_MULTIPLE_RESCHEDULING`으로 막혀 재시도로 풀리지 않는 영구 DLQ가 된다. 늦게 온 요청은 대기 후 `RESCHEDULING`을 읽어 기존 400으로 걸러진다. (16번도 같은 이유로 같은 방식을 쓴다 — 4.5절)
   - 페이로드의 `regionId`/`provideServiceId`는 해당 `servicePreferenceId`의 **가장 최근 `MATCHED` 매칭 시도 레코드**에서 읽어온다. 없으면 404 `SERVICE_MATCHING_ATTEMPT_NOT_FOUND`.
   - 이 경로에서는 시간대를 선택하지 않으므로 `preferredTimeSlot`은 `null`이다.
 - 재매칭 **성공** 시 기존 일정은 `CHANGED`가 되고 **새 일정 레코드**가 `SCHEDULED`로 생성된다.
@@ -216,6 +237,7 @@ schedule/
 - 요청 주체는 퇴원 예정자이며, 대상 매칭 시도의 `status`가 `FAILED`일 때만 재시도할 수 있다(409). `MATCHED`와 보정 스윕이 종결시킨 `EXPIRED`가 모두 여기서 걸린다.
 - **동기적으로는 아무 레코드도 쓰지 않고** `ProviderReMatched`만 아웃박스에 적재하므로 `202 ACCEPTED`로 응답한다. 새 매칭 시도 이력은 결과 이벤트를 수신할 때 생성된다.
 - 같은 `matchingAttemptId`로 이미 아웃박스에 `ProviderReMatched`가 적재됐다면 409 `MATCHING_ATTEMPT_RETRY_ALREADY_REQUESTED`. (동기 상태 변경이 없어 `status`로는 "재시도 중"을 표현할 수 없기 때문에 아웃박스를 판별 키로 쓴다.)
+  - 이 판별부터 아웃박스 적재까지는 **대상 매칭 시도 로우를 쓰기 락으로 읽은 뒤** 수행한다. 락이 없으면 이중 클릭 시 두 요청이 모두 판별을 통과해 `ProviderReMatched`가 2건 적재되고, 아웃박스 유니크 제약으로는 이를 막을 수 없다 (2절). 락은 대상 로우에만 걸리므로 서로 다른 실패 건끼리는 막히지 않는다.
 - 희망 날짜는 Care Plan의 `startDate`~`finishDate` 범위 안이어야 한다(400). Internal API 응답에 `startDate`가 없어 **`startDate = finishDate - 29일`(30일 고정 기간)** 로 역산한다.
 
 ### 4.6 매칭 실패 내역 조회 — 15번
@@ -312,6 +334,9 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
 - **중복 수신 방어**: 페이로드에 이벤트 ID가 없어, 같은 매칭 결과를 특정하는 값 조합을 대체 키로 쓴다.
   - 성공: `servicePreferenceId` + `serviceOfferingId` + `date` + `matchedAt`
   - 실패: `servicePreferenceId` + `date` + `failedAt`
+  - 방어선은 **두 겹**이다. 애플리케이션(`alreadyApplied`)이 이미 처리된 재전송을 skip하고, 그 조회와 적재 사이를 파고든 동시 수신은 `p_service_matching_attempts`의 부분 유니크 인덱스(`ux_..._matched` / `ux_..._failed`, V2)가 막는다. 인덱스의 컬럼 구성과 `status`/`deleted_at` 조건은 두 `exists` 쿼리와 반드시 일치해야 한다.
+  - 위반 시 `DataIntegrityViolationException`을 로그 후 재던진다 — Postgres가 트랜잭션을 abort해 정상 복귀가 불가능하기 때문이며, `CarePlanCompleted` 아웃박스 유니크 인덱스와 같은 처리다.
+  - **남은 한계**: 대체 키에 타임스탬프가 들어가는 한 마이크로초 이상 어긋난 재전송은 별개 매칭으로 처리된다. 실제 재전송 경로(아웃박스 릴레이 재시도/브로커 재전달/DLQ 재투입)는 provider-service가 저장된 페이로드를 그대로 재발행해 타임스탬프가 바뀌지 않으므로 이 상황에 닿지 않지만, 근본 해결은 발행 측이 `eventId`(provider 아웃박스의 `outbox_event_id`)를 페이로드에 싣는 것이며, **후속 작업으로 남아있다** → `13_이벤트수신_ProviderMatched.md`의 "남아있는 한계" 참고.
 - 페이로드에 `finishedAt`이 없는 문제는 **MVP 단계에서 서비스 소요 시간을 1시간으로 고정**(`ServiceMatchingCommandService.DEFAULT_SERVICE_DURATION`)해 `finishedAt = startedAt + 1h`로 계산하는 것으로 처리했다. 서비스별 소요 시간이 달라지면 페이로드 확장이 필요하다.
 - 리스너는 `BusinessException`을 잡아 로그를 남긴 뒤 다시 던진다. 재시도(3회)를 소진한 메시지는 폐기되지 않고 `schedule.dlx.exchange`를 거쳐 각 큐의 DLQ(`schedule.*.dlq.queue`)에 보존되며, 원인 해결 후 원래 큐로 되돌려 재처리한다(멱등 대체 키가 중복 적재를 막는다).
 
@@ -416,10 +441,9 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
 
 ## 7. 인증/인가
 
-- **인증**: API Gateway에서 JWT를 검증하고 `X-User-Id`, `X-User-Role` 헤더로 전달한다. `HeaderAuthenticationFilter`가 이를 `UserContext`로 변환해 `SecurityContext`에 담고, Controller는 `@AuthenticationPrincipal UserContext user`로만 주입받는다(모든 외부 API 공통). 헤더가 없거나 값이 잘못되면 인증 주체 없이 진행된다.
+- **인증**: API Gateway가 검증을 마친 뒤 발급한 **내부 JWT**를 `X-Gateway-Token` 헤더로 전달한다. Spring Security OAuth2 Resource Server가 `HeaderBearerTokenResolver("X-Gateway-Token")`로 토큰을 꺼내고, `GatewayAuthenticationConverter`가 `sub`/`role` 클레임을 `UserContext`로 변환해 `SecurityContext`에 담는다. Controller는 `@AuthenticationPrincipal UserContext user`로만 주입받는다(모든 외부 API 공통).
+  - 검증은 `NimbusJwtDecoder`(RS256 고정, `internal-jwt.jwk-set-uri`의 JWK Set)가 수행하며 만료(`exp`, `clock-skew` 허용)·발급자(`iss`)·대상(`aud`에 자기 서비스 이름 포함)을 모두 본다. `sub`/`role` 클레임이 없거나 형식이 틀리면 `BadJwtException`이다.
+  - 토큰이 없거나 검증에 실패하면 **401**이다. `SecurityConfig`가 `permitAll`로 여는 것은 `/internal/**`(자체 API Key 검증)과 actuator health/info/prometheus·swagger·`/v3/api-docs/**`뿐이고, 나머지는 전부 `authenticated()`다.
 - **인가**: 메서드 레벨 `@PreAuthorize`(`ROLE_` 접두사 자동 부여)로 역할을 제한하고, 소유권 검증은 각 유스케이스에서 Internal API 조회 결과와 대조해 수행한다.
 - **내부 API**(`/internal/v1/**`): API Gateway를 거치지 않으며 `X-Internal-Api-Key`를 `InternalResponseInterceptor`가 검증한다. Schedule-Service가 다른 서비스를 호출할 때는 `FeignConfig`가 같은 헤더를 자동으로 붙인다. 키는 `internal.key` 설정값이며 미설정 시 애플리케이션이 기동되지 않는다.
 - **에러 응답 포맷**: `success`(false) / `code`(ErrorCode 이름) / `message` / `details.reason` / `timestamp`(Instant). `GlobalExceptionHandler`가 `BusinessException`, 검증 예외(400), `AccessDeniedException`(403), 그 외(500)를 처리한다.
-
-> ⚠️ **임시 설정 (코드 내 TODO)**: `SecurityConfig`가 개발 테스트를 위해 `/api/v1/service-schedules/**`, `/api/v1/service-results/**`, `/internal/v1/**` 등을 `permitAll`로 열어두고 있다. **2026-09-09 이후 변경 예정**이며, 현재는 `@PreAuthorize`만 실질적인 인가 장치로 동작한다.
->
