@@ -10,11 +10,6 @@ spring:
       - optional:file:../.env[.properties]
       - "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
 
-  data:
-    redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
-
   cloud:
     gateway:
       server:
@@ -139,42 +134,3 @@ management:
     export:
       zipkin:
         endpoint: http://${ZIPKIN_HOST:localhost}:9411/api/v2/spans
-
-internal:
-  key: ${INTERNAL_API_KEY}
-
-internal-jwt:
-  private-key: ${INTERNAL_JWT_PRIVATE_KEY}
-  issuer: todak-api-gateway
-  ttl: 60s
-  
-rate-limit:
-  max-idle: 1h
-  buckets:
-    user-service-login:
-      capacity: 20
-      refill-tokens: 10
-      refill-period: 1m
-  
-jwt:
-  secret: ${JWT_SECRET}
-
-authentication:
-  access-token:
-    cookie-name: ${ACCESS_COOKIE_NAME}
-    redis-key-prefix: ${ACCESS_KEY_PREFIX}
-    user-id-claim: sub
-    role-claim: role
-  refresh-token:
-    cookie-name: ${REFRESH_COOKIE_NAME}
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://${EUREKA_SERVER_HOST:localhost}:8761/eureka/
-  instance:
-    prefer-ip-address: true
-
-logging:
-  level:
-    com.todak_todag.api_gateway: info
