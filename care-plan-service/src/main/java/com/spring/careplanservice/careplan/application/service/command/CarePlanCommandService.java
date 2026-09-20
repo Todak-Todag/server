@@ -115,6 +115,14 @@ public class CarePlanCommandService {
                 carePlanStatusUpdateCommand
         );
 
+        if (carePlanStatusUpdateCommand.userRole() == UserRole.PATIENT
+                && carePlanStatusUpdateCommand.status() == CarePlanStatus.CONFIRMED) {
+            carePlanOwnerValidator.validate(
+                    carePlanStatusUpdateCommand.userId(),
+                    carePlan.getPatientId()
+            );
+        }
+
         boolean transitioned = carePlan.transitionTo(
                 carePlanStatusUpdateCommand.status()
         );
