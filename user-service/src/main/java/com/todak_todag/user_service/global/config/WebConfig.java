@@ -4,7 +4,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import com.todak_todag.user_service.global.security.InternalResponseInterceptor;
+import com.todak_todag.user_service.global.security.InternalServiceTokenInterceptor;
 
 import lombok.RequiredArgsConstructor;
 
@@ -12,12 +12,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
-	private final InternalResponseInterceptor internalApiInterceptor;
+	private final InternalServiceTokenInterceptor internalServiceTokenInterceptor;
 	
 	@Override
 	public void addInterceptors(InterceptorRegistry registry) {
 		registry
-				.addInterceptor(internalApiInterceptor)
+				.addInterceptor(internalServiceTokenInterceptor)
 				.addPathPatterns("/internal/**")
 				.order(0);
 	}

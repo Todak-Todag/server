@@ -1,7 +1,5 @@
 package com.todak_todag.api_gateway.controller;
 
-import static org.mockito.ArgumentMatchers.matches;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
