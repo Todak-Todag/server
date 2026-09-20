@@ -3,14 +3,14 @@ package com.spring.careplanservice.careplan.application.facade;
 
 import com.spring.careplanservice.careplan.application.command.CarePlanCreateCommand;
 import com.spring.careplanservice.careplan.application.command.CarePlanStatusUpdateCommand;
+import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
 import com.spring.careplanservice.careplan.application.port.DischargeQueryPort;
+import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.port.UserQueryPort;
-import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
-import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
-import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
-import com.spring.careplanservice.careplan.application.result.UserFindResult;
+import com.spring.careplanservice.careplan.application.result.*;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
 import com.spring.careplanservice.careplan.application.service.query.CarePlanQueryService;
+import com.spring.careplanservice.careplan.application.support.CarePlanCompletedEventValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -24,6 +24,9 @@ public class CarePlanFacade {
     private final CarePlanQueryService carePlanQueryService;
     private final DischargeQueryPort dischargeQueryPort;
     private final UserQueryPort userQueryPort;
+
+    private final ScheduleResultQueryPort scheduleResultQueryPort;
+    private final CarePlanCompletedEventValidator carePlanCompletedEventValidator;
 
     public CarePlanCreateResult createCarePlan(
             CarePlanCreateCommand carePlanCreateCommand
@@ -64,6 +67,34 @@ public class CarePlanFacade {
         return carePlanCommandService.updateCarePlanStatus(
                 carePlanStatusUpdateCommand,
                 regionId
+        );
+    }
+
+    public void completeCarePlan(
+            CarePlanCompletedEvent carePlanCompletedEvent
+    ) {
+        // Schedule-Service에서 수신한 완료 이벤트 payload 검증
+        carePlanCompletedEventValidator.validatePayload(
+                carePlanCompletedEvent
+        );
+
+        // 외부 Schedule Service 호출은 DB 쓰기 트랜잭션 진입 전에 수행한다.
+        if (carePlanCompletedEvent.serviceResultId() != null) {
+            ScheduleResultFindResult scheduleResultFindResult =
+                    scheduleResultQueryPort.findById(
+                            carePlanCompletedEvent.serviceResultId()
+                    );
+
+            // Schedule의 수행 결과가 실제 이 Care Plan에 속하는지 검증
+            carePlanCompletedEventValidator.validateCarePlanId(
+                    carePlanCompletedEvent,
+                    scheduleResultFindResult
+            );
+        }
+
+        // 실제 상태 변경과 Outbox 저장만 DB 트랜잭션에서 수행
+        carePlanCommandService.completeCarePlan(
+                carePlanCompletedEvent
         );
     }
 }
