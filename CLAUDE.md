@@ -48,6 +48,6 @@
 ## 작업 시 참고 원칙
 
 - 새 API를 추가/수정할 때는 `docs/코드_컨벤션_구현용.md`의 코드 템플릿(Response/ErrorCode/Entity 등)을 우선 참고하고, 배경 설명이 필요하면 `docs/코드_컨벤션.md`를 참고한다.
-- Schedule-Service 관련 작업은 `schedule-service/schedule-service.md`의 "8. 알려진 미확정/논의 사항"을 먼저 확인한다 — 이벤트 페이로드, Exchange/Queue 이름 등은 아직 확정되지 않았다.
+- Schedule-Service 관련 작업은 `schedule-service/schedule-service.md`를 먼저 확인한다.
 - `schedule-service/api/` 문서를 코드로 옮길 때, 문서 내 "⚠️ 확인 필요" 또는 "✅ 확정" 표시를 반드시 확인한다. 미확정 항목은 임의로 구현하지 말고 팀 확인 후 진행한다.
 - 각 서비스는 DDD + Layered Architecture 구조를 따른다 (자세한 패키지 구조는 `docs/코드_컨벤션.md` 2장 참고).

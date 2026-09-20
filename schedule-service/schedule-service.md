@@ -1,7 +1,7 @@
 # 🗓️ Schedule-Service 기능 명세
 
 > 담당 서비스: `schedule-service` (Port `19004`)
-기준: **실제 구현 코드** (2026-09-08 기준). 문서와 코드가 어긋나던 항목은 코드를 기준으로 정정했다.
+기준: **실제 구현 코드** (2026-09-21 기준). 문서와 코드가 어긋나던 항목은 코드를 기준으로 정정했다.
 API 상세 스펙은 `api/` 하위 개별 문서를 참고한다.
 >
 
@@ -301,7 +301,7 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
 
 | 이벤트명 | 발행 트리거 | Exchange / Routing Key / Queue | 상세 문서 |
 | --- | --- | --- | --- |
-| `CarePlanCompleted` | 07번 수행 결과 등록, 04번 일정 취소 — 각 트랜잭션 끝에서 완료 조건을 판정해 적재 | `schedule.exchange` / `schedule.completed.key` / `care-plan.schedule-completed.queue` | `11_...md` |
+| `CarePlanCompleted` | 07번 수행 결과 등록, 04번 일정 취소 — 각 트랜잭션 끝에서 완료 조건을 판정해 적재. 이 두 경로로 트리거되지 않은 케어플랜은 보정 스윕이 뒤늦게 적재한다(아래) | `schedule.exchange` / `schedule.completed.key` / `care-plan.schedule-completed.queue` | `11_...md` |
 | `ProviderReMatched` | 03번 일정 변경, 16번 재매칭 시도 | `schedule.exchange` / `schedule.rematched.key` / `provider.schedule-rematched.queue` | `12_...md` |
 
 **`CarePlanCompleted` 발행 조건** (`CarePlanCompletionEventAppender`) — 두 조건을 모두 만족해야 적재한다.
@@ -371,6 +371,23 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
 | 배정 제공자 조회 | `GET /internal/v1/service-offerings/{serviceOfferingId}` | `providerId` (응답 `data`의 최상위 필드) | 02·05·07·09번의 제공자 본인 검증 |
 | 소유 제공 서비스 ID 목록 | `GET /internal/v1/service-offerings?providerId={providerId}` | `content`: UUID 배열 | 01·08번 목록 필터 |
 
+#### 호출 실패 처리 (5.5·5.6 공통)
+
+호출 실패는 **`InternalApiErrorDecoder`**(HTTP 응답을 받은 경우)와 **`GlobalExceptionHandler`**(응답을 받지 못했거나 해석하지 못한 경우)가 원인별로 나눠 변환한다. 분기 기준은 상대 응답의 message 문자열이 아니라 **HTTP status**이며, 상대 응답 본문은 내부 구현이 드러날 수 있어 싣지 않고 자체 `ErrorCode` 문구만 내보낸다.
+
+| 실패 원인 | 변환 지점 | 응답 | ErrorCode |
+| --- | --- | --- | --- |
+| 상대가 404 (없는 `servicePreferenceId`/`serviceOfferingId`/Care Plan) | `InternalApiErrorDecoder` | **403** | `AUTH_FORBIDDEN` |
+| 상대가 5xx | `InternalApiErrorDecoder` | **503** | `EXTERNAL_SERVICE_UNAVAILABLE` |
+| 상대가 404 외 4xx (요청 거부) | `InternalApiErrorDecoder` | **500** | `EXTERNAL_SERVICE_CALL_REJECTED` |
+| 연결 실패 / Connect·Read 타임아웃 (`status <= 0`) | `GlobalExceptionHandler` | **503** | `EXTERNAL_SERVICE_UNAVAILABLE` |
+| 2xx인데 역직렬화 실패 (`DecodeException`) | `GlobalExceptionHandler` | **502** | `EXTERNAL_SERVICE_RESPONSE_INVALID` |
+| 2xx인데 `data`/필수 필드가 비어 옴 | `InternalApiResponses` | **502** | `EXTERNAL_SERVICE_RESPONSE_INVALID` |
+
+- **404를 403으로** 바꾸는 이유: 이 호출들은 전부 소유권 검증 도중에 일어나므로 4.7절의 "리소스 존재 여부 비노출" 정책에 맞춘다.
+- **404 외 4xx를 4xx로 돌려주지 않는** 이유: API 호출자의 입력 문제가 아니라 서비스 간 계약 문제라 재시도해도 결과가 같다. status는 500으로 두되 ErrorCode로 원인을 구분한다.
+- **5xx·연결 실패만 503**인 이유: 잠시 후 재시도하면 성공할 수 있는 일시적 장애이기 때문이다. 반면 역직렬화 실패나 빈 응답은 재시도해도 같으므로 502로 나눈다.
+
 ### 5.7 목록 조회용 ID 목록 조회 전략
 
 - 5.5/5.6의 단건 조회를 목록에 그대로 쓰면 레코드 수만큼 호출이 발생하고, 필터링이 애플리케이션 레벨로 밀려 DB 페이지네이션이 불가능해진다.
@@ -393,9 +410,9 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
 ### 5.8 내부 API — Care-Plan-Service → Schedule-Service (10번, 수신 방향)
 
 - **엔드포인트**: `GET /internal/v1/service-results/{serviceResultId}`
-- **용도**: `CarePlanCompleted` 페이로드의 `serviceResultId` 존재 검증
-- **응답 필드**: `serviceResultId` **하나만** (존재 검증이 목적이므로 최소 필드만 노출. `carePlanId`는 `CarePlanCompleted` 페이로드로 이미 전달되고, 나머지 필드는 수신 측이 쓰지 않는다)
-- **필터**: `deleted_at IS NULL`. 없으면 404 `SERVICE_RESULTS_NOT_FOUND`
+- **용도**: `CarePlanCompleted` 페이로드의 `serviceResultId` 존재 검증 + 그 결과가 이벤트의 `carePlanId` 소속인지 교차 검증
+- **응답 필드**: `carePlanId`, `serviceResultId` **두 개만** (나머지 필드는 수신 측이 쓰지 않아 노출하지 않는다). `p_care_plan_service_results`에는 `care_plan_id`가 없으므로 `service_schedule_id`로 `p_service_schedules`를 조인해 가져온다.
+- **필터**: `deleted_at IS NULL`. 없으면 404 `SERVICE_RESULTS_NOT_FOUND`. 결과는 있는데 조인 대상 일정이 없거나 논리 삭제되어 `carePlanId`를 확보하지 못하는 경우도 같은 404다.
 - **인증**: 5.4절과 동일 (Interceptor)
 
 ### 5.9 아웃박스 릴레이
@@ -446,4 +463,5 @@ Schedule-Service (케어플랜의 모든 일정이 결말남) ──▶ CarePlan
   - 토큰이 없거나 검증에 실패하면 **401**이다. `SecurityConfig`가 `permitAll`로 여는 것은 `/internal/**`(자체 API Key 검증)과 actuator health/info/prometheus·swagger·`/v3/api-docs/**`뿐이고, 나머지는 전부 `authenticated()`다.
 - **인가**: 메서드 레벨 `@PreAuthorize`(`ROLE_` 접두사 자동 부여)로 역할을 제한하고, 소유권 검증은 각 유스케이스에서 Internal API 조회 결과와 대조해 수행한다.
 - **내부 API**(`/internal/v1/**`): API Gateway를 거치지 않으며 `X-Internal-Api-Key`를 `InternalResponseInterceptor`가 검증한다. Schedule-Service가 다른 서비스를 호출할 때는 `FeignConfig`가 같은 헤더를 자동으로 붙인다. 키는 `internal.key` 설정값이며 미설정 시 애플리케이션이 기동되지 않는다.
-- **에러 응답 포맷**: `success`(false) / `code`(ErrorCode 이름) / `message` / `details.reason` / `timestamp`(Instant). `GlobalExceptionHandler`가 `BusinessException`, 검증 예외(400), `AccessDeniedException`(403), 그 외(500)를 처리한다.
+- **에러 응답 포맷**: `success`(false) / `code`(ErrorCode 이름) / `message` / `details.reason` / `timestamp`(Instant). `GlobalExceptionHandler`가 `BusinessException`, 검증 예외(400), `AccessDeniedException`(403), `FeignException`(502/503 — 5.6절 "호출 실패 처리"), 그 외(500 `INTERNAL_SERVER_ERROR`)를 처리한다.
+- **ErrorCode 구분**: 도메인 규칙 위반은 `ScheduleErrorCode`, 공통 요청/인가 문제는 `CommonErrorCode`, Internal API 호출 실패는 `FeignErrorCode`(`EXTERNAL_SERVICE_CALL_REJECTED` 500 / `EXTERNAL_SERVICE_RESPONSE_INVALID` 502 / `EXTERNAL_SERVICE_UNAVAILABLE` 503)로 나눈다.
