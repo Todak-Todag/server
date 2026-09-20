@@ -51,6 +51,38 @@ servicePreferenceId + serviceOfferingId + date + matchedAt  → 이미 MATCHED �
 
 `matchedAt`(매칭 확정 일시)이 포함되어 있어, 같은 희망 일정이 나중에 다시 매칭되는 정상 케이스와는 구분된다.
 
+방어선은 두 겹이다.
+
+| 계층 | 수단 | 역할 |
+| --- | --- | --- |
+| 애플리케이션 | `ServiceMatchingCommandService.alreadyApplied` | 이미 처리된 재전송을 조용히 skip (정상 경로) |
+| DB | `ux_p_service_matching_attempts_matched` (부분 유니크 인덱스) | 위 조회와 적재 사이를 파고든 동시 수신을 차단 |
+
+애플리케이션 조회만으로는 **check-then-act** 사이에 끼어든 동시 수신을 막지 못해, 완전히 동일한 이벤트가 정확히 같은 시점에 두 번 들어오면 양쪽 다 조회를 통과해 이력과 일정이 중복 생성됐다. `V2__add_service_matching_attempt_unique_index.sql`이 같은 조합에 부분 유니크 인덱스를 걸어 DB를 최종 방어선으로 둔다.
+
+```sql
+CREATE UNIQUE INDEX ux_p_service_matching_attempts_matched
+    ON schedule_schema.p_service_matching_attempts (service_preference_id, service_offering_id, date, matched_at)
+    WHERE status = 'MATCHED' AND deleted_at IS NULL;
+```
+
+> 인덱스의 컬럼 구성과 `status`/`deleted_at` 조건은 `existsMatched` 쿼리와 **반드시 같아야 한다.** 어긋나면 애플리케이션은 통과시키는데 DB가 막는(혹은 그 반대의) 건이 생긴다.
+>
+
+유니크 인덱스 위반 시에는 `DataIntegrityViolationException`을 잡아 원인이 드러나는 에러 로그를 남기고 **그대로 다시 던진다** (11번 아웃박스 유니크 인덱스와 같은 처리). Postgres는 제약 위반 시 트랜잭션 전체를 abort하므로 정상 흐름으로 되돌릴 수 없기 때문이다. 중복이라 아무것도 이중 기록되지 않은 상태이므로, 재시도를 소진해 DLQ로 간 메시지는 폐기해도 안전하다.
+
+#### 남아있는 한계 — 타임스탬프가 어긋난 재전송
+
+대체 키에 `matchedAt`이 들어가는 한, **마이크로초 이상 타임스탬프가 어긋난 재전송은 별개 매칭으로 처리된다.** 수신 측 단독으로는 이를 정상 재매칭과 구별할 방법이 없다.
+
+다만 실제 재전송 경로에서는 이 상황에 닿지 않는다.
+
+- provider-service는 트랜잭션 아웃박스를 쓰고 `p_provider_outbox_events.payload`가 `updatable = false`라, **릴레이 재시도·브로커 재전달·DLQ 재투입 모두 저장된 페이로드를 그대로 재발행**한다 → `matchedAt`이 바뀌지 않는다.
+- provider-service 쪽도 `CarePlanConfirmed` 재수신은 `processedPreferenceIds`로, 재매칭 재전달은 `alreadyRematched()`(10분 윈도우)로 매칭 재실행을 막는다.
+- `matched_at`은 `TIMESTAMPTZ`(마이크로초)라 `Instant`의 나노초 자리는 DB에 닿기 전에 잘린다 → **마이크로초 미만 드리프트는 이미 중복으로 걸러진다.**
+
+근본 해결은 provider-service가 페이로드에 `eventId`(아웃박스의 `outbox_event_id`를 그대로 쓰면 된다)를 실어주고, 수신 측이 그 값 단독으로 판정하는 것이다. **후속 작업으로 남아있다.**
+
 ### 예외 처리
 
 리스너는 `BusinessException`을 잡아 에러 로그를 남긴 뒤 **그대로 다시 던진다.** 그 외 예외와 동일하게 리스너 컨테이너의 재시도 설정(`spring.rabbitmq.listener.simple.retry`, 3회)을 따르고, 소진하면 메시지를 폐기하지 않고 DLQ(`schedule.provider-matched.dlq.queue`)로 옮긴다.
@@ -125,3 +157,4 @@ servicePreferenceId + serviceOfferingId + date + matchedAt  → 이미 MATCHED �
 | 신규 매칭 | `p_service_matching_attempts`에 `MATCHED` 이력 추가 + `p_service_schedules`에 새 일정 생성(`SCHEDULED`) |
 | 재매칭 | 위에 더해, 기존 `RESCHEDULING` 일정을 `CHANGED`로 전이 |
 | 중복 수신 | 아무 작업도 하지 않고 로그만 남김 |
+| 동일 이벤트 동시 수신 | 한쪽만 반영되고, 늦은 쪽은 유니크 인덱스에 막혀 롤백 → 에러 로그 후 재시도 소진 시 DLQ (이중 기록 없음) |

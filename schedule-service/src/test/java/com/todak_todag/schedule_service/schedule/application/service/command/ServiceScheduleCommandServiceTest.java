@@ -85,7 +85,7 @@ class ServiceScheduleCommandServiceTest {
 
             ServiceMatchingAttempt matchingAttempt = matchedAttempt(schedule);
 
-            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.findByIdForUpdate(any())).thenReturn(Optional.of(schedule));
             when(serviceMatchingAttemptCommandRepository.findLatestMatched(schedule.getServicePreferenceId()))
                     .thenReturn(Optional.of(matchingAttempt));
             when(serviceScheduleCommandRepository.save(schedule)).thenReturn(schedule);
@@ -123,7 +123,7 @@ class ServiceScheduleCommandServiceTest {
             LocalDate requestedDate = currentDate.plusDays(1);
             ServiceSchedule schedule = confirmedSchedule(currentDate);
 
-            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.findByIdForUpdate(any())).thenReturn(Optional.of(schedule));
             when(serviceMatchingAttemptCommandRepository.findLatestMatched(schedule.getServicePreferenceId()))
                     .thenReturn(Optional.of(matchedAttempt(schedule)));
             when(serviceScheduleCommandRepository.save(schedule)).thenReturn(schedule);
@@ -151,7 +151,7 @@ class ServiceScheduleCommandServiceTest {
             ServiceSchedule schedule = confirmedSchedule(currentDate);
             setStartedAt(schedule, LocalDateTime.now().plusHours(48));
 
-            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.findByIdForUpdate(any())).thenReturn(Optional.of(schedule));
 
             ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
             CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
@@ -175,7 +175,7 @@ class ServiceScheduleCommandServiceTest {
             LocalDate finishDate = currentDate;
             ServiceSchedule schedule = confirmedSchedule(currentDate);
 
-            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.findByIdForUpdate(any())).thenReturn(Optional.of(schedule));
 
             ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
             CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), finishDate, patientId);
@@ -198,7 +198,7 @@ class ServiceScheduleCommandServiceTest {
             LocalDate requestedDate = currentDate.plusDays(2);
             ServiceSchedule schedule = confirmedSchedule(currentDate);
 
-            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.findByIdForUpdate(any())).thenReturn(Optional.of(schedule));
 
             ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
             CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
@@ -221,7 +221,7 @@ class ServiceScheduleCommandServiceTest {
             ServiceSchedule schedule = confirmedSchedule(currentDate);
             setStatus(schedule, ScheduleStatus.COMPLETED);
 
-            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.findByIdForUpdate(any())).thenReturn(Optional.of(schedule));
 
             ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
             CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
@@ -245,7 +245,7 @@ class ServiceScheduleCommandServiceTest {
             ServiceSchedule schedule = confirmedSchedule(currentDate);
             setStartedAt(schedule, LocalDateTime.now().plusHours(2));
 
-            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.findByIdForUpdate(any())).thenReturn(Optional.of(schedule));
 
             ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, patientId);
             CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
@@ -269,7 +269,7 @@ class ServiceScheduleCommandServiceTest {
             LocalDate requestedDate = currentDate.minusDays(1);
             ServiceSchedule schedule = confirmedSchedule(currentDate);
 
-            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.findByIdForUpdate(any())).thenReturn(Optional.of(schedule));
 
             ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(schedule.getId(), requestedDate, otherRequesterId);
             CarePlanPort.CarePlanRange carePlanRange = new CarePlanPort.CarePlanRange(UUID.randomUUID(), currentDate.plusDays(10), patientId);
@@ -292,7 +292,7 @@ class ServiceScheduleCommandServiceTest {
             LocalDate requestedDate = currentDate.minusDays(1);
             ServiceSchedule schedule = confirmedSchedule(currentDate);
 
-            when(serviceScheduleCommandRepository.findById(any())).thenReturn(Optional.of(schedule));
+            when(serviceScheduleCommandRepository.findByIdForUpdate(any())).thenReturn(Optional.of(schedule));
             when(serviceMatchingAttemptCommandRepository.findLatestMatched(schedule.getServicePreferenceId()))
                     .thenReturn(Optional.empty());
 
@@ -314,7 +314,7 @@ class ServiceScheduleCommandServiceTest {
         void reschedule_notFound_forbidden() {
             // given
             UUID serviceScheduleId = UUID.randomUUID();
-            when(serviceScheduleCommandRepository.findById(serviceScheduleId)).thenReturn(Optional.empty());
+            when(serviceScheduleCommandRepository.findByIdForUpdate(serviceScheduleId)).thenReturn(Optional.empty());
 
             ServiceScheduleRescheduleCommand command = new ServiceScheduleRescheduleCommand(
                     serviceScheduleId, LocalDate.now().plusDays(1), UUID.randomUUID()
