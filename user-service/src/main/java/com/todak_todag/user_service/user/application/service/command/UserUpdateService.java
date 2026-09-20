@@ -206,6 +206,11 @@ public class UserUpdateService {
 	
 	@Transactional(rollbackFor = Exception.class)
 	public UUID suspend(UserSuspendCommand command) {
+		// 0. 정지시 정지사유 검증
+		if(command.suspendReason() == null || command.suspendReason().isBlank()) {
+			throw new BusinessException(UserErrorCode.USER_SUSPEND_NOT_MESSAGE);
+		}
+		
 		// 1. 요청자의 신원이 뭐니?
 		UserRole requesterRole = command.requesterRole();
 		
@@ -235,7 +240,7 @@ public class UserUpdateService {
 						user.getId()
 				);
 
-				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+				throw new BusinessException(CommonErrorCode.AUTH_FORBIDDEN);
 			}
 			
 			// 3-2. ADMIN 은 같은 지역내 사용자만 정지가 가능하다.
@@ -249,7 +254,7 @@ public class UserUpdateService {
 						user.getId()
 				);
 
-				throw new BusinessException(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+				throw new BusinessException(CommonErrorCode.AUTH_FORBIDDEN);
 			}
 		}
 		

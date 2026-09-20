@@ -28,7 +28,11 @@ class ClientIpKeyResolverTest {
 
 	private static final String SUBNET_B_HOST_1 = "2001:db8:85a3:1::1";
 
-	private final KeyResolver resolver = new RateLimitConfig().clientIpKeyResolver();
+	// 앞단 프록시가 없는 환경: 소켓 주소(getRemoteAddress)를 그대로 쓴다.
+	private final KeyResolver resolver = new RateLimitConfig().clientIpKeyResolver(false, "X-Real-IP");
+
+	// 앞단에 신뢰 프록시(Caddy)가 있는 환경: 프록시가 넣어준 X-Real-IP 헤더를 클라이언트 IP로 쓴다.
+	private final KeyResolver proxyResolver = new RateLimitConfig().clientIpKeyResolver(true, "X-Real-IP");
 
 	@Test
 	@DisplayName("IPv4 주소는 \"라우트id:v4:주소\" 형태의 키가 된다")
@@ -122,6 +126,57 @@ class ClientIpKeyResolverTest {
 		StepVerifier.create(resolver.resolve(exchange))
 				.expectNext("unknown-route:v4:203.0.113.5")
 				.verifyComplete();
+	}
+
+	@Test
+	@DisplayName("프록시 신뢰 시 소켓 주소 대신 X-Real-IP 헤더의 IP로 키를 만든다 - Caddy 뒤에서 실제 클라이언트별로 세는 핵심 동작이다")
+	void success_trustProxyUsesRealIpHeader() {
+		// 헤더 = 프록시가 채운 실제 클라이언트 IP, 소켓 = 프록시(Caddy) IP
+		ServerWebExchange exchange = exchangeWithRealIp("203.0.113.5", "10.0.0.1", "user-service-login");
+
+		StepVerifier.create(proxyResolver.resolve(exchange))
+				.expectNext("user-service-login:v4:203.0.113.5")
+				.verifyComplete();
+	}
+
+	@Test
+	@DisplayName("프록시 신뢰가 꺼져 있으면 X-Real-IP 헤더를 무시하고 소켓 주소를 쓴다 - 헤더 위조로 한도를 우회하지 못하게 하는 핵심 동작이다")
+	void success_untrustedIgnoresRealIpHeader() {
+		// 헤더에 실제 클라이언트 IP 가 들어와도 신뢰하지 않으므로 소켓(203.0.113.5)으로 센다
+		ServerWebExchange exchange = exchangeWithRealIp("10.0.0.1", "203.0.113.5", "user-service-login");
+
+		StepVerifier.create(resolver.resolve(exchange))
+				.expectNext("user-service-login:v4:203.0.113.5")
+				.verifyComplete();
+	}
+
+	@Test
+	@DisplayName("프록시 신뢰 상태에서 X-Real-IP 가 없으면 소켓 주소로 폴백한다")
+	void success_trustProxyFallsBackToSocketWhenHeaderMissing() {
+		ServerWebExchange exchange = exchangeOf("10.0.0.1", "user-service-login");
+
+		StepVerifier.create(proxyResolver.resolve(exchange))
+				.expectNext("user-service-login:v4:10.0.0.1")
+				.verifyComplete();
+	}
+
+	@Test
+	@DisplayName("프록시 신뢰 상태에서 X-Real-IP 가 IP 리터럴이 아니면(호스트명 등) DNS 조회 없이 소켓 주소로 폴백한다")
+	void success_trustProxyFallsBackWhenHeaderNotIpLiteral() {
+		ServerWebExchange exchange = exchangeWithRealIp("evil.example.com", "203.0.113.5", "user-service-login");
+
+		StepVerifier.create(proxyResolver.resolve(exchange))
+				.expectNext("user-service-login:v4:203.0.113.5")
+				.verifyComplete();
+	}
+
+	private static ServerWebExchange exchangeWithRealIp(String realIp, String socketHost, String routeId) {
+		MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/auth/login")
+				.header("X-Real-IP", realIp)
+				.remoteAddress(new InetSocketAddress(socketHost, 54321))
+				.build();
+
+		return withRoute(MockServerWebExchange.from(request), routeId);
 	}
 
 	private static ServerWebExchange exchangeOf(String host, String routeId) {

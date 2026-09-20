@@ -271,6 +271,9 @@ services:
       # 게이트웨이키 키
       INTERNAL_JWT_PRIVATE_KEY: ${INTERNAL_JWT_PRIVATE_KEY}
 
+      TRUST_PROXY_HEADER: ${TRUST_PROXY_HEADER}
+      CLIENT_IP_HEADER: ${CLIENT_IP_HEADER}
+
     # Gateway 포트 연결.
     ports:
       - "8080:8080"

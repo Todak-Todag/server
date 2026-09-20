@@ -3,8 +3,10 @@ package com.todak_todag.api_gateway.config;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.ratelimit.Bucket4jRateLimiter;
@@ -25,8 +27,10 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.codec.ByteArrayCodec;
 import io.lettuce.core.codec.RedisCodec;
 import io.lettuce.core.codec.StringCodec;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @Configuration
 public class RateLimitConfig {
 
@@ -34,21 +38,72 @@ public class RateLimitConfig {
 	// 정상 요청까지 차단될 수 있어 별도 버킷 하나로 몰아서 제한한다.
 	private static final String UNKNOWN_CLIENT_KEY = "unknown";
 
+	// IP 리터럴(IPv4/IPv6)에 쓰이는 문자만 허용해 호스트명이 들어와 DNS 조회가 일어나는 것을 막는다.
+	private static final Pattern IP_LITERAL_PATTERN = Pattern.compile("^[0-9A-Fa-f.:%]+$");
+
 	// ===== 무엇을 기준으로 셀 것인가 =====
 
 	@Bean
-	public KeyResolver clientIpKeyResolver() {
+	public KeyResolver clientIpKeyResolver(
+			// 앞단에 신뢰할 수 있는 프록시(Caddy)가 있어 프록시가 넣어준 실제 클라이언트 IP 헤더를
+			// 읽어야 하는 환경에서만 true 로 켠다. 게이트웨이가 직접 노출되는 환경에서 true 로 켜면
+			// 클라이언트가 헤더를 위조해 한도를 우회할 수 있으므로 기본값은 false 다.
+			@Value("${rate-limit.trust-proxy-header:false}") boolean trustProxyHeader,
+			@Value("${rate-limit.client-ip-header:X-Real-IP}") String clientIpHeader
+	) {
 		return exchange -> {
-			InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
+			InetAddress clientAddress = resolveClientAddress(exchange, trustProxyHeader, clientIpHeader);
 
-			if(remoteAddress == null || remoteAddress.getAddress() == null) {
+			if(clientAddress == null) {
 				return Mono.just(routePrefix(exchange) + UNKNOWN_CLIENT_KEY);
 			}
 
-			return Mono.just(routePrefix(exchange) + normalize(remoteAddress.getAddress()));
+			return Mono.just(routePrefix(exchange) + normalize(clientAddress));
 		};
 	}
-	
+
+	private InetAddress resolveClientAddress(
+			ServerWebExchange exchange, boolean trustProxyHeader, String clientIpHeader
+	) {
+		if(trustProxyHeader) {
+			String headerValue = exchange.getRequest().getHeaders().getFirst(clientIpHeader);
+
+			if(headerValue != null && !headerValue.isBlank()) {
+				InetAddress fromHeader = parseIpLiteral(headerValue.trim());
+
+				if(fromHeader != null) {
+					return fromHeader;
+				}
+
+				// 프록시가 채워주기로 한 헤더가 비어있거나 형식이 이상하다. 프록시 설정이 어긋났다는 신호라
+				// 로그만 남기고 소켓 주소(대개 프록시 IP)로 폴백한다.
+				log.warn(
+						"[Gateway] 신뢰 프록시 헤더 {} 값을 IP로 해석하지 못했습니다. socket 주소로 폴백합니다.",
+						clientIpHeader
+				);
+			}
+		}
+
+		InetSocketAddress remoteAddress = exchange.getRequest().getRemoteAddress();
+
+		return remoteAddress != null ? remoteAddress.getAddress() : null;
+	}
+
+	// 값은 신뢰 프록시가 넣어준 IP 리터럴이라는 전제다. IP 리터럴에 쓰이는 문자만 허용해
+	// 호스트명이 들어와 DNS 조회가 발생하는 것을 원천 차단하고, 그 뒤 InetAddress 로 해석한다.
+	// 리터럴이 아니거나 해석에 실패하면 null 을 돌려 unknown 버킷으로 보낸다.
+	private InetAddress parseIpLiteral(String value) {
+		if(!IP_LITERAL_PATTERN.matcher(value).matches()) {
+			return null;
+		}
+
+		try {
+			return InetAddress.getByName(value);
+		} catch (UnknownHostException e) {
+			return null;
+		}
+	}
+
 	private String routePrefix(ServerWebExchange exchange) {
 		Route route = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
 		
