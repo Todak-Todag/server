@@ -8,12 +8,9 @@ import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEv
 import com.spring.careplanservice.careplan.application.event.CarePlanCompletionEventAppender;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEvent;
 import com.spring.careplanservice.careplan.application.event.CarePlanConfirmedEventAppender;
-import com.spring.careplanservice.careplan.application.port.ScheduleResultQueryPort;
 import com.spring.careplanservice.careplan.application.result.CarePlanCreateResult;
 import com.spring.careplanservice.careplan.application.result.CarePlanStatusUpdateResult;
 import com.spring.careplanservice.careplan.application.result.DischargeFindResult;
-import com.spring.careplanservice.careplan.application.result.ScheduleResultFindResult;
-import com.spring.careplanservice.careplan.application.support.CarePlanCompletedEventValidator;
 import com.spring.careplanservice.careplan.application.support.CarePlanOwnerValidator;
 import com.spring.careplanservice.careplan.domain.entity.CarePlan;
 import com.spring.careplanservice.careplan.domain.entity.CarePlanService;
@@ -48,11 +45,10 @@ public class CarePlanCommandService {
     private final CarePlanServiceQueryRepository carePlanServiceQueryRepository;
     private final ServicePreferenceQueryRepository servicePreferenceQueryRepository;
     private final ServicePreferenceCommandRepository servicePreferenceCommandRepository;
-    private final ScheduleResultQueryPort scheduleResultQueryPort;
+
     private final CarePlanCompletionEventAppender carePlanCompletionEventAppender;
     private final CarePlanConfirmedEventAppender carePlanConfirmedEventAppender;
 
-    private final CarePlanCompletedEventValidator carePlanCompletedEventValidator;
     private final CarePlanOwnerValidator carePlanOwnerValidator;
 
     @Transactional
@@ -182,24 +178,8 @@ public class CarePlanCommandService {
     public void completeCarePlan(
             CarePlanCompletedEvent carePlanCompletedEvent
     ) {
-        // Schedule-Service 에서 수신한 완료 이벤트의 payload 유효성 검증
-        carePlanCompletedEventValidator.validatePayload(
-                carePlanCompletedEvent
-        );
-
-        // serviceResultId가 존재하는 경우 실제 Schedule 수행 결과인지 내부 API로 검증하고,
-        // 그 수행 결과가 실제로 이 이벤트의 carePlanId에 속하는지 교차 검증한다
-        if (carePlanCompletedEvent.serviceResultId() != null) {
-            ScheduleResultFindResult scheduleResultFindResult = scheduleResultQueryPort.findById(
-                    carePlanCompletedEvent.serviceResultId()
-            );
-
-            carePlanCompletedEventValidator.validateCarePlanId(
-                    carePlanCompletedEvent,
-                    scheduleResultFindResult
-            );
-        }
-
+        // 외부 Schedule 검증은 Facade에서 이미 완료된 상태다.
+        // 이 메서드에서는 DB 상태 변경과 Outbox 저장만 처리한다.
         // 완료 대상 Care Plan 조회
         CarePlan carePlan = carePlanCommandRepository
                 .findById(carePlanCompletedEvent.carePlanId())
