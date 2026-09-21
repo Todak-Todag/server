@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
 
+# 동일 EC2 에 배포가 겹치지 않도록 직렬화
+# cancel-in-progress: false — 배포 중간 취소 시 일부 서비스만 교체된 상태로 멈추므로
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: read
@@ -21,12 +27,12 @@ jobs:
       has_change: ${{ steps.set.outputs.has_change }}
     steps:
       - uses: actions/checkout@v6
-        with: { fetch-depth: 0 }
+        with: { fetch-depth: 0 }   # 머지 커밋 비교를 위해 전체 히스토리
 
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          base: ${{ github.event.before }}   # 비교 기준 명시
+          base: ${{ github.event.before }}
           filters: |
             config-server: ['config-server/**']
             eureka-server: ['eureka-server/**']
@@ -37,23 +43,53 @@ jobs:
             provider-service: ['provider-service/**']
             schedule-service: ['schedule-service/**']
             care-plan-service: ['care-plan-service/**']
+            compose-platform: ['docker/compose-platform-deploy.yml', 'docker/caddy/**', 'docker/alloy/config-deploy.alloy']
+            compose-app: ['docker/compose-app-deploy.yml']
 
       - id: set
+        name: 배포 대상 산출
         run: |
-          echo "services=${{ toJSON(steps.filter.outputs.changes) }}" >> $GITHUB_OUTPUT
-          if [ "${{ toJSON(steps.filter.outputs.changes) }}" = "[]" ]; then
+          CHANGED='${{ toJSON(steps.filter.outputs.changes) }}'
+          echo "감지된 변경: $CHANGED"
+
+          # Compose 변경 시 해당 계층의 서비스 전체를 대상에 포함
+          if echo "$CHANGED" | jq -e 'index("compose-platform")' >/dev/null; then
+            echo "platform compose 변경 → 플랫폼 3종 포함"
+            CHANGED=$(echo "$CHANGED" | jq -c '. + ["config-server","eureka-server","api-gateway"]')
+          fi
+          if echo "$CHANGED" | jq -e 'index("compose-app")' >/dev/null; then
+            echo "app compose 변경 → 업무 서비스 6종 포함"
+            CHANGED=$(echo "$CHANGED" | jq -c '. + ["user-service","discharge-service","social-worker-service","provider-service","schedule-service","care-plan-service"]')
+          fi
+
+          # ORDER 와 교집합을 구해 compose-* 항목 제거 + 중복 제거 + 배포 순서 정렬
+          # (Config Server → Eureka → Gateway → 업무 서비스 순서 보장)
+          ORDER='["config-server","eureka-server","api-gateway","user-service","discharge-service","social-worker-service","provider-service","schedule-service","care-plan-service"]'
+          SVCS=$(jq -cn --argjson c "$CHANGED" --argjson o "$ORDER" '$o - ($o - $c)')
+
+          echo "배포 대상: $SVCS"
+          echo "services=$SVCS" >> $GITHUB_OUTPUT
+          if [ "$SVCS" = "[]" ]; then
             echo "has_change=false" >> $GITHUB_OUTPUT
           else
             echo "has_change=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: 마이그레이션 변경 경고
+      - name: 위험 변경 경고
         run: |
-          CH=$(git diff --name-only HEAD^ HEAD)
+          BEFORE="${{ github.event.before }}"
+          # 브랜치 최초 푸시 또는 force push 직후에는 before 가 0으로 채워짐
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "::notice::이전 커밋 정보가 없어 변경 경고를 건너뜁니다."
+            exit 0
+          fi
+
+          CH=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+
           if echo "$CH" | grep -q 'db/migration/'; then
             echo "::warning::스키마 마이그레이션이 포함되었습니다. 배포 전 pg_dump 백업을 확인하십시오."
           fi
-          if echo "$CH" | grep -qE '^docker/(compose-data-deploy|compose-monitoring-deploy|prometheus|loki|grafana|alertmanager)/'; then
+          if echo "$CH" | grep -qE '^docker/(compose-data-deploy|compose-monitoring-deploy|prometheus|loki|grafana|alertmanager)'; then
             echo "::warning::DATA 계층 설정 변경이 포함되었습니다. DATA EC2 에 수동 적용이 필요합니다."
           fi
           if echo "$CH" | grep -q '^config-repo/'; then
@@ -88,7 +124,7 @@ jobs:
       - name: JAR 1개인지 확인
         run: |
           N=$(ls ${{ matrix.service }}/build/libs/*.jar | wc -l)
-          [ "$N" -eq 1 ] || { echo "JAR 가 ${N}개입니다"; exit 1; }
+          [ "$N" -eq 1 ] || { echo "JAR 가 ${N}개입니다. jar 태스크 비활성화를 확인하십시오."; exit 1; }
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -150,9 +186,47 @@ jobs:
 
           [ "$ST" = "Success" ] || { echo "배포 실패 (상태: $ST)"; exit 1; }
 
-      - name: 외부 스모크
+      - name: 게이트웨이 readiness 확인
         run: |
-          sleep 10
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' https://${{ secrets.DOMAIN }}/api/v1/regions)
-          echo "GET /api/v1/regions -> $CODE"
-          [ "$CODE" = "200" ] || exit 1
+          for i in $(seq 1 30); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+              "https://${{ secrets.DOMAIN }}/api/v1/regions" || echo 000)
+            echo "[$i/30] GET /api/v1/regions -> $CODE"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 5
+          done
+          echo "게이트웨이가 150초 내에 200 을 반환하지 않았습니다."
+          exit 1
+
+      - name: 변경 서비스 스모크
+        run: |
+          # 게이트웨이를 통과하는 비파괴 read API
+          # 인증 필요 API 는 401 도 정상 — 라우팅과 서비스가 살아 있다는 뜻
+          declare -A EP=(
+            [user-service]="/api/v1/regions"
+            [discharge-service]="/api/v1/discharges"
+            [social-worker-service]="/api/v1/social-worker-matchings"
+            [provider-service]="/api/v1/provide-services"
+            [schedule-service]="/api/v1/service-schedules"
+            [care-plan-service]="/api/v1/care-plans"
+          )
+
+          FAIL=0
+          for svc in $(echo '${{ needs.detect.outputs.services }}' | jq -r '.[]'); do
+            EPATH="${EP[$svc]:-}"
+            if [ -z "$EPATH" ]; then
+              echo "· $svc — 외부 엔드포인트 없음, 건너뜀 (deploy.sh 헬스체크로 확인됨)"
+              continue
+            fi
+
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+              "https://${{ secrets.DOMAIN }}${EPATH}" || echo 000)
+
+            case "$CODE" in
+              200|401|403) echo "✔ $svc  $EPATH -> $CODE" ;;
+              *)           echo "✖ $svc  $EPATH -> $CODE"; FAIL=1 ;;
+            esac
+          done
+
+          [ "$FAIL" -eq 0 ] || { echo "일부 서비스가 비정상 응답했습니다."; exit 1; }
+          echo "전체 스모크 통과"
