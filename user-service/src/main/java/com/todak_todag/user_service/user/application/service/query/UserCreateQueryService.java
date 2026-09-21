@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.CommonErrorCode;
 import com.todak_todag.user_service.global.exception.RegionErrorCode;
 import com.todak_todag.user_service.global.exception.UserErrorCode;
 import com.todak_todag.user_service.global.support.MaskingUtil;
@@ -61,6 +62,10 @@ public class UserCreateQueryService {
 	public Region validateAdminCreate(UserAdminCreateCommand createAdmin) {
 		Region region = regionQueryRepo.findById(createAdmin.regionId())
         .orElseThrow(() -> new BusinessException(RegionErrorCode.REGION_NOT_FOUND));
+		
+		if(!region.isActive()) {
+			throw new BusinessException(CommonErrorCode.REGION_NOT_SUPPORTED);
+		}
 		
 		if (userQueryRepo.duplicateUsername(createAdmin.username())) {
       log.info(
