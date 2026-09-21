@@ -287,6 +287,7 @@ public class CarePlanCommandService {
         );
 
         return new CarePlanConfirmedEvent(
+                UUID.randomUUID(),
                 carePlanId,
                 regionId,
                 services

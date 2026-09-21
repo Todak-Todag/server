@@ -144,6 +144,7 @@ class CarePlanOutboxRelayFacadeTest {
         );
 
         CarePlanConfirmedEvent event = new CarePlanConfirmedEvent(
+                UUID.randomUUID(),
                 carePlanId,
                 UUID.randomUUID(),
                 List.of()
@@ -171,6 +172,7 @@ class CarePlanOutboxRelayFacadeTest {
         );
 
         CarePlanConfirmedEvent event = new CarePlanConfirmedEvent(
+                UUID.randomUUID(),
                 carePlanId,
                 UUID.randomUUID(),
                 List.of()
@@ -212,6 +214,7 @@ class CarePlanOutboxRelayFacadeTest {
         );
 
         CarePlanConfirmedEvent confirmedEvent = new CarePlanConfirmedEvent(
+                UUID.randomUUID(),
                 carePlanId,
                 UUID.randomUUID(),
                 List.of()
