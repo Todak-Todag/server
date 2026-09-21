@@ -485,7 +485,7 @@ class CarePlanCommandServiceTest {
             );
 
             CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
-                    userId,
+                    patientId,
                     UserRole.PATIENT,
                     carePlanId,
                     CarePlanStatus.CONFIRMED
@@ -650,6 +650,39 @@ class CarePlanCommandServiceTest {
                     regionId
             )).isInstanceOf(BusinessException.class);
             verify(carePlanCommandRepository).findById(carePlanId);
+        }
+
+        @Test
+        @DisplayName("환자가 다른 환자의 Care Plan을 CONFIRMED로 변경하면 예외")
+        void updateCarePlanStatus_otherPatientToConfirmed_throwsException() {
+            CarePlan carePlan = CarePlan.create(
+                    patientId,
+                    dischargeId,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDate.of(2026, 9, 30),
+                    null
+            );
+
+            UUID otherPatientId = UUID.randomUUID();
+
+            CarePlanStatusUpdateCommand carePlanStatusUpdateCommand = new CarePlanStatusUpdateCommand(
+                    otherPatientId,
+                    UserRole.PATIENT,
+                    carePlanId,
+                    CarePlanStatus.CONFIRMED
+            );
+
+            given(carePlanCommandRepository.findById(carePlanId)).willReturn(Optional.of(carePlan));
+
+            assertThatThrownBy(() -> carePlanCommandService.updateCarePlanStatus(
+                    carePlanStatusUpdateCommand,
+                    regionId
+            )).isInstanceOf(BusinessException.class);
+
+            assertThat(carePlan.getStatus()).isEqualTo(CarePlanStatus.UNDER_REVIEW);
+
+            verify(carePlanCommandRepository).findById(carePlanId);
+            verify(carePlanConfirmedEventAppender, never()).append(any(CarePlanConfirmedEvent.class));
         }
     }
 
