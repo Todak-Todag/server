@@ -28,7 +28,14 @@ public interface MatchingAttemptApiSpec {
                     "Care Plan이 CONFIRMED 상태가 아니면 빈 배열을 반환한다. " +
                     "정렬은 최신순/오래된순(기본 createdAt,DESC)이 가능하다."
     )
-    @ApiResponses
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "매칭 실패 내역 조회 성공 (없으면 빈 배열)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "status에 MATCHED/FAILED/EXPIRED 이외의 값"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "PATIENT가 아니거나, 요청자의 Care Plan이 없거나 아직 UNDER_REVIEW"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "care-plan-service가 요청을 거부"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "care-plan-service 응답을 처리할 수 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "care-plan-service 호출 실패 (연결 불가 또는 상대 서버 오류)")
+    })
     ResponseEntity<ApiResponse<PageResponse<MatchingAttemptSearchResponse>>> search(
             @Parameter(description = "페이지 번호 (기본 0)")
             Integer page,
@@ -49,7 +56,15 @@ public interface MatchingAttemptApiSpec {
                     "Provider-Service의 매칭 결과 이벤트를 수신할 때 추가된다. 결과는 매칭 실패 내역 조회 API로 확인한다. " +
                     "대상이 FAILED 상태가 아니거나 이미 재시도가 접수된 경우 409를 반환한다."
     )
-    @ApiResponses
+    @ApiResponses({
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "202", description = "재매칭 시도 접수 성공 (결과는 매칭 실패 내역 조회 API로 확인)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "재매칭 희망 날짜가 Care Plan 일정 범위를 벗어남, 또는 date 누락/preferredTimeSlot 허용되지 않는 값"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "본인 소유가 아니거나, 존재하지 않는 매칭 시도 (리소스 존재 여부 비노출)"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "409", description = "매칭 시도가 FAILED 상태가 아니거나, 이미 재시도가 접수됨"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "500", description = "care-plan-service가 요청을 거부"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "502", description = "care-plan-service 응답을 처리할 수 없음"),
+            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503", description = "care-plan-service 호출 실패 (연결 불가 또는 상대 서버 오류)")
+    })
     ResponseEntity<ApiResponse<MatchingAttemptRetryResponse>> retry(
             @Parameter(name = "matchingAttemptId", description = "재시도할 매칭 시도 ID", required = true)
             UUID matchingAttemptId,
