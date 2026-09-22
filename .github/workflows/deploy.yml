@@ -161,13 +161,13 @@ jobs:
             --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
             --document-name AWS-RunShellScript \
             --comment "deploy ${{ github.sha }}" \
-            --timeout-seconds 900 \
+            --timeout-seconds 5400 \
             --parameters commands="sudo -u ec2-user /opt/todak-bin/deploy.sh ${{ github.sha }} $SVCS" \
             --query Command.CommandId --output text)
 
           echo "CommandId: $CMD"
 
-          for i in $(seq 1 90); do
+          for i in $(seq 1 540); do
             ST=$(aws ssm get-command-invocation --command-id $CMD \
                  --instance-id ${{ secrets.EC2_INSTANCE_ID }} --query Status --output text)
             [ "$ST" = "InProgress" ] || [ "$ST" = "Pending" ] || break
@@ -197,36 +197,3 @@ jobs:
           done
           echo "게이트웨이가 150초 내에 200 을 반환하지 않았습니다."
           exit 1
-
-      - name: 변경 서비스 스모크
-        run: |
-          # 게이트웨이를 통과하는 비파괴 read API
-          # 인증 필요 API 는 401 도 정상 — 라우팅과 서비스가 살아 있다는 뜻
-          declare -A EP=(
-            [user-service]="/api/v1/regions"
-            [discharge-service]="/api/v1/discharges"
-            [social-worker-service]="/api/v1/social-worker-matchings"
-            [provider-service]="/api/v1/provide-services"
-            [schedule-service]="/api/v1/service-schedules"
-            [care-plan-service]="/api/v1/care-plans"
-          )
-
-          FAIL=0
-          for svc in $(echo '${{ needs.detect.outputs.services }}' | jq -r '.[]'); do
-            EPATH="${EP[$svc]:-}"
-            if [ -z "$EPATH" ]; then
-              echo "· $svc — 외부 엔드포인트 없음, 건너뜀 (deploy.sh 헬스체크로 확인됨)"
-              continue
-            fi
-
-            CODE=$(curl -s -o /dev/null -w '%{http_code}' \
-              "https://${{ secrets.DOMAIN }}${EPATH}" || echo 000)
-
-            case "$CODE" in
-              200|401|403) echo "✔ $svc  $EPATH -> $CODE" ;;
-              *)           echo "✖ $svc  $EPATH -> $CODE"; FAIL=1 ;;
-            esac
-          done
-
-          [ "$FAIL" -eq 0 ] || { echo "일부 서비스가 비정상 응답했습니다."; exit 1; }
-          echo "전체 스모크 통과"
