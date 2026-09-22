@@ -2,6 +2,7 @@ package com.spring.careplanservice.careplan.infrastructure.messaging;
 
 
 import com.spring.careplanservice.careplan.application.event.CarePlanCompletedEvent;
+import com.spring.careplanservice.careplan.application.facade.CarePlanFacade;
 import com.spring.careplanservice.careplan.application.service.command.CarePlanCommandService;
 import com.spring.careplanservice.global.config.RabbitMqConfig;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class CarePlanEventConsumer {
-    private final CarePlanCommandService carePlanCommandService;
+    private final CarePlanFacade carePlanFacade;
 
     @RabbitListener(
             queues = RabbitMqConfig.CARE_PLAN_SCHEDULE_COMPLETED_QUEUE
@@ -29,7 +30,7 @@ public class CarePlanEventConsumer {
                 carePlanCompletedEvent.status()
         );
 
-        carePlanCommandService.completeCarePlan(
+        carePlanFacade.completeCarePlan(
                 carePlanCompletedEvent
         );
 

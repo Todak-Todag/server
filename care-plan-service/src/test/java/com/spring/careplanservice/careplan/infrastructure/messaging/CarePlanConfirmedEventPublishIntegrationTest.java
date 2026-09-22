@@ -169,6 +169,8 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
     @Test
     @DisplayName("CarePlanConfirmedEventRabbitAdapter는 CarePlanConfirmed 이벤트를 기존 care-plan.exchange / care-plan.confirmed.key로 발행한다")
     void carePlanConfirmedEventPort_publish_success() throws Exception {
+        UUID eventId = UUID.randomUUID();
+
         Queue queue = QueueBuilder
                 .nonDurable(TEST_QUEUE)
                 .exclusive()
@@ -187,6 +189,7 @@ class CarePlanConfirmedEventPublishIntegrationTest extends IntegrationTestSuppor
         UUID carePlanId = UUID.randomUUID();
 
         CarePlanConfirmedEvent event = new CarePlanConfirmedEvent(
+                eventId,
                 carePlanId,
                 regionId,
                 List.of(

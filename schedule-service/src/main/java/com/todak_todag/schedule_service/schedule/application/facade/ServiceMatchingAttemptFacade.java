@@ -45,7 +45,8 @@ public class ServiceMatchingAttemptFacade {
     public Page<MatchingAttemptSearchResult> search(MatchingAttemptSearchQuery searchQuery) {
 
         // 재매칭은 확정된 Care Plan에서만 의미가 있으므로 CONFIRMED가 아니면 조회 대상 없음
-        // 상대 API는 UNDER_REVIEW/미존재일 때 예외를 던지는데, 이 예외는 감추지 않고 그대로 전파
+        // 상대 API는 UNDER_REVIEW/미존재일 때 예외를 던지는데, 이 예외는 감추지 않고 전파
+        // 미존재는 InternalApiErrorDecoder가 404 -> 403 AUTH_FORBIDDEN으로 변환하므로 더 이상 500으로 나가지 않음
         CarePlanPort.CarePlanSummary carePlan = carePlanPort.findCarePlanByPatient(searchQuery.userId());
 
         if (!carePlan.isConfirmed()) {

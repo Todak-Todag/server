@@ -4,6 +4,8 @@ spring:
       enabled: false
 
   rabbitmq:
+    publisher-confirm-type: correlated
+
     listener:
       simple:
         default-requeue-rejected: false

@@ -12,9 +12,10 @@ public interface ServiceMatchingAttemptCommandRepository {
 
     ServiceMatchingAttempt save(ServiceMatchingAttempt serviceMatchingAttempt);
 
-    // 단건 조회 — 소프트 삭제된 기록은 제외
+    // 단건 조회 — 소프트 삭제된 기록은 제외, 로우에 쓰기 락
     // 커맨드 트랜잭션 안에서 대상 매칭 시도를 다시 읽기 위한 용도
-    Optional<ServiceMatchingAttempt> findById(UUID matchingAttemptId);
+    // "재시도 접수 여부 확인 → 아웃박스 적재"처럼 읽은 값을 근거로 쓰는 구간에서, 같은 매칭 시도에 대한 동시 요청을 직렬화하기 위해 사용
+    Optional<ServiceMatchingAttempt> findByIdForUpdate(UUID matchingAttemptId);
 
     // 해당 서비스 희망 일정(servicePreferenceId)을 성사시킨 가장 최근 매칭 시도 1건
     Optional<ServiceMatchingAttempt> findLatestMatched(UUID servicePreferenceId);

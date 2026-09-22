@@ -8,6 +8,21 @@ spring:
 internal:
   key: ${INTERNAL_API_KEY}
 
+internal-jwt:
+  private-key: ${INTERNAL_JWT_PRIVATE_KEY}
+  issuer: todak-api-gateway
+  ttl: 60s
+
+rate-limit:
+  trust-proxy-header: ${TRUST_PROXY_HEADER}
+  client-ip-header: ${CLIENT_IP_HEADER}
+  max-idle: 1h
+  buckets:
+    user-service-login:
+      capacity: 20
+      refill-tokens: 10
+      refill-period: 1m
+
 jwt:
   secret: ${JWT_SECRET}
 
@@ -32,8 +47,8 @@ eureka:
 logging:
   level:
     com.todak_todag.api_gateway: info       # local: debug
-
-  endpoint:
+    
+endpoint:
     health:
       show-details: never          # local: always
       probes:

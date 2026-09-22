@@ -15,6 +15,10 @@ public interface ServiceScheduleCommandRepository {
     // 단건 조회 — 소프트 삭제된 일정은 제외
     Optional<ServiceSchedule> findById(UUID serviceScheduleId);
 
+    // 단건 조회 + 로우 쓰기 락(SELECT ... FOR UPDATE) — 소프트 삭제된 일정은 제외
+    // "상태 확인 후 상태 전이"처럼 읽은 값을 근거로 쓰는 구간에서, 같은 일정에 대한 동시 요청을 직렬화하기 위해 사용
+    Optional<ServiceSchedule> findByIdForUpdate(UUID serviceScheduleId);
+
     // 케어플랜의 "마지막 일정" 1건 조회 — CarePlanCompleted 발행 조건 판단용
     Optional<ServiceSchedule> findLastSchedule(UUID carePlanId);
 

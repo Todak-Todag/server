@@ -483,7 +483,7 @@ class UserUpdateServiceTest {
 		}
 
 		@Test
-		@DisplayName("요청자가 ADMIN이고 대상도 ADMIN이면 UNAUTHORIZED_INTERNAL_REQUEST 예외가 발생한다")
+		@DisplayName("요청자가 ADMIN이고 대상도 ADMIN이면 AUTH_FORBIDDEN 예외가 발생한다")
 		void suspendTest_fail_targetIsAdmin() {
 			// Given
 			User target = adminTarget(REGION_ID);
@@ -495,7 +495,7 @@ class UserUpdateServiceTest {
 			assertThatThrownBy(() -> userUpdateService.suspend(command))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+					.isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
 
 			verify(userQueryRepo, never()).findActiveById(any());
 		}
@@ -536,7 +536,7 @@ class UserUpdateServiceTest {
 		}
 
 		@Test
-		@DisplayName("요청자가 대상과 다른 지역의 ADMIN이면 UNAUTHORIZED_INTERNAL_REQUEST 예외가 발생한다")
+		@DisplayName("요청자가 대상과 다른 지역의 ADMIN이면 AUTH_FORBIDDEN 예외가 발생한다")
 		void suspendTest_fail_differentRegionAdmin() {
 			// Given
 			User target = approvedTarget(REGION_ID);
@@ -550,7 +550,37 @@ class UserUpdateServiceTest {
 			assertThatThrownBy(() -> userUpdateService.suspend(command))
 					.isInstanceOf(BusinessException.class)
 					.extracting(e -> ((BusinessException) e).getErrorCode())
-					.isEqualTo(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+					.isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+		}
+
+		@Test
+		@DisplayName("정지 사유가 null이면 USER_SUSPEND_NOT_MESSAGE 예외가 발생한다")
+		void suspendTest_fail_suspendReasonIsNull() {
+			// Given
+			UserSuspendCommand command = suspendCommand(null, MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_SUSPEND_NOT_MESSAGE);
+
+			verify(userQueryRepo, never()).findById(any());
+		}
+
+		@Test
+		@DisplayName("정지 사유가 공백뿐이면 USER_SUSPEND_NOT_MESSAGE 예외가 발생한다")
+		void suspendTest_fail_suspendReasonIsBlank() {
+			// Given
+			UserSuspendCommand command = suspendCommand("   ", MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_SUSPEND_NOT_MESSAGE);
+
+			verify(userQueryRepo, never()).findById(any());
 		}
 
 		@Test

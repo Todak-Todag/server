@@ -29,6 +29,11 @@ public class ServiceScheduleCommandRepositoryImpl implements ServiceScheduleComm
     }
 
     @Override
+    public Optional<ServiceSchedule> findByIdForUpdate(UUID serviceScheduleId) {
+        return springDataServiceScheduleRepository.findByIdForUpdate(serviceScheduleId);
+    }
+
+    @Override
     public Optional<ServiceSchedule> findLastSchedule(UUID carePlanId) {
         return springDataServiceScheduleRepository
                 .findFirstByCarePlanIdAndStatusNotAndDeletedAtIsNullOrderByFinishedAtDescCreatedAtDesc(

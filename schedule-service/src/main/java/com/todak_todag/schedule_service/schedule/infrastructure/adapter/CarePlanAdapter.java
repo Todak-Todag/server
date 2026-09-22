@@ -1,9 +1,11 @@
 package com.todak_todag.schedule_service.schedule.infrastructure.adapter;
 
 import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
+import com.todak_todag.schedule_service.schedule.infrastructure.client.InternalApiResponses;
 import com.todak_todag.schedule_service.schedule.infrastructure.client.care_plan.CarePlanClient;
 import com.todak_todag.schedule_service.schedule.infrastructure.client.dto.CarePlanRangeInternalResponse;
 import com.todak_todag.schedule_service.schedule.infrastructure.client.dto.CarePlanSummaryInternalResponse;
+import com.todak_todag.schedule_service.schedule.infrastructure.client.dto.ServicePreferenceIdListInternalResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -16,23 +18,28 @@ public class CarePlanAdapter implements CarePlanPort {
 
     private final CarePlanClient carePlanClient;
 
+    // 호출 실패(non-2xx/연결 실패)는 InternalApiErrorDecoder와 GlobalExceptionHandler가 변환
+    // 여기서는 2xx인데 본문이 비어 오는 계약 위반만 걸러 NPE(=500)가 되지 않게 함
     @Override
     public CarePlanRange findCarePlanRange(UUID servicePreferenceId) {
-        CarePlanRangeInternalResponse response =
-                carePlanClient.findCarePlanRange(servicePreferenceId).data();
+        CarePlanRangeInternalResponse response = InternalApiResponses.requireData(
+                carePlanClient.findCarePlanRange(servicePreferenceId), "care-plan-service.findCarePlanRange");
 
         return new CarePlanRange(response.carePlanId(), response.finishDate(), response.patientId());
     }
 
     @Override
     public List<UUID> findServicePreferenceIds(UUID patientId) {
-        return carePlanClient.findServicePreferenceIds(patientId).data().content();
+        ServicePreferenceIdListInternalResponse response = InternalApiResponses.requireData(
+                carePlanClient.findServicePreferenceIds(patientId), "care-plan-service.findServicePreferenceIds");
+
+        return InternalApiResponses.require(response.content(), "care-plan-service.findServicePreferenceIds.content");
     }
 
     @Override
     public CarePlanSummary findCarePlanByPatient(UUID patientId) {
-        CarePlanSummaryInternalResponse response =
-                carePlanClient.findCarePlanByPatient(patientId).data();
+        CarePlanSummaryInternalResponse response = InternalApiResponses.requireData(
+                carePlanClient.findCarePlanByPatient(patientId), "care-plan-service.findCarePlanByPatient");
 
         return new CarePlanSummary(response.carePlanId(), parseStatus(response.status()));
     }

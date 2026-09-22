@@ -4,6 +4,7 @@ import com.todak_todag.schedule_service.global.common.UserRole;
 import com.todak_todag.schedule_service.global.config.SecurityConfig;
 import com.todak_todag.schedule_service.global.exception.BusinessException;
 import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
+import com.todak_todag.schedule_service.global.exception.FeignErrorCode;
 import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
 import com.todak_todag.schedule_service.schedule.application.facade.ServiceScheduleFacade;
 import com.todak_todag.schedule_service.schedule.application.query.ServiceScheduleSearchQuery;
@@ -13,6 +14,10 @@ import com.todak_todag.schedule_service.schedule.application.result.ServiceSched
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
 import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleSearchResult;
 import com.todak_todag.schedule_service.schedule.domain.entity.ScheduleStatus;
+import feign.FeignException;
+import feign.Request;
+import feign.RetryableException;
+import feign.codec.DecodeException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -29,9 +34,11 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static com.todak_todag.schedule_service.support.AuthenticatedRequestSupport.asUser;
@@ -923,6 +930,142 @@ class ServiceScheduleApiControllerTest {
                     .andExpect(status().isUnauthorized());
 
             verifyNoInteractions(serviceScheduleFacade);
+        }
+    }
+
+    // Internal API(Feign) 호출 실패가 실제 HTTP 응답으로 어떻게 나가는지 검증한다.
+    //
+    // 이전에는 아래 예외가 전부 GlobalExceptionHandler의 Exception 핸들러로 떨어져
+    // 500 INTERNAL_SERVER_ERROR 하나로 응답했다.
+    // 예외 타입/ErrorCode는 InternalApiErrorDecoderTest가 실제 Feign 호출로 검증하고,
+    // 여기서는 그 예외가 status/code/body로 이어지는 마지막 구간을 본다.
+    @Nested
+    @DisplayName("Internal API 호출 실패")
+    class internalApiFailureTest {
+
+        private Request feignRequest() {
+            return Request.create(
+                    Request.HttpMethod.GET, "/internal/v1/service-preferences/x/care-plan",
+                    Map.of(), null, StandardCharsets.UTF_8
+            );
+        }
+
+        @Test
+        @DisplayName("상대 서비스가 404를 반환하면 403 AUTH_FORBIDDEN을 반환한다")
+        void detail_downstreamNotFound_forbidden() throws Exception {
+            // given — ErrorDecoder가 404를 AUTH_FORBIDDEN으로 바꿔 던진 상황
+            given(serviceScheduleFacade.detail(any()))
+                    .willThrow(new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+        }
+
+        @Test
+        @DisplayName("상대 서비스가 4xx로 요청을 거부하면 500 EXTERNAL_SERVICE_CALL_REJECTED를 반환한다")
+        void detail_downstreamRejected_internalServerErrorWithOwnCode() throws Exception {
+            // given
+            given(serviceScheduleFacade.detail(any()))
+                    .willThrow(new BusinessException(FeignErrorCode.EXTERNAL_SERVICE_CALL_REJECTED));
+
+            // when & then — status는 기존과 같은 500이지만 error code로 원인이 구분된다
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
+                    .andExpect(status().isInternalServerError())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("EXTERNAL_SERVICE_CALL_REJECTED"))
+                    .andExpect(jsonPath("$.details.reason").value(
+                            FeignErrorCode.EXTERNAL_SERVICE_CALL_REJECTED.getMessage()))
+                    .andExpect(jsonPath("$.timestamp").exists());
+        }
+
+        @Test
+        @DisplayName("상대 서비스가 5xx를 반환하면 503 EXTERNAL_SERVICE_UNAVAILABLE을 반환한다")
+        void detail_downstreamServerError_serviceUnavailable() throws Exception {
+            // given
+            given(serviceScheduleFacade.detail(any()))
+                    .willThrow(new BusinessException(FeignErrorCode.EXTERNAL_SERVICE_UNAVAILABLE));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("EXTERNAL_SERVICE_UNAVAILABLE"));
+        }
+
+        @Test
+        @DisplayName("상대 서비스에 연결하지 못하면 503 EXTERNAL_SERVICE_UNAVAILABLE을 반환한다")
+        void detail_connectionFailure_serviceUnavailable() throws Exception {
+            // given — HTTP 응답이 없어 ErrorDecoder를 타지 못하고 RetryableException이 그대로 올라온다
+            given(serviceScheduleFacade.detail(any()))
+                    .willThrow(new RetryableException(
+                            -1, "Connection refused", Request.HttpMethod.GET, (Long) null, feignRequest()
+                    ));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("EXTERNAL_SERVICE_UNAVAILABLE"));
+        }
+
+        @Test
+        @DisplayName("상대 서비스 응답을 디코딩하지 못하면 502 EXTERNAL_SERVICE_RESPONSE_INVALID를 반환한다")
+        void detail_decodeFailure_badGateway() throws Exception {
+            // given — 응답(2xx)은 받았으나 역직렬화에 실패한 경우
+            given(serviceScheduleFacade.detail(any()))
+                    .willThrow(new DecodeException(200, "cannot decode", feignRequest()));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
+                    .andExpect(status().isBadGateway())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("EXTERNAL_SERVICE_RESPONSE_INVALID"));
+        }
+
+        @Test
+        @DisplayName("Feign 예외 응답에는 상대 서비스의 오류 본문이 실리지 않는다")
+        void detail_feignFailure_doesNotLeakDownstreamMessage() throws Exception {
+            // given
+            given(serviceScheduleFacade.detail(any()))
+                    .willThrow(new FeignException.InternalServerError(
+                            "relation \"care_plan_schema.p_care_plans\" does not exist",
+                            feignRequest(), null, Map.of()
+                    ));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(UUID.randomUUID()))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
+                    .andExpect(status().isBadGateway())
+                    .andExpect(jsonPath("$.message").value(
+                            FeignErrorCode.EXTERNAL_SERVICE_RESPONSE_INVALID.getMessage()));
+        }
+
+        @Test
+        @DisplayName("Internal API 호출이 정상이면 기존과 동일하게 200을 반환한다")
+        void detail_success_unchanged() throws Exception {
+            // given
+            UUID serviceScheduleId = UUID.randomUUID();
+            given(serviceScheduleFacade.detail(any())).willReturn(new ServiceScheduleDetailResult(
+                    serviceScheduleId, UUID.randomUUID(), UUID.randomUUID(), ScheduleStatus.SCHEDULED,
+                    LocalDate.of(2026, 9, 1),
+                    LocalDateTime.of(2026, 9, 1, 9, 0), LocalDateTime.of(2026, 9, 1, 10, 0),
+                    null, null
+            ));
+
+            // when & then
+            mockMvc.perform(get(DETAIL_URI.formatted(serviceScheduleId))
+                            .with(asUser(UUID.randomUUID(), UserRole.PATIENT)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.serviceScheduleId").value(serviceScheduleId.toString()));
         }
     }
 }
