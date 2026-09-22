@@ -162,7 +162,7 @@ jobs:
             --document-name AWS-RunShellScript \
             --comment "deploy ${{ github.sha }}" \
             --timeout-seconds 900 \
-            --parameters commands="sudo -u ec2-user /opt/todak/deploy.sh ${{ github.sha }} $SVCS" \
+            --parameters commands="sudo -u ec2-user /opt/todak-bin/deploy.sh ${{ github.sha }} $SVCS" \
             --query Command.CommandId --output text)
 
           echo "CommandId: $CMD"
