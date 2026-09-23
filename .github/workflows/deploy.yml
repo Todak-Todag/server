@@ -1,0 +1,199 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+
+# 동일 EC2 에 배포가 겹치지 않도록 직렬화
+# cancel-in-progress: false — 배포 중간 취소 시 일부 서비스만 교체된 상태로 멈추므로
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+jobs:
+  detect:
+    name: 변경 서비스 감지
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.set.outputs.services }}
+      has_change: ${{ steps.set.outputs.has_change }}
+    steps:
+      - uses: actions/checkout@v6
+        with: { fetch-depth: 0 }   # 머지 커밋 비교를 위해 전체 히스토리
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.event.before }}
+          filters: |
+            config-server: ['config-server/**']
+            eureka-server: ['eureka-server/**']
+            api-gateway: ['api-gateway/**']
+            user-service: ['user-service/**']
+            discharge-service: ['discharge-service/**']
+            social-worker-service: ['social-worker-service/**']
+            provider-service: ['provider-service/**']
+            schedule-service: ['schedule-service/**']
+            care-plan-service: ['care-plan-service/**']
+            compose-platform: ['docker/compose-platform-deploy.yml', 'docker/caddy/**', 'docker/alloy/config-deploy.alloy']
+            compose-app: ['docker/compose-app-deploy.yml']
+
+      - id: set
+        name: 배포 대상 산출
+        run: |
+          CHANGED='${{ toJSON(steps.filter.outputs.changes) }}'
+          echo "감지된 변경: $CHANGED"
+
+          # Compose 변경 시 해당 계층의 서비스 전체를 대상에 포함
+          if echo "$CHANGED" | jq -e 'index("compose-platform")' >/dev/null; then
+            echo "platform compose 변경 → 플랫폼 3종 포함"
+            CHANGED=$(echo "$CHANGED" | jq -c '. + ["config-server","eureka-server","api-gateway"]')
+          fi
+          if echo "$CHANGED" | jq -e 'index("compose-app")' >/dev/null; then
+            echo "app compose 변경 → 업무 서비스 6종 포함"
+            CHANGED=$(echo "$CHANGED" | jq -c '. + ["user-service","discharge-service","social-worker-service","provider-service","schedule-service","care-plan-service"]')
+          fi
+
+          # ORDER 와 교집합을 구해 compose-* 항목 제거 + 중복 제거 + 배포 순서 정렬
+          # (Config Server → Eureka → Gateway → 업무 서비스 순서 보장)
+          ORDER='["config-server","eureka-server","api-gateway","user-service","discharge-service","social-worker-service","provider-service","schedule-service","care-plan-service"]'
+          SVCS=$(jq -cn --argjson c "$CHANGED" --argjson o "$ORDER" '$o - ($o - $c)')
+
+          echo "배포 대상: $SVCS"
+          echo "services=$SVCS" >> $GITHUB_OUTPUT
+          if [ "$SVCS" = "[]" ]; then
+            echo "has_change=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_change=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 위험 변경 경고
+        run: |
+          BEFORE="${{ github.event.before }}"
+          # 브랜치 최초 푸시 또는 force push 직후에는 before 가 0으로 채워짐
+          if [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            echo "::notice::이전 커밋 정보가 없어 변경 경고를 건너뜁니다."
+            exit 0
+          fi
+
+          CH=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+
+          if echo "$CH" | grep -q 'db/migration/'; then
+            echo "::warning::스키마 마이그레이션이 포함되었습니다. 배포 전 pg_dump 백업을 확인하십시오."
+          fi
+          if echo "$CH" | grep -qE '^docker/(compose-data-deploy|compose-monitoring-deploy|prometheus|loki|grafana|alertmanager)'; then
+            echo "::warning::DATA 계층 설정 변경이 포함되었습니다. DATA EC2 에 수동 적용이 필요합니다."
+          fi
+          if echo "$CH" | grep -q '^config-repo/'; then
+            echo "::warning::config-repo 변경이 포함되었습니다. config-server 재시작이 필요할 수 있습니다."
+          fi
+
+  build:
+    name: 빌드 & ECR push
+    needs: detect
+    if: needs.detect.outputs.has_change == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.detect.outputs.services) }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: bootJar
+        run: |
+          cd ${{ matrix.service }}
+          chmod +x gradlew
+          ./gradlew clean bootJar
+
+      - name: JAR 1개인지 확인
+        run: |
+          N=$(ls ${{ matrix.service }}/build/libs/*.jar | wc -l)
+          [ "$N" -eq 1 ] || { echo "JAR 가 ${N}개입니다. jar 태스크 비활성화를 확인하십시오."; exit 1; }
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+
+      - name: build & push
+        run: |
+          docker build -f ${{ matrix.service }}/Dockerfile \
+            --build-arg JAR_FILE=${{ matrix.service }}/build/libs/*.jar \
+            -t $ECR_REGISTRY/todak/${{ matrix.service }}:${{ github.sha }} \
+            -t $ECR_REGISTRY/todak/${{ matrix.service }}:latest .
+          docker push $ECR_REGISTRY/todak/${{ matrix.service }}:${{ github.sha }}
+          docker push $ECR_REGISTRY/todak/${{ matrix.service }}:latest
+
+  deploy:
+    name: APP EC2 배포
+    needs: [detect, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: SSM 배포 실행
+        run: |
+          SVCS=$(echo '${{ needs.detect.outputs.services }}' | jq -r 'join(" ")')
+          echo "배포 대상: $SVCS"
+
+          CMD=$(aws ssm send-command \
+            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+            --document-name AWS-RunShellScript \
+            --comment "deploy ${{ github.sha }}" \
+            --timeout-seconds 5400 \
+            --parameters commands="sudo -u ec2-user /opt/todak-bin/deploy.sh ${{ github.sha }} $SVCS" \
+            --query Command.CommandId --output text)
+
+          echo "CommandId: $CMD"
+
+          for i in $(seq 1 540); do
+            ST=$(aws ssm get-command-invocation --command-id $CMD \
+                 --instance-id ${{ secrets.EC2_INSTANCE_ID }} --query Status --output text)
+            [ "$ST" = "InProgress" ] || [ "$ST" = "Pending" ] || break
+            sleep 10
+          done
+
+          echo "── stdout ──"
+          aws ssm get-command-invocation --command-id $CMD \
+            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+            --query StandardOutputContent --output text
+
+          echo "── stderr ──"
+          aws ssm get-command-invocation --command-id $CMD \
+            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+            --query StandardErrorContent --output text
+
+          [ "$ST" = "Success" ] || { echo "배포 실패 (상태: $ST)"; exit 1; }
+
+      - name: 게이트웨이 readiness 확인
+        run: |
+          for i in $(seq 1 30); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+              "https://${{ secrets.DOMAIN }}/api/v1/regions" || echo 000)
+            echo "[$i/30] GET /api/v1/regions -> $CODE"
+            [ "$CODE" = "200" ] && exit 0
+            sleep 5
+          done
+          echo "게이트웨이가 150초 내에 200 을 반환하지 않았습니다."
+          exit 1

@@ -44,3 +44,9 @@ eureka:
 logging:
   level:
     com.todak_todag.api_gateway: debug
+
+  endpoint:
+    health:
+      show-details: always          # prod: never
+      probes:
+        enabled: true              # /actuator/health/readiness 노출
