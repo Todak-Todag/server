@@ -1,0 +1,93 @@
+name: todak-app
+
+x-svc: &svc
+  restart: unless-stopped
+  networks: [todak-network]
+  mem_limit: 512m
+  env_file:
+    - /dev/shm/todak.infra.env
+    - /dev/shm/todak.common.env
+  environment: &svc-env
+    SPRING_PROFILES_ACTIVE: prod
+    CONFIG_SERVER_URL: http://config-server:8888
+    JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k"
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
+services:
+
+  user-service:
+    <<: *svc
+    image: ${ECR_REGISTRY}/todak/user-service:${IMAGE_TAG}
+    container_name: todak-user-service
+    env_file:                        # 앵커를 덮어쓰므로 4개 모두 나열
+      - /dev/shm/todak.infra.env
+      - /dev/shm/todak.common.env
+      - /dev/shm/todak.auth.env      # JWT_SECRET · USER_KEY_PREFIX · 쿠키
+      - /dev/shm/todak.user.env      # MASTER_* — 이 컨테이너만
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19000/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  discharge-service:
+    <<: *svc
+    image: ${ECR_REGISTRY}/todak/discharge-service:${IMAGE_TAG}
+    container_name: todak-discharge-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19001/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  social-worker-service:
+    <<: *svc
+    image: ${ECR_REGISTRY}/todak/social-worker-service:${IMAGE_TAG}
+    container_name: todak-social-worker-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19002/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  provider-service:
+    <<: *svc
+    image: ${ECR_REGISTRY}/todak/provider-service:${IMAGE_TAG}
+    container_name: todak-provider-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19003/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  schedule-service:
+    <<: *svc
+    image: ${ECR_REGISTRY}/todak/schedule-service:${IMAGE_TAG}
+    container_name: todak-schedule-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19004/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+  care-plan-service:
+    <<: *svc
+    image: ${ECR_REGISTRY}/todak/care-plan-service:${IMAGE_TAG}
+    container_name: todak-care-plan-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:19005/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 60s
+
+networks:
+  todak-network:
+    external: true

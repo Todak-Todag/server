@@ -1,0 +1,60 @@
+discovery.docker "todak" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "todak" {
+  targets = discovery.docker.todak.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+    replacement   = "$1"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+}
+
+// ---------- 로그: Docker → Loki (DATA EC2) ----------
+loki.source.docker "todak" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.todak.targets
+  relabel_rules = discovery.relabel.todak.rules
+
+  forward_to = [
+    loki.write.todak.receiver,
+  ]
+}
+
+loki.write "todak" {
+  endpoint {
+    url = "http://" + env("DATA_PRIVATE_IP") + ":3100/loki/api/v1/push"
+  }
+}
+
+// ---------- 메트릭: /actuator/prometheus → Prometheus (DATA EC2) ----------
+prometheus.scrape "todak_apps" {
+  targets = [
+    { "__address__" = "config-server:8888",          "job" = "config-server",         "service" = "config-server" },
+    { "__address__" = "eureka-server:8761",          "job" = "eureka-server",         "service" = "eureka-server" },
+    { "__address__" = "api-gateway:8080",            "job" = "api-gateway",           "service" = "api-gateway" },
+    { "__address__" = "user-service:19000",          "job" = "user-service",          "service" = "user-service" },
+    { "__address__" = "discharge-service:19001",     "job" = "discharge-service",     "service" = "discharge-service" },
+    { "__address__" = "social-worker-service:19002", "job" = "social-worker-service", "service" = "social-worker-service" },
+    { "__address__" = "provider-service:19003",      "job" = "provider-service",      "service" = "provider-service" },
+    { "__address__" = "schedule-service:19004",      "job" = "schedule-service",      "service" = "schedule-service" },
+    { "__address__" = "care-plan-service:19005",     "job" = "care-plan-service",     "service" = "care-plan-service" },
+  ]
+  metrics_path    = "/actuator/prometheus"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.todak.receiver]
+}
+
+prometheus.remote_write "todak" {
+  endpoint {
+    url = "http://" + env("DATA_PRIVATE_IP") + ":9090/api/v1/write"
+  }
+}

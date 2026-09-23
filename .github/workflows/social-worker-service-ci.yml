@@ -1,0 +1,65 @@
+name: Social-Worker-Service CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths:
+      - 'social-worker-service/**'
+      - 'config-repo/social-worker-service-*.yml'
+      - '.github/workflows/social-worker-service-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: build & test (Java 21)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: todaktodag_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d todaktodag_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: social-worker-service
+
+    env:
+      SPRING_PROFILES_ACTIVE: local
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: todaktodag_db
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+      INTERNAL_API_KEY: test-internal-key
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - uses: gradle/actions/wrapper-validation@v6
+
+      - name: build & test
+        run: chmod +x gradlew && ./gradlew build --no-daemon
+
+      - if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: social-worker-service-test-report
+          path: social-worker-service/build/reports/tests/

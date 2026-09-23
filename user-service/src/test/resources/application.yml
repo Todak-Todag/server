@@ -1,0 +1,103 @@
+spring:
+  config:
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  cloud:
+    config:
+      enabled: false
+
+  application:
+    name: user-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/todaktodag_db
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      initialization-fail-timeout: -1
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        boot:
+          allow_jdbc_metadata_access: false
+        default_schema: user_schema
+        default_batch_fetch_size: 100
+        hbm2ddl:
+          create_namespaces: true
+
+  flyway:
+    enabled: false
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+
+jwt:
+  secret: 7Jmc7J6Q6r6467mM65Oc6rCA7JWM66eI44WT44WH66G444WT44WB7Jik652844WT66qw7J2044WP44WT66qw7Ja044WP66qp44S344WI44WC66WY7Ja8666k7J2044WP7YyM7LKw
+  access:
+    expiration: 30m
+    max-age: 30m
+  refresh:
+    expiration: 7d
+    max-age: 7d
+  secure: false
+
+internal:
+  key: 01234567890123456789012345678901
+
+internal-jwt:
+  jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+  issuer: todak-api-gateway
+  audience: user-service
+  clock-skew: 30s
+  
+authentication:
+  user:
+    redis-key-prefix: "test:auth:user:"
+  access-token:
+    redis-key-prefix: "test:access-token:"
+    cookie-name: "AccessToken"
+  refresh-token:
+    cookie-name: "RefreshToken"
+
+master:
+  username: master1234
+  password: Master1234!
+  name: 테스트
+  id: 8f2a4c1e-9b3d-4f7a-b2c5-1d6e8f9a0b3c
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: never
+
+  health:
+    db:
+      enabled: false
+    redis:
+      enabled: false
+    discovery:
+      enabled: false
+
+  tracing:
+    export:
+      enabled: false
+
+logging:
+  level:
+    com.todak_todag.provider_service: debug

@@ -1,0 +1,132 @@
+package com.todak_todag.provider_service.provider.application.service.command;
+
+import com.todak_todag.provider_service.global.exception.BusinessException;
+import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkCreateCommand;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkDeleteCommand;
+import com.todak_todag.provider_service.provider.application.command.ProvideWorkUpdateCommand;
+import com.todak_todag.provider_service.provider.application.result.ProvideWorkCreateResult;
+import com.todak_todag.provider_service.provider.application.result.ProvideWorkUpdateResult;
+import com.todak_todag.provider_service.provider.domain.entity.ProvideWork;
+import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
+import com.todak_todag.provider_service.provider.domain.repository.command.ProvideWorkCommandRepository;
+import com.todak_todag.provider_service.provider.domain.repository.command.ServiceOfferingCommandRepository;
+import com.todak_todag.provider_service.provider.domain.repository.query.ProvideWorkQueryRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalTime;
+import java.util.List;
+import java.util.UUID;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ProvideWorkCommandService {
+
+    private final ProvideWorkCommandRepository provideWorkCommandRepository;
+    private final ProvideWorkQueryRepository provideWorkQueryRepository;
+    private final ServiceOfferingCommandRepository serviceOfferingCommandRepository;
+
+    @Transactional
+    public ProvideWorkCreateResult create(ProvideWorkCreateCommand command) {
+        lockOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
+
+        validateNotOverlapped(
+                command.serviceOfferingId(),
+                null,
+                command.day(),
+                command.startedAt(),
+                command.finishedAt()
+        );
+
+        ProvideWork saved = provideWorkCommandRepository.save(
+                ProvideWork.of(command.serviceOfferingId(), command.day(), command.startedAt(), command.finishedAt())
+        );
+
+        log.info("[Provider] 제공 가능 일정 등록 provideWorkId={} serviceOfferingId={}",
+                saved.getId(), command.serviceOfferingId());
+
+        return ProvideWorkCreateResult.from(saved);
+    }
+
+    // schedulePort 호출은 Facade가 트랜잭션 밖에서 수행한다
+    @Transactional
+    public ProvideWorkUpdateResult update(ProvideWorkUpdateCommand command) {
+        lockOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
+
+        ProvideWork provideWork = provideWorkQueryRepository.findById(command.provideWorkId())
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND));
+
+        if (!provideWork.getServiceOfferingId().equals(command.serviceOfferingId())) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND);
+        }
+
+        validateNotOverlapped(
+                command.serviceOfferingId(),
+                command.provideWorkId(),
+                command.day(),
+                command.startedAt(),
+                command.finishedAt()
+        );
+
+        provideWork.update(command.day(), command.startedAt(), command.finishedAt());
+
+        log.info("[Provider] 제공 가능 일정 수정 provideWorkId={} serviceOfferingId={}",
+                provideWork.getId(), command.serviceOfferingId());
+
+        return ProvideWorkUpdateResult.from(provideWork);
+    }
+
+    // schedulePort 호출은 Facade가 트랜잭션 밖에서 수행한다
+    @Transactional
+    public void delete(ProvideWorkDeleteCommand command) {
+        lockOwnedServiceOffering(command.serviceOfferingId(), command.providerId());
+
+        ProvideWork provideWork = provideWorkQueryRepository.findById(command.provideWorkId())
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND));
+
+        if (!provideWork.getServiceOfferingId().equals(command.serviceOfferingId())) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_NOT_FOUND);
+        }
+
+        provideWork.markDeleted(command.providerId());
+
+        log.info("[Provider] 제공 가능 일정 삭제 provideWorkId={} serviceOfferingId={}",
+                provideWork.getId(), command.serviceOfferingId());
+    }
+
+    // 같은 제공 서비스의 쓰기는 부모 행을 잠가 한 번에 하나씩 처리한다
+    // 잠금 없이 "조회 → 겹침 검사 → 저장"을 하면 동시 요청이 모두 검사를 통과해 겹치는 일정이 저장된다
+    // 잠금을 기다리는 사이 제공 서비스가 삭제됐다면 조회되지 않아 SERVICE_OFFERING_NOT_FOUND가 된다
+    private ServiceOffering lockOwnedServiceOffering(UUID serviceOfferingId, UUID providerId) {
+        ServiceOffering serviceOffering = serviceOfferingCommandRepository.findByIdForUpdate(serviceOfferingId)
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
+
+        if (!serviceOffering.isOwnedBy(providerId)) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
+        }
+
+        return serviceOffering;
+    }
+
+    // 같은 제공 서비스 안에서 요일이 같고 시간이 겹치는 일정은 등록·수정할 수 없다
+    // 잠금 구간을 짧게 유지하기 위해 전체 조회 대신 존재 여부만 쿼리로 확인한다
+    private void validateNotOverlapped(
+            UUID serviceOfferingId,
+            UUID excludedProvideWorkId,
+            Integer day,
+            LocalTime startedAt,
+            LocalTime finishedAt
+    ) {
+        boolean overlapped = provideWorkQueryRepository.existsOverlapped(
+                serviceOfferingId, excludedProvideWorkId, day, startedAt, finishedAt
+        );
+
+        if (overlapped) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_WORK_TIME_OVERLAP);
+        }
+    }
+}

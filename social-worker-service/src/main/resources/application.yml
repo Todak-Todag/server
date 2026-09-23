@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: social-worker-service
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  config:
+    import: "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"

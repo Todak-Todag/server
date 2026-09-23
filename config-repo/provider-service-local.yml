@@ -1,0 +1,72 @@
+server:
+  port: 19003
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+    properties:
+      hibernate:
+        default_schema: provider_schema
+        default_batch_fetch_size: 100
+        format_sql: true
+        hbm2ddl:
+          create_namespaces: true
+
+  flyway:
+    schemas: provider_schema
+    default-schema: provider_schema
+
+    show-sql: true
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+    # 발행·수신 구간을 추적에 포함시킨다 — 기본값이 false라 리스너 로그에 traceId/spanId가 비어 나온다
+    template:
+      observation-enabled: true
+
+    listener:
+      simple:
+        observation-enabled: true
+
+        # 수신 재시도 3회, 소진 시 원래 큐로 되돌리지 않고 DLQ(provider.*.dlq.queue)로 이동
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1000
+          multiplier: 2
+
+internal:
+  key: ${INTERNAL_API_KEY}
+
+internal-jwt:
+  jwk-set-uri: ${GATEWAY_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+  issuer: todak-api-gateway
+  audience: ${spring.application.name}
+  clock-skew: 30s
+
+# 아웃박스에 쌓인 미발행 이벤트를 주기적으로 브로커에 내보낸다
+provider:
+  outbox:
+    relay:
+      enabled: true
+      fixed-delay-ms: 1000
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}

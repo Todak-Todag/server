@@ -1,0 +1,80 @@
+server:
+  port: 19000
+
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 3s
+
+  jpa:
+    open-in-view: false
+    show-sql: true
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: user_schema
+        default_batch_fetch_size: 100
+        hbm2ddl:
+          create_namespaces: true
+
+  flyway:
+    schemas: user_schema
+    default-schema: user_schema
+
+internal:
+  key: ${INTERNAL_API_KEY}
+
+internal-jwt:
+  jwk-set-uri: ${GATEWAY_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+  issuer: todak-api-gateway
+  audience: ${spring.application.name}
+  clock-skew: 30s
+
+jwt:
+  secret: ${JWT_SECRET}
+  access:
+    expiration: ${ACCESS_EXPIRATION:30m}
+    max-age: ${ACCESS_EXPIRATION:30m}
+  refresh:
+    expiration: ${REFRESH_EXPIRATION:7d}
+    max-age: ${REFRESH_EXPIRATION:7d}
+  http-only: false
+  secure: false
+
+authentication:
+  user:
+    redis-key-prefix: ${USER_KEY_PREFIX}
+  access-token:
+    redis-key-prefix: ${ACCESS_KEY_PREFIX}
+    cookie-name: ${ACCESS_COOKIE_NAME}
+  refresh-token:
+    cookie-name: ${REFRESH_COOKIE_NAME}
+
+master:
+  username: ${MASTER_USERNAME}
+  password: ${MASTER_PASSWORD}
+  name: ${MASTER_NAME}
+  id: ${MASTER_ID}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
+logging:
+  level:
+    com.todak_todag.user_service: debug

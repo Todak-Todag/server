@@ -1,0 +1,150 @@
+package com.todak_todag.user_service.user.presentation.controller.api;
+
+import org.springframework.http.ResponseEntity;
+
+import com.todak_todag.user_service.global.response.ApiResponse;
+import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.presentation.request.UserDeleteRequest;
+import com.todak_todag.user_service.user.presentation.request.UserPasswordUpdateRequest;
+import com.todak_todag.user_service.user.presentation.request.UserPatientCreateRequest;
+import com.todak_todag.user_service.user.presentation.request.UserSignupRequest;
+import com.todak_todag.user_service.user.presentation.request.UserUpdateRequest;
+import com.todak_todag.user_service.user.presentation.response.UserInfoResponse;
+import com.todak_todag.user_service.user.presentation.response.UserPasswordUpdateResponse;
+import com.todak_todag.user_service.user.presentation.response.UserPatientCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserSignupCreatedResponse;
+import com.todak_todag.user_service.user.presentation.response.UserUpdateResponse;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+
+@Tag(name = "Service User", description = "User API")
+public interface UserApiSpec {
+
+	@Operation(
+			summary = "회원탈퇴",
+			description = """
+					사용자는 회원탈퇴를 할 수 있습니다.
+					
+					회원탈퇴를 진행하게 되면
+					  - 개인정보 데이터는 임의의 데이터로 교체됩니다.
+					  - 로그인 시 발급받은 쿠키가 만료되고 서버에서 저장중이던 인증 토큰이 만료됩니다.
+					  - 현재 로그인 세션이 만료됩니다.
+					
+					회원탈퇴는 요청에 현재 비밀번호를 입력하여 일치하는 경우에만 진행됩니다.		
+			"""
+	)
+	ResponseEntity<ApiResponse<Void>> userDelete(
+			@Parameter(description = "회원탈퇴 진행 정보", required = true)
+			@Valid
+			UserDeleteRequest userDeleteRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user,
+			
+			@Parameter(hidden = true)
+			HttpServletResponse response
+	);
+	
+	@Operation(
+			summary = "회원정보 수정",
+			description = """
+					사용자는 회원정보를 수정할 수 있습니다.
+					
+					수정할 수 있는 정보는 이름, 전화번호, 지역ID, 상세주소 입니다.
+					
+					상세주소를 수정하는 경우 지역ID 와 주소 정보가 같은 지역이어야 합니다.
+					주소는 서비스 이용이 가능한 지역으로만 수정할 수 있습니다.		
+			"""
+	)
+	ResponseEntity<ApiResponse<UserUpdateResponse>> userUpdate(
+			@Parameter(description = "수정할 회원정보", required = true)
+			@Valid
+			UserUpdateRequest userUpdateRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user
+	);
+	
+	@Operation(
+			summary = "사용자 회원가입",
+			description = """
+					신규 사용자의 회원가입을 진행하고 필수 약관 동의 내역을 함께 저장한다.
+					
+					- username: 6자 이상 영문소문자로 시작 영문/숫자 조합
+					- password: 8자리 이상 영문/숫자/특수문자 각각 하나 이상 비밀번호는 해시후 저장
+					- name: 숫자, 특수문자, 공백 불가
+					
+					회원가입 후 사용자는 PENDING 상태로 저장되며
+					관리자 또는 운영자의 승인을 받아야한다.
+			"""
+	)
+	@ApiResponses
+	ResponseEntity<ApiResponse<UserSignupCreatedResponse>> createUserSignup(
+			@Parameter(description = "회원가입 정보", required = true)
+			@Valid
+			UserSignupRequest userSignupRequest
+	);
+	
+	@Operation(
+			summary = "내 정보 조회",
+			description = """
+					내 정보를 조회합니다.
+					
+					사용자 정보는 헤더를 통해 전달됩니다.
+					APPROVED 상태의 사용자만 조회가 가능합니다.			
+			"""
+	)
+	ResponseEntity<ApiResponse<UserInfoResponse>> me(
+			@Parameter(hidden = true)
+			UserContext user
+	);
+	
+	@Operation(
+			summary = "퇴원 예정자 등록",
+			description = """
+					병원 담당자는 퇴원 예정자를 등록할 수 있습니다.
+					
+					퇴원 예정자의 주소와 지역 ID 가 존재하는 경우 일치 여부를 검증합니다.
+					
+					생성된 퇴원 예정자는 WITHDRAWN 상태가 됩니다.
+			"""
+	)
+	ResponseEntity<ApiResponse<UserPatientCreatedResponse>> createPatient(
+			@Parameter(description = "퇴원 예정자 등록 정보", required = true)
+			@Valid
+			UserPatientCreateRequest userPatientCreateRequest,
+			@Parameter(hidden = true)
+			UserContext user
+	);
+	
+	@Operation(
+			summary = "비밀번호 변경",
+			description = """
+					사용자는 자신의 계정 비밀번호를 변경할 수 있습니다.
+					
+					인증이 완료된 사용자여야 하며 사용자 정보는 인증 객체를 통해 가져오게 됩니다.
+					
+					기존 비밀번호와 현재 비밀번호가 일치하지 않으면 변경되지 않습니다.
+			"""
+	)
+	ResponseEntity<ApiResponse<UserPasswordUpdateResponse>> passwordUpdate(
+			@Parameter(description = "비밀번호 정보", required = true)
+			@Valid
+			UserPasswordUpdateRequest userPasswordUpdateRequest,
+			
+			@Parameter(hidden = true)
+			UserContext user,
+			
+			@Parameter(hidden = true)
+			HttpServletRequest servletRequest,
+			
+			@Parameter(hidden = true)
+			HttpServletResponse servletResponse
+	);
+}

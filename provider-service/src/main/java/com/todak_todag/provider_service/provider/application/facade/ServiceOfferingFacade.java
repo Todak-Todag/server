@@ -1,0 +1,106 @@
+package com.todak_todag.provider_service.provider.application.facade;
+
+import com.todak_todag.provider_service.global.common.UserRole;
+import com.todak_todag.provider_service.global.exception.BusinessException;
+import com.todak_todag.provider_service.global.exception.ProviderErrorCode;
+import com.todak_todag.provider_service.provider.application.command.ServiceOfferingCreateCommand;
+import com.todak_todag.provider_service.provider.application.command.ServiceOfferingDeleteCommand;
+import com.todak_todag.provider_service.provider.application.port.UserPort;
+import com.todak_todag.provider_service.provider.application.query.ServiceOfferingRegionSearchQuery;
+import com.todak_todag.provider_service.provider.application.query.ServiceOfferingSearchQuery;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingCreateResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingRegionSearchResult;
+import com.todak_todag.provider_service.provider.application.result.ServiceOfferingSearchResult;
+import com.todak_todag.provider_service.provider.application.service.command.ServiceOfferingCommandService;
+import com.todak_todag.provider_service.provider.application.service.query.ServiceOfferingQueryService;
+import com.todak_todag.provider_service.provider.domain.entity.ServiceOffering;
+import com.todak_todag.provider_service.provider.domain.repository.query.ProvideServiceQueryRepository;
+import com.todak_todag.provider_service.provider.domain.repository.query.ServiceOfferingQueryRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.stereotype.Component;
+
+import java.util.UUID;
+
+// 트랜잭션 밖에서 선검증과 외부 서비스 호출을 수행하고, 쓰기 작업만 CommandService에 위임한다
+@Component
+@RequiredArgsConstructor
+public class ServiceOfferingFacade {
+
+    private final ServiceOfferingQueryRepository serviceOfferingQueryRepository;
+    private final ProvideServiceQueryRepository provideServiceQueryRepository;
+    private final ServiceOfferingCommandService serviceOfferingCommandService;
+    private final ServiceOfferingQueryService serviceOfferingQueryService;
+    private final UserPort userPort;
+
+    // 제공 서비스 등록
+    // 불필요한 외부 호출을 막기 위해 404·409 검증을 먼저 수행한 뒤 User-Service를 호출한다
+    public ServiceOfferingCreateResult create(ServiceOfferingCreateCommand command) {
+        if (!provideServiceQueryRepository.existsById(command.provideServiceId())) {
+            throw new BusinessException(ProviderErrorCode.PROVIDE_SERVICE_NOT_FOUND);
+        }
+
+        if (serviceOfferingQueryRepository.existsByProviderIdAndProvideServiceId(
+                command.providerId(), command.provideServiceId())) {
+            throw new BusinessException(ProviderErrorCode.SERVICE_OFFERING_DUPLICATE);
+        }
+
+        UUID regionId = userPort.findRegionIdByUserId(command.providerId());
+
+        // p_provide_service_offerings.region_id가 NOT NULL이라 담당 지역이 없으면 저장할 수 없다
+        if (regionId == null) {
+            throw new BusinessException(ProviderErrorCode.PROVIDER_REGION_NOT_ASSIGNED);
+        }
+
+        return serviceOfferingCommandService.create(command, regionId);
+    }
+
+    // 제공 서비스 삭제
+    // ADMIN은 담당 지역이면 삭제할 수 있고, 제공자는 본인 소유만 삭제할 수 있다
+    // 삭제는 "이제부터 새 매칭을 받지 않는다"는 의미라 확정 일정이 있어도 막지 않는다
+    public void delete(ServiceOfferingDeleteCommand command) {
+        ServiceOffering serviceOffering = serviceOfferingQueryRepository.findById(command.serviceOfferingId())
+                .orElseThrow(() -> new BusinessException(ProviderErrorCode.SERVICE_OFFERING_NOT_FOUND));
+
+        if (command.userRole() == UserRole.ADMIN) {
+            validateRegionAccess(command.userId(), command.userRole(), serviceOffering.getRegionId());
+        } else if (!serviceOffering.isOwnedBy(command.userId())) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
+        }
+
+        serviceOfferingCommandService.delete(command);
+    }
+
+    // 지역별 제공 서비스 목록 조회
+    // MASTER는 지역 제한이 없어 User-Service를 호출하지 않는다
+    public Page<ServiceOfferingRegionSearchResult> searchByRegion(ServiceOfferingRegionSearchQuery query) {
+        validateRegionAccess(query.userId(), query.userRole(), query.regionId());
+
+        return serviceOfferingQueryService.searchByRegion(query);
+    }
+
+    // 제공 서비스 목록 조회
+    // ADMIN이 특정 제공자를 지정하면 그 제공자가 담당 지역 소속인지 확인한다
+    public Page<ServiceOfferingSearchResult> search(ServiceOfferingSearchQuery query) {
+        if (query.userRole() == UserRole.ADMIN && query.providerId() != null) {
+            UUID providerRegionId = userPort.findRegionIdByUserId(query.providerId());
+            validateRegionAccess(query.userId(), query.userRole(), providerRegionId);
+        }
+
+        return serviceOfferingQueryService.search(query);
+    }
+
+    // MASTER는 지역 제한 없이 전체 조회 가능
+    // ADMIN은 자신의 담당 지역만 조회 가능하며, 담당 지역이 지정되지 않았다면 조회할 수 없다
+    private void validateRegionAccess(UUID userId, UserRole userRole, UUID regionId) {
+        if (userRole == UserRole.MASTER) {
+            return;
+        }
+
+        UUID adminRegionId = userPort.findRegionIdByUserId(userId);
+
+        if (adminRegionId == null || !adminRegionId.equals(regionId)) {
+            throw new BusinessException(ProviderErrorCode.AUTH_FORBIDDEN);
+        }
+    }
+}

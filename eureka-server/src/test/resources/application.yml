@@ -1,0 +1,7 @@
+---
+#테스트 환경에서는 Config Server 의존성 false
+
+spring:
+  cloud:
+    config:
+      enabled: false

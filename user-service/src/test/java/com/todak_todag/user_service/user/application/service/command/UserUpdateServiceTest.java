@@ -1,0 +1,1209 @@
+package com.todak_todag.user_service.user.application.service.command;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.InOrder;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.todak_todag.user_service.global.common.UserRole;
+import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.CommonErrorCode;
+import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.global.security.UserContext;
+import com.todak_todag.user_service.user.application.command.UserApprovalCommand;
+import com.todak_todag.user_service.user.application.command.UserDeleteCommand;
+import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
+import com.todak_todag.user_service.user.application.command.UserSuspendCommand;
+import com.todak_todag.user_service.user.application.command.UserUpdateCommand;
+import com.todak_todag.user_service.user.application.port.TokenStorePort;
+import com.todak_todag.user_service.user.application.result.UserApprovalResult;
+import com.todak_todag.user_service.user.application.result.UserUpdateResult;
+import com.todak_todag.user_service.user.application.support.AddressValidator;
+import com.todak_todag.user_service.user.domain.entity.auth.Auth;
+import com.todak_todag.user_service.user.domain.entity.user.User;
+import com.todak_todag.user_service.user.domain.entity.user.UserStatus;
+import com.todak_todag.user_service.user.domain.repository.command.UserCommandRepository;
+import com.todak_todag.user_service.user.domain.repository.query.AuthQueryRepository;
+import com.todak_todag.user_service.user.domain.repository.query.UserQueryRepository;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("UserUpdateService 단위테스트")
+class UserUpdateServiceTest {
+
+	private static final UUID TARGET_ID = UUID.fromString("660e8400-e29b-41d4-a716-446655440000");
+
+	private static final UUID ADMIN_ID = UUID.fromString("3b9a8f7c-1d2e-4a5b-9c8d-7e6f5a4b3c2d");
+
+	private static final UUID MASTER_ID = UUID.fromString("e012a1b2-c3d4-4e5f-8a9b-0c1d2e3f4a5b");
+
+	private static final UUID REGION_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
+
+	private static final UUID OTHER_REGION_ID = UUID.fromString("22222222-2222-2222-2222-222222222222");
+
+	private static final String REJECT_REASON = "제출 서류 미비";
+
+	private static final String ACCESS_TOKEN = "access-token-value";
+
+	@Mock
+	private UserCommandRepository userCommandRepo;
+
+	@Mock
+	private UserQueryRepository userQueryRepo;
+
+	@Mock
+	private AddressValidator addressValidator;
+
+	@Mock
+	private TokenStorePort tokenStorePort;
+
+	@Mock
+	private AuthQueryRepository authQueryRepo;
+
+	@InjectMocks
+	private UserUpdateService userUpdateService;
+
+	// 승인 대기중인 대상 유저를 흉내낸다
+	private static User pendingTarget(UUID regionId) {
+		User user = User.createSignup(
+				regionId,
+				"target0123",
+				"$2a$10$hashedvaluehashedvaluehashedvalue",
+				"김환자",
+				"01012345678",
+				UserRole.HOSPITAL_STAFF
+		);
+		ReflectionTestUtils.setField(user, "id", TARGET_ID);
+		return user;
+	}
+
+	// 요청자가 운영자일 때 사용할 운영자 유저를 흉내낸다
+	private static User admin(UUID regionId) {
+		User user = User.createAdmin(
+				regionId,
+				"admin0123",
+				"$2a$10$hashedvaluehashedvaluehashedvalue",
+				"관리자",
+				"01099998888"
+		);
+		ReflectionTestUtils.setField(user, "id", ADMIN_ID);
+		return user;
+	}
+
+	private static UserApprovalCommand approvalCommand(
+			Boolean accept,
+			String rejectReason,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
+		return new UserApprovalCommand(TARGET_ID, accept, rejectReason, requester);
+	}
+
+	// 정지 대상으로 사용할 승인 완료 상태의 유저를 흉내낸다
+	private static User approvedTarget(UUID regionId) {
+		User user = User.createSignup(
+				regionId,
+				"target0123",
+				"$2a$10$hashedvaluehashedvaluehashedvalue",
+				"김환자",
+				"01012345678",
+				UserRole.HOSPITAL_STAFF
+		);
+		user.approvalOrReject(true, null);
+		ReflectionTestUtils.setField(user, "id", TARGET_ID);
+		return user;
+	}
+
+	// 정지 대상이 운영자인 경우를 흉내낸다
+	private static User adminTarget(UUID regionId) {
+		User user = User.createAdmin(
+				regionId,
+				"admintarget0123",
+				"$2a$10$hashedvaluehashedvaluehashedvalue",
+				"운영자대상",
+				"01088887777"
+		);
+		ReflectionTestUtils.setField(user, "id", TARGET_ID);
+		return user;
+	}
+
+	private static UserUpdateCommand userUpdateCommand(
+			String name,
+			String phone,
+			UUID regionId,
+			String address,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
+		return new UserUpdateCommand(name, phone, regionId, address, requester);
+	}
+
+	private static UserPasswordUpdateCommand passwordUpdateCommand(
+			String currentPassword,
+			String newPassword,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		return passwordUpdateCommand(currentPassword, newPassword, ACCESS_TOKEN, requesterId, requesterRole);
+	}
+
+	private static UserPasswordUpdateCommand passwordUpdateCommand(
+			String currentPassword,
+			String newPassword,
+			String accessToken,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
+		return new UserPasswordUpdateCommand(currentPassword, newPassword, accessToken, requester);
+	}
+
+	private static UserSuspendCommand suspendCommand(
+			String suspendReason,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
+		return new UserSuspendCommand(TARGET_ID, suspendReason, requester);
+	}
+
+	private static UserDeleteCommand deleteCommand(
+			String currentPassword,
+			UUID requesterId,
+			UserRole requesterRole
+	) {
+		UserContext requester = UserContext.from(requesterId.toString(), requesterRole.name());
+		return new UserDeleteCommand(currentPassword, requester);
+	}
+
+	@Nested
+	@DisplayName("대상 사용자 조회")
+	class FindTargetUser {
+
+		@Test
+		@DisplayName("대상 사용자가 존재하지 않으면 USER_NOT_FOUND 예외가 발생하고 이후 처리를 하지 않는다")
+		void approvalTest_fail_targetNotFound() {
+			// Given
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.empty());
+			UserApprovalCommand command = approvalCommand(true, null, MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.approval(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+			verify(userQueryRepo, never()).findAdminById(any());
+		}
+	}
+
+	@Nested
+	@DisplayName("운영자 요청 시 권한 검증")
+	class AdminAuthorization {
+
+		@Test
+		@DisplayName("요청자가 운영자인데 존재하지 않는 관리자면 FORBIDDEN 예외가 발생하고 상태를 변경하지 않는다")
+		void approvalTest_fail_adminNotFound() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findAdminById(ADMIN_ID)).willReturn(Optional.empty());
+
+			UserApprovalCommand command = approvalCommand(true, null, ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.approval(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+
+			assertThat(target.getStatus()).isEqualTo(UserStatus.PENDING);
+		}
+
+		@Test
+		@DisplayName("요청자가 대상과 다른 지역의 운영자면 FORBIDDEN 예외가 발생하고 상태를 변경하지 않는다")
+		void approvalTest_fail_differentRegion() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			User adminUser = admin(OTHER_REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findAdminById(ADMIN_ID)).willReturn(Optional.of(adminUser));
+
+			UserApprovalCommand command = approvalCommand(true, null, ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.approval(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+
+			assertThat(target.getStatus()).isEqualTo(UserStatus.PENDING);
+		}
+
+		@Test
+		@DisplayName("요청자가 대상과 같은 지역의 운영자면 정상적으로 승인 처리된다")
+		void approvalTest_success_sameRegionAdmin() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			User adminUser = admin(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findAdminById(ADMIN_ID)).willReturn(Optional.of(adminUser));
+
+			UserApprovalCommand command = approvalCommand(true, null, ADMIN_ID, UserRole.ADMIN);
+
+			// When
+			UserApprovalResult result = userUpdateService.approval(command);
+
+			// Then
+			assertThat(target.getStatus()).isEqualTo(UserStatus.APPROVED);
+			assertThat(result.isAccept()).isTrue();
+		}
+
+		@Test
+		@DisplayName("요청자가 운영자가 아니면 관리자 조회 없이 바로 처리된다")
+		void approvalTest_success_nonAdminRequesterSkipsAdminLookup() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserApprovalCommand command = approvalCommand(true, null, MASTER_ID, UserRole.MASTER);
+
+			// When
+			userUpdateService.approval(command);
+
+			// Then
+			verify(userQueryRepo, never()).findAdminById(any());
+			assertThat(target.getStatus()).isEqualTo(UserStatus.APPROVED);
+		}
+	}
+
+	@Nested
+	@DisplayName("승인")
+	class Approve {
+
+		@Test
+		@DisplayName("대기중인 사용자를 승인하면 상태가 APPROVED 로 변경되고 사유가 초기화된다")
+		void approvalTest_success() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserApprovalCommand command = approvalCommand(true, null, MASTER_ID, UserRole.MASTER);
+
+			// When
+			UserApprovalResult result = userUpdateService.approval(command);
+
+			// Then
+			assertThat(target.getStatus()).isEqualTo(UserStatus.APPROVED);
+			assertThat(target.getStatusChangeReason()).isNull();
+
+			assertThat(result.userId()).isEqualTo(TARGET_ID);
+			assertThat(result.role()).isEqualTo(UserRole.HOSPITAL_STAFF);
+			assertThat(result.rejectReason()).isNull();
+			assertThat(result.isAccept()).isTrue();
+		}
+
+		@Test
+		@DisplayName("승인이면서 거절 사유가 함께 오면 USER_APPROVAL_CONFLICT 예외가 발생하고 상태를 변경하지 않는다")
+		void approvalTest_fail_conflictWithRejectReason() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserApprovalCommand command = approvalCommand(true, REJECT_REASON, MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.approval(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_APPROVAL_CONFLICT);
+
+			assertThat(target.getStatus()).isEqualTo(UserStatus.PENDING);
+		}
+
+		@Test
+		@DisplayName("대기중이 아닌 사용자를 승인하려 하면 USER_MODIFY_STATE 예외가 발생한다")
+		void approvalTest_fail_notPending() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			target.approvalOrReject(true, null); // 이미 승인 완료된 상태로 전이시킨다
+
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserApprovalCommand command = approvalCommand(true, null, MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.approval(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_MODIFY_STATE);
+		}
+	}
+
+	@Nested
+	@DisplayName("거절")
+	class Reject {
+
+		@Test
+		@DisplayName("대기중인 사용자를 거절하면 상태가 REJECTED 로 변경되고 사유가 저장된다")
+		void approvalTest_success() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserApprovalCommand command = approvalCommand(false, REJECT_REASON, MASTER_ID, UserRole.MASTER);
+
+			// When
+			UserApprovalResult result = userUpdateService.approval(command);
+
+			// Then
+			assertThat(target.getStatus()).isEqualTo(UserStatus.REJECTED);
+			assertThat(target.getStatusChangeReason()).isEqualTo(REJECT_REASON);
+
+			assertThat(result.userId()).isEqualTo(TARGET_ID);
+			assertThat(result.rejectReason()).isEqualTo(REJECT_REASON);
+			assertThat(result.isAccept()).isFalse();
+		}
+
+		@ParameterizedTest
+		@NullAndEmptySource
+		@ValueSource(strings = {" "})
+		@DisplayName("거절 사유가 없거나 공백이면 USER_REJECT_CONFLICT 예외가 발생하고 상태를 변경하지 않는다")
+		void approvalTest_fail_blankRejectReason(String rejectReason) {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserApprovalCommand command = approvalCommand(false, rejectReason, MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.approval(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_REJECT_CONFLICT);
+
+			assertThat(target.getStatus()).isEqualTo(UserStatus.PENDING);
+		}
+
+		@Test
+		@DisplayName("대기중이 아닌 사용자를 거절하려 하면 USER_MODIFY_STATE 예외가 발생한다")
+		void approvalTest_fail_notPending() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			target.approvalOrReject(true, null); // 이미 승인 완료된 상태로 전이시킨다
+
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserApprovalCommand command = approvalCommand(false, REJECT_REASON, MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.approval(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_MODIFY_STATE);
+		}
+	}
+
+	@Nested
+	@DisplayName("일시 정지")
+	class Suspend {
+
+		@Test
+		@DisplayName("MASTER 요청자가 승인된 사용자를 정지시키면 대상 식별자를 반환한다")
+		void suspendTest_success_master() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When
+			UUID result = userUpdateService.suspend(command);
+
+			// Then
+			assertThat(result).isEqualTo(TARGET_ID);
+			verify(userQueryRepo, never()).findActiveById(any());
+		}
+
+		@Test
+		@DisplayName("정지 대상이 존재하지 않으면 USER_NOT_FOUND 예외가 발생한다")
+		void suspendTest_fail_targetNotFound() {
+			// Given
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.empty());
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+			verify(userQueryRepo, never()).findActiveById(any());
+		}
+
+		@Test
+		@DisplayName("대상이 승인(APPROVED) 상태가 아니면 USER_SUSPEND_MODIFY_STATE 예외가 발생한다")
+		void suspendTest_fail_notApproved() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_SUSPEND_MODIFY_STATE);
+		}
+
+		@Test
+		@DisplayName("요청자가 ADMIN이고 대상도 ADMIN이면 AUTH_FORBIDDEN 예외가 발생한다")
+		void suspendTest_fail_targetIsAdmin() {
+			// Given
+			User target = adminTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+
+			verify(userQueryRepo, never()).findActiveById(any());
+		}
+
+		@Test
+		@DisplayName("요청자가 ADMIN인데 활성 상태로 조회되지 않으면 UNAUTHORIZED_INTERNAL_REQUEST 예외가 발생한다")
+		void suspendTest_fail_requesterAdminNotFound() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findActiveById(ADMIN_ID)).willReturn(Optional.empty());
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(CommonErrorCode.UNAUTHORIZED_INTERNAL_REQUEST);
+		}
+
+		@Test
+		@DisplayName("요청자가 대상과 같은 지역의 ADMIN이면 정상적으로 정지 처리된다")
+		void suspendTest_success_sameRegionAdmin() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			User adminUser = admin(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findActiveById(ADMIN_ID)).willReturn(Optional.of(adminUser));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When
+			UUID result = userUpdateService.suspend(command);
+
+			// Then
+			assertThat(result).isEqualTo(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("요청자가 대상과 다른 지역의 ADMIN이면 AUTH_FORBIDDEN 예외가 발생한다")
+		void suspendTest_fail_differentRegionAdmin() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			User adminUser = admin(OTHER_REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findActiveById(ADMIN_ID)).willReturn(Optional.of(adminUser));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(CommonErrorCode.AUTH_FORBIDDEN);
+		}
+
+		@Test
+		@DisplayName("정지 사유가 null이면 USER_SUSPEND_NOT_MESSAGE 예외가 발생한다")
+		void suspendTest_fail_suspendReasonIsNull() {
+			// Given
+			UserSuspendCommand command = suspendCommand(null, MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_SUSPEND_NOT_MESSAGE);
+
+			verify(userQueryRepo, never()).findById(any());
+		}
+
+		@Test
+		@DisplayName("정지 사유가 공백뿐이면 USER_SUSPEND_NOT_MESSAGE 예외가 발생한다")
+		void suspendTest_fail_suspendReasonIsBlank() {
+			// Given
+			UserSuspendCommand command = suspendCommand("   ", MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_SUSPEND_NOT_MESSAGE);
+
+			verify(userQueryRepo, never()).findById(any());
+		}
+
+		@Test
+		@DisplayName("정지 사유가 대상 User에 그대로 반영된다")
+		void suspendTest_success_reasonIsSaved() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When
+			userUpdateService.suspend(command);
+
+			// Then
+			assertThat(target.getStatusChangeReason()).isEqualTo("약관 위반");
+		}
+
+		@Test
+		@DisplayName("정지되면 대상 사용자의 활성 로그인 세션이 만료 처리된다")
+		void suspendTest_success_expiresTargetLoginSession() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			Auth targetSession = Auth.login(
+					TARGET_ID, "refresh-token-hash", LocalDateTime.now().plusDays(7), LocalDateTime.now()
+			);
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.of(targetSession));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When
+			userUpdateService.suspend(command);
+
+			// Then
+			assertThat(targetSession.getLogoutAt()).isNotNull();
+		}
+
+		@Test
+		@DisplayName("정지되면 대상 사용자의 Redis 세션이 전체 무효화된다")
+		void suspendTest_success_revokesAllSessions() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When
+			userUpdateService.suspend(command);
+
+			// Then
+			verify(tokenStorePort, times(1)).revokeAllSessions(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("활성 로그인 세션이 없어도 예외 없이 정지되고 Redis 세션 무효화는 수행된다")
+		void suspendTest_success_noActiveSessionStillRevokes() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatCode(() -> userUpdateService.suspend(command)).doesNotThrowAnyException();
+			assertThat(target.getStatus()).isEqualTo(UserStatus.SUSPENDED);
+			verify(tokenStorePort).revokeAllSessions(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("정지 대상이 존재하지 않으면 세션을 무효화하지 않는다")
+		void suspendTest_fail_targetNotFound_doesNotRevoke() {
+			// Given
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.empty());
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class);
+
+			verifyNoInteractions(tokenStorePort);
+			verifyNoInteractions(authQueryRepo);
+		}
+
+		@Test
+		@DisplayName("대상이 승인 상태가 아니면 세션을 무효화하지 않는다")
+		void suspendTest_fail_notApproved_doesNotRevoke() {
+			// Given
+			User target = pendingTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class);
+
+			verifyNoInteractions(tokenStorePort);
+			verifyNoInteractions(authQueryRepo);
+		}
+
+		@Test
+		@DisplayName("ADMIN 이 다른 지역 사용자를 정지 시도하면 권한 검증에서 막히고 세션을 무효화하지 않는다")
+		void suspendTest_fail_differentRegionAdmin_doesNotRevoke() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			User adminUser = admin(OTHER_REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(userQueryRepo.findActiveById(ADMIN_ID)).willReturn(Optional.of(adminUser));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class);
+
+			verifyNoInteractions(tokenStorePort);
+			verifyNoInteractions(authQueryRepo);
+		}
+
+		@Test
+		@DisplayName("ADMIN 이 ADMIN 을 정지 시도하면 권한 검증에서 막히고 세션을 무효화하지 않는다")
+		void suspendTest_fail_targetIsAdmin_doesNotRevoke() {
+			// Given
+			User target = adminTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserSuspendCommand command = suspendCommand("약관 위반", ADMIN_ID, UserRole.ADMIN);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.suspend(command))
+					.isInstanceOf(BusinessException.class);
+
+			verifyNoInteractions(tokenStorePort);
+			verifyNoInteractions(authQueryRepo);
+		}
+
+		@Test
+		@DisplayName("정상 흐름은 정지 처리 - 로그인 세션 조회 - Redis 세션 무효화 순서로 수행된다")
+		void suspendTest_executionOrder() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findById(TARGET_ID)).willReturn(Optional.of(target));
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserSuspendCommand command = suspendCommand("약관 위반", MASTER_ID, UserRole.MASTER);
+
+			// When
+			userUpdateService.suspend(command);
+
+			// Then
+			InOrder order = inOrder(userQueryRepo, authQueryRepo, tokenStorePort);
+			order.verify(userQueryRepo).findById(TARGET_ID);
+			order.verify(authQueryRepo).findActiveByUserId(TARGET_ID);
+			order.verify(tokenStorePort).revokeAllSessions(TARGET_ID);
+		}
+	}
+
+	@Nested
+	@DisplayName("비밀번호 변경")
+	class PasswordUpdate {
+
+		private static final String NEW_PASSWORD_HASH = "$2a$10$newlyhashedvalue";
+
+		// 비밀번호 검증(BCrypt)은 Facade에서 이미 끝났다고 가정하고, 해시만 인자로 넘긴다.
+
+		@Test
+		@DisplayName("성공하면 새 비밀번호 해시로 변경되고 대상 식별자를 반환한다")
+		void passwordUpdateTest_success() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			UUID result = userUpdateService.passwordUpdate(command, NEW_PASSWORD_HASH);
+
+			// Then
+			assertThat(result).isEqualTo(TARGET_ID);
+			assertThat(target.getPasswordHash()).isEqualTo(NEW_PASSWORD_HASH);
+		}
+
+		@Test
+		@DisplayName("요청자가 존재하지 않으면 USER_NOT_FOUND 예외가 발생한다")
+		void passwordUpdateTest_fail_requesterNotFound() {
+			// Given
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.empty());
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.passwordUpdate(command, NEW_PASSWORD_HASH))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+			verifyNoInteractions(tokenStorePort, authQueryRepo);
+		}
+
+		@Test
+		@DisplayName("비밀번호가 변경되면 요청자의 활성 로그인 세션이 만료 처리된다")
+		void passwordUpdateTest_success_expiresLoginSession() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			Auth activeSession = Auth.login(
+					TARGET_ID, "refresh-token-hash", LocalDateTime.now().plusDays(7), LocalDateTime.now()
+			);
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.of(activeSession));
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.passwordUpdate(command, NEW_PASSWORD_HASH);
+
+			// Then
+			assertThat(activeSession.getLogoutAt()).isNotNull();
+		}
+
+		@Test
+		@DisplayName("비밀번호가 변경되면 해당 사용자의 모든 세션이 무효화된다 (다른 기기 포함)")
+		void passwordUpdateTest_success_revokesAllSessions() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", ACCESS_TOKEN, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.passwordUpdate(command, NEW_PASSWORD_HASH);
+
+			// Then - 특정 토큰 1개만 지우면 다른 기기의 탈취된 세션이 살아남는다
+			verify(tokenStorePort, times(1)).revokeAllSessions(TARGET_ID);
+			verify(tokenStorePort, never()).deleteAccessToken(any(), any());
+		}
+
+		@Test
+		@DisplayName("무효화는 Command 의 accessToken 과 무관하게 사용자 식별자 기준으로 수행된다")
+		void passwordUpdateTest_success_revokeDoesNotDependOnAccessToken() {
+			// Given - 쿠키가 없어 accessToken 이 null 로 넘어온 상황
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", null, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatCode(() -> userUpdateService.passwordUpdate(command, NEW_PASSWORD_HASH)).doesNotThrowAnyException();
+			verify(tokenStorePort).revokeAllSessions(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("활성 로그인 세션이 없어도 예외 없이 변경되고 세션 무효화는 수행된다")
+		void passwordUpdateTest_success_noActiveSession() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatCode(() -> userUpdateService.passwordUpdate(command, NEW_PASSWORD_HASH)).doesNotThrowAnyException();
+			verify(tokenStorePort).revokeAllSessions(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("정상 흐름은 요청자 조회 - 로그인 세션 조회 - 세션 전체 무효화 순서로 수행된다")
+		void passwordUpdateTest_executionOrder() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserPasswordUpdateCommand command = passwordUpdateCommand(
+					"currentPw123!", "newPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.passwordUpdate(command, NEW_PASSWORD_HASH);
+
+			// Then
+			InOrder order = inOrder(userQueryRepo, authQueryRepo, tokenStorePort);
+			order.verify(userQueryRepo).findActiveById(TARGET_ID);
+			order.verify(authQueryRepo).findActiveByUserId(TARGET_ID);
+			order.verify(tokenStorePort).revokeAllSessions(TARGET_ID);
+		}
+	}
+
+	@Nested
+	@DisplayName("내 정보 수정")
+	class UserUpdate {
+
+		@Test
+		@DisplayName("regionId 없이 name/phone만 보내면 해당 필드만 변경되고 검증기는 호출되지 않는다")
+		void userUpdateTest_success_partialUpdateWithoutRegion() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserUpdateCommand command = userUpdateCommand(
+					"김철수", "01055556666", null, null, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			UserUpdateResult result = userUpdateService.userUpdate(command);
+
+			// Then
+			assertThat(target.getName()).isEqualTo("김철수");
+			assertThat(target.getPhone()).isEqualTo("01055556666");
+			assertThat(target.getRegionId()).isEqualTo(REGION_ID);
+
+			assertThat(result.userId()).isEqualTo(TARGET_ID);
+			assertThat(result.name()).isEqualTo("김철수");
+			assertThat(result.phone()).isEqualTo("01055556666");
+			assertThat(result.regionId()).isEqualTo(REGION_ID);
+
+			verify(addressValidator, never()).updateAddressValidate(any());
+		}
+
+		@Test
+		@DisplayName("regionId가 포함되면 주소 검증기가 호출되고 regionId/address가 변경된다")
+		void userUpdateTest_success_withRegionCallsAddressValidator() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserUpdateCommand command = userUpdateCommand(
+					null, null, OTHER_REGION_ID, "전라남도 고흥군 도양읍", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			UserUpdateResult result = userUpdateService.userUpdate(command);
+
+			// Then
+			verify(addressValidator).updateAddressValidate(command);
+
+			assertThat(target.getRegionId()).isEqualTo(OTHER_REGION_ID);
+			assertThat(target.getAddress()).isEqualTo("전라남도 고흥군 도양읍");
+			assertThat(result.regionId()).isEqualTo(OTHER_REGION_ID);
+			assertThat(result.address()).isEqualTo("전라남도 고흥군 도양읍");
+		}
+
+		@Test
+		@DisplayName("name/phone/address가 공백이면 기존 값이 그대로 유지된다")
+		void userUpdateTest_success_blankFieldsAreIgnored() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			String originalName = target.getName();
+			String originalPhone = target.getPhone();
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserUpdateCommand command = userUpdateCommand(
+					" ", "", null, null, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userUpdate(command);
+
+			// Then
+			assertThat(target.getName()).isEqualTo(originalName);
+			assertThat(target.getPhone()).isEqualTo(originalPhone);
+		}
+
+		@Test
+		@DisplayName("요청자가 존재하지 않으면 USER_NOT_FOUND 예외가 발생하고 검증기는 호출되지 않는다")
+		void userUpdateTest_fail_requesterNotFound() {
+			// Given
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.empty());
+
+			UserUpdateCommand command = userUpdateCommand(
+					"김철수", null, null, null, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.userUpdate(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+			verify(addressValidator, never()).updateAddressValidate(any());
+		}
+
+		@Test
+		@DisplayName("regionId 없이 address 만 오면 USER_INVALID_CREATE_PATIENT_REGION 예외가 발생하고 요청자 조회조차 하지 않는다")
+		void userUpdateTest_fail_addressWithoutRegion() {
+			// Given
+			UserUpdateCommand command = userUpdateCommand(
+					null, null, null, "전라남도 고흥군 도양읍", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.userUpdate(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_INVALID_CREATE_PATIENT_REGION);
+
+			// 빠른 실패이므로 조회/검증 모두 수행되지 않는다
+			verifyNoInteractions(userQueryRepo);
+			verifyNoInteractions(addressValidator);
+		}
+
+		@ParameterizedTest
+		@NullAndEmptySource
+		@ValueSource(strings = { " ", "\t" })
+		@DisplayName("regionId 없이 address 가 null/공백이면 정상 처리된다 (공백은 미입력으로 취급)")
+		void userUpdateTest_success_blankAddressWithoutRegionIsAllowed(String address) {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserUpdateCommand command = userUpdateCommand(
+					"김철수", null, null, address, TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatCode(() -> userUpdateService.userUpdate(command)).doesNotThrowAnyException();
+			assertThat(target.getName()).isEqualTo("김철수");
+			verify(addressValidator, never()).updateAddressValidate(any());
+		}
+
+		@Test
+		@DisplayName("regionId 와 address 가 함께 오면 빠른 실패에 걸리지 않고 주소 검증기가 호출된다")
+		void userUpdateTest_success_addressWithRegionPassesGuard() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserUpdateCommand command = userUpdateCommand(
+					null, null, OTHER_REGION_ID, "전라남도 고흥군 도양읍", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userUpdate(command);
+
+			// Then
+			verify(addressValidator, times(1)).updateAddressValidate(command);
+			assertThat(target.getAddress()).isEqualTo("전라남도 고흥군 도양읍");
+		}
+	}
+
+	@Nested
+	@DisplayName("회원탈퇴")
+	class UserDelete {
+
+		@Test
+		@DisplayName("요청자가 존재하지 않으면 USER_NOT_FOUND 예외가 발생하고 이후 처리를 하지 않는다")
+		void userDeleteTest_fail_requesterNotFound() {
+			// Given
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.empty());
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatThrownBy(() -> userUpdateService.userDelete(command))
+					.isInstanceOf(BusinessException.class)
+					.extracting(e -> ((BusinessException) e).getErrorCode())
+					.isEqualTo(UserErrorCode.USER_NOT_FOUND);
+
+			verifyNoInteractions(tokenStorePort);
+		}
+
+		@Test
+		@DisplayName("탈퇴 처리되면 개인정보(username/name/phone/regionId/address/passwordHash)가 임의의 값으로 대체된다")
+		void userDeleteTest_success_personalDataIsAnonymized() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			String originalUsername = target.getUsername();
+			ReflectionTestUtils.setField(target, "address", "전라남도 고흥군 도양읍");
+
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(target.getUsername()).isNotEqualTo(originalUsername);
+			assertThat(target.getName()).isEqualTo("DELETE");
+			assertThat(target.getPhone()).isEqualTo("01000000000");
+			assertThat(target.getRegionId()).isNull();
+			assertThat(target.getAddress()).isNull();
+			assertThat(target.getPasswordHash()).isEqualTo("DELETE");
+		}
+
+		@Test
+		@DisplayName("현재 비밀번호가 일치하면 탈퇴 처리되고 해당 사용자의 모든 세션이 무효화된다")
+		void userDeleteTest_success() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(target.isDeleted()).isTrue();
+			verify(tokenStorePort, times(1)).revokeAllSessions(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("탈퇴 처리 시 deletedBy 에는 요청자 본인의 식별자가 기록된다")
+		void userDeleteTest_success_deletedByIsRequester() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(target.getDeletedBy()).isEqualTo(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("탈퇴는 특정 토큰이 아니라 사용자 식별자 기준으로 세션을 무효화한다 (다른 기기 세션까지 정리)")
+		void userDeleteTest_success_revokesByUserIdNotByToken() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			verify(tokenStorePort).revokeAllSessions(TARGET_ID);
+			verify(tokenStorePort, never()).deleteAccessToken(any(), any());
+		}
+
+		@Test
+		@DisplayName("탈퇴 시 활성 로그인 세션이 있으면 로그아웃(만료) 처리된다")
+		void userDeleteTest_success_expiresActiveLoginSession() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+
+			Auth activeSession = Auth.login(
+					TARGET_ID, "refresh-token-hash", LocalDateTime.now().plusDays(7), LocalDateTime.now()
+			);
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.of(activeSession));
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			assertThat(activeSession.getLogoutAt()).isNotNull();
+		}
+
+		@Test
+		@DisplayName("탈퇴 시 활성 로그인 세션이 없어도 예외 없이 탈퇴 처리된다")
+		void userDeleteTest_success_noActiveLoginSession() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When & Then
+			assertThatCode(() -> userUpdateService.userDelete(command)).doesNotThrowAnyException();
+			assertThat(target.isDeleted()).isTrue();
+			verify(tokenStorePort).revokeAllSessions(TARGET_ID);
+		}
+
+		@Test
+		@DisplayName("정상 흐름은 요청자 조회 - 로그인 세션 조회 - 세션 전체 무효화 순서로 수행된다")
+		void userDeleteTest_executionOrder() {
+			// Given
+			User target = approvedTarget(REGION_ID);
+			given(userQueryRepo.findActiveById(TARGET_ID)).willReturn(Optional.of(target));
+			given(authQueryRepo.findActiveByUserId(TARGET_ID)).willReturn(Optional.empty());
+
+			UserDeleteCommand command = deleteCommand(
+					"currentPw123!", TARGET_ID, UserRole.HOSPITAL_STAFF
+			);
+
+			// When
+			userUpdateService.userDelete(command);
+
+			// Then
+			InOrder order = inOrder(userQueryRepo, authQueryRepo, tokenStorePort);
+			order.verify(userQueryRepo).findActiveById(TARGET_ID);
+			order.verify(authQueryRepo).findActiveByUserId(TARGET_ID);
+			order.verify(tokenStorePort).revokeAllSessions(TARGET_ID);
+		}
+	}
+}

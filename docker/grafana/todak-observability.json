@@ -1,0 +1,1814 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "ad8pj74",
+    "namespace": "default",
+    "uid": "c84b8a46-1771-43cf-8bf5-59c79da035f3",
+    "resourceVersion": "1789463551447986",
+    "generation": 1,
+    "creationTimestamp": "2026-09-15T09:12:31Z",
+    "labels": {
+      "grafana.app/deprecatedInternalID": "1111015789522944"
+    },
+    "annotations": {
+      "grafana.app/createdBy": "access-policy:service",
+      "grafana.app/managedBy": "classic-file-provisioning",
+      "grafana.app/managerId": "Todak-Todag",
+      "grafana.app/sourceChecksum": "171674f44c70e7b2e7111d1a49d4b992",
+      "grafana.app/sourcePath": "/var/lib/grafana/dashboards/todak-observability.json",
+      "grafana.app/sourceTimestamp": "1789348683000",
+      "grafana.app/folderTitle": "Todak-Todag"
+    }
+  },
+  "spec": {
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "builtIn": true,
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "query": {
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "group": "grafana",
+            "kind": "DataQuery",
+            "spec": {},
+            "version": "v0"
+          }
+        }
+      }
+    ],
+    "cursorSync": "Off",
+    "editable": true,
+    "elements": {
+      "panel-1": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "up",
+                        "instant": false,
+                        "interval": "",
+                        "legendFormat": "{{job}}",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 1,
+          "links": [],
+          "title": "[Todak-Todag]Service Status",
+          "vizConfig": {
+            "group": "stat",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "mappings": [
+                    {
+                      "options": {
+                        "0": {
+                          "index": 1,
+                          "text": "DOWN"
+                        },
+                        "1": {
+                          "index": 0,
+                          "text": "UP"
+                        }
+                      },
+                      "type": "value"
+                    }
+                  ],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "dark-red",
+                        "value": 0
+                      },
+                      {
+                        "color": "dark-green",
+                        "value": 1
+                      }
+                    ]
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "text": {
+                  "titleSize": 16,
+                  "valueSize": 32
+                },
+                "textMode": "auto",
+                "wideLayout": true
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-10": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (job) (\r\n  rate(jvm_gc_pause_seconds_sum{job=~\"$service\"}[1m])\r\n)\r\n/\r\nsum by (job) (\r\n  rate(jvm_gc_pause_seconds_count{job=~\"$service\"}[1m])\r\n)",
+                        "legendFormat": "{{job}} - avg pause",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "max by (job) (\r\n  jvm_gc_pause_seconds_max{job=~\"$service\"}\r\n)",
+                        "instant": false,
+                        "legendFormat": "{{job}} - max pause",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "B"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "GC 1회당 평균 일시정지 시간을 확인하여 GC로 인한 애플리케이션 지연 여부를 관측한다\n\navg pause → 평소 GC 한 번에 얼마나 멈추나\nmax pause → 긴 GC pause가 발생했나",
+          "id": 10,
+          "links": [],
+          "title": "[Todak-Todag] JVM GC Pause",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-11": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "jvm_threads_live_threads{job=~\"$service\"}",
+                        "legendFormat": "{{job}} - live",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "jvm_threads_peak_threads{job=~\"$service\"}",
+                        "instant": false,
+                        "legendFormat": "{{job}} - peak",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "B"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "JVM의 현재 활성 스레드 수와 최대 스레드 수를 확인하여 스레드 증가 및 자원 사용 상태를 관측\n\n(live는 현재 살아있는 스레드 개수, peak는 JVM 실행 이후 관측된 최대 스레드 개수)",
+          "id": 11,
+          "links": [],
+          "title": "[Todak-Todag] JVM Threads",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "min": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-12": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "process_cpu_usage{job=~\"$service\"} * 100",
+                        "legendFormat": "{{job}} - CPU",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "system_cpu_usage{job=~\"$service\"} * 100",
+                        "instant": false,
+                        "legendFormat": "{{job}} - System CPU",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "B"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "각 서비스 JVM 프로세스의 CPU 사용률을 확인하여 부하 증가 및 CPU 경합 여부를 관측한다\n\nProcess CPU → 해당 Java 애플리케이션이 먹는 CPU\nSystem CPU  → 해당 애플리케이션이 바라보는 시스템 전체 CPU 사용률\n",
+          "id": 12,
+          "links": [],
+          "title": "[Todak-Todag] Process CPU Usage",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "max": 100,
+                  "min": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "percent"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-2": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "(\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_sum[5m])\r\n  )\r\n  /\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n) * 1000",
+                        "legendFormat": "__auto",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 2,
+          "links": [],
+          "title": "[Todak-Todag] HTTP Response Time",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 20,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 2,
+                    "pointSize": 4,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "ms"
+                },
+                "overrides": []
+              },
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-3": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "(\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])\r\n  )\r\n  /\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n) * 100\r\nor\r\n(\r\n  0 * sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n)",
+                        "interval": "",
+                        "legendFormat": "{{job}}",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 3,
+          "links": [],
+          "title": "[Todak-Todag] HTTP 5xx Error Rate",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "percent"
+                },
+                "overrides": []
+              },
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-4": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-loki"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "direction": "backward",
+                        "editorMode": "code",
+                        "expr": "{service=~\"$service\"}",
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "드롭다운으로 서비스를 선택할 수 있습니다.",
+          "id": 4,
+          "links": [],
+          "title": "[Todak-Todag] Service Logs",
+          "vizConfig": {
+            "group": "logs",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "dedupStrategy": "none",
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": true,
+                "showControls": false,
+                "showFieldSelector": false,
+                "showLevel": true,
+                "showTime": false,
+                "sortOrder": "Descending",
+                "timestampResolution": "ms",
+                "unwrappedColumns": false,
+                "wrapLogMessage": false
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-5": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-loki"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "direction": "backward",
+                        "editorMode": "code",
+                        "expr": "{service=~\"${service:regex}\"}\r\n|= \"ERROR\"\r\n| regexp \"traceId=(?P<traceId>[^,\\\\]]+).*\\\\s:\\\\s(?P<errorMessage>.*)$\"\r\n| traceId != \"\"\r\n| line_format \"{{.errorMessage}}\"",
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "group": "organize",
+                  "kind": "Transformation",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "Line": false,
+                        "NewField": false,
+                        "TraceID": true,
+                        "id": true,
+                        "labelTypes": true,
+                        "labels": true,
+                        "tsNs": true
+                      },
+                      "includeByName": {},
+                      "indexByName": {
+                        "ErrorTraceID": 1,
+                        "Line": 3,
+                        "Time": 0,
+                        "TraceID": 2,
+                        "id": 7,
+                        "labelTypes": 6,
+                        "labels": 5,
+                        "tsNs": 4
+                      },
+                      "renameByName": {
+                        "Line": "ErrorMessage",
+                        "NewField": "ErrorMessage",
+                        "TraceID": ""
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "",
+          "id": 5,
+          "links": [],
+          "title": "[Todak-Todag] Recent Error Traces",
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "thresholds"
+                  },
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "footer": {
+                      "reducers": []
+                    },
+                    "inspect": false
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "labels",
+                      "scope": "series"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 208
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "showHeader": true,
+                "sortBy": [
+                  {
+                    "desc": true,
+                    "displayName": "ErrorMessage"
+                  }
+                ]
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-6": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "(\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count{status=~\"4..\"}[5m])\r\n  )\r\n  /\r\n  sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n) * 100\r\nor\r\n(\r\n  0 * sum by (job) (\r\n    rate(http_server_requests_seconds_count[5m])\r\n  )\r\n)",
+                        "legendFormat": "{{job}}",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 6,
+          "links": [],
+          "title": "[Todak-Todag] HTTP 4xx Error Rate",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "percent"
+                },
+                "overrides": []
+              },
+              "options": {
+                "annotations": {
+                  "clustering": -1,
+                  "multiLane": false
+                },
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-7": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "hikaricp_connections_active{job=~\"$service\"}",
+                        "legendFormat": "{{job}} - active",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "hikaricp_connections_idle{job=~\"$service\"}",
+                        "instant": false,
+                        "legendFormat": "{{job}} - idle",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "B"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "hikaricp_connections_pending{job=~\"$service\"}",
+                        "instant": false,
+                        "legendFormat": "{{job}} - pending",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "C"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "hikaricp_connections_max{job=~\"$service\"}",
+                        "instant": false,
+                        "legendFormat": "{{job}} - max",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "D"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 7,
+          "links": [],
+          "title": "[Todak-Todag] HikariCP Connection Pool",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-8": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "rate(hikaricp_connections_usage_seconds_sum{job=~\"$service\"}[1m])\r\n/\r\nrate(hikaricp_connections_usage_seconds_count{job=~\"$service\"}[1m])",
+                        "legendFormat": "{{job}} - avg",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "hikaricp_connections_usage_seconds_max{job=~\"$service\"}",
+                        "instant": false,
+                        "legendFormat": "{{job}} - max",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "B"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 8,
+          "links": [],
+          "title": "[Todak-Todag] HikariCP Connection Usage",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      },
+      "panel-9": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (job) (\r\n  jvm_memory_used_bytes{job=~\"$service\", area=\"heap\"}\r\n)",
+                        "legendFormat": "{{job}} - used",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "todak-prometheus"
+                      },
+                      "group": "prometheus",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (job) (\r\n  jvm_memory_max_bytes{job=~\"$service\", area=\"heap\"}\r\n)",
+                        "instant": false,
+                        "legendFormat": "{{job}} - max",
+                        "range": true
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "B"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "JVM이 실제로 사용하는 Heap(used)이 사용 가능한 Heap 한도(max)에 얼마나 가까워지는지 확인한다",
+          "id": 9,
+          "links": [],
+          "title": "[Todak-Todag] JVM Heap Memory",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
+                    "axisLabel": "",
+                    "axisPlacement": "auto",
+                    "barAlignment": 0,
+                    "barWidthFactor": 0.6,
+                    "drawStyle": "line",
+                    "fillOpacity": 0,
+                    "gradientMode": "none",
+                    "hideFrom": {
+                      "legend": false,
+                      "tooltip": false,
+                      "viz": false
+                    },
+                    "insertNulls": false,
+                    "lineInterpolation": "linear",
+                    "lineWidth": 1,
+                    "pointSize": 5,
+                    "scaleDistribution": {
+                      "type": "linear"
+                    },
+                    "showPoints": "auto",
+                    "showValues": false,
+                    "spanNulls": false,
+                    "stacking": {
+                      "group": "A",
+                      "mode": "none"
+                    },
+                    "thresholdsStyle": {
+                      "mode": "off"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green",
+                        "value": 0
+                      },
+                      {
+                        "color": "red",
+                        "value": 80
+                      }
+                    ]
+                  },
+                  "unit": "bytes (IEC)"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "calcs": [],
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "hideZeros": false,
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            },
+            "version": "13.2.1"
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-1"
+              },
+              "height": 8,
+              "width": 12,
+              "x": 0,
+              "y": 0
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-2"
+              },
+              "height": 8,
+              "width": 12,
+              "x": 12,
+              "y": 0
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-3"
+              },
+              "height": 8,
+              "width": 12,
+              "x": 0,
+              "y": 8
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-6"
+              },
+              "height": 8,
+              "width": 12,
+              "x": 12,
+              "y": 8
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-5"
+              },
+              "height": 8,
+              "width": 12,
+              "x": 0,
+              "y": 16
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-4"
+              },
+              "height": 8,
+              "width": 12,
+              "x": 12,
+              "y": 16
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-7"
+              },
+              "height": 9,
+              "width": 24,
+              "x": 0,
+              "y": 24
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-8"
+              },
+              "height": 8,
+              "width": 24,
+              "x": 0,
+              "y": 33
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-9"
+              },
+              "height": 8,
+              "width": 24,
+              "x": 0,
+              "y": 41
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-10"
+              },
+              "height": 9,
+              "width": 24,
+              "x": 0,
+              "y": 49
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-11"
+              },
+              "height": 8,
+              "width": 24,
+              "x": 0,
+              "y": 58
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-12"
+              },
+              "height": 9,
+              "width": 24,
+              "x": 0,
+              "y": 66
+            }
+          }
+        ]
+      }
+    },
+    "links": [],
+    "liveNow": false,
+    "preferences": {
+      "layout": {
+        "kind": "GridLayout",
+        "spec": {
+          "items": []
+        }
+      }
+    },
+    "preload": false,
+    "tags": [],
+    "timeSettings": {
+      "autoRefresh": "",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "fiscalYearStartMonth": 0,
+      "from": "now-6h",
+      "hideTimepicker": false,
+      "timezone": "browser",
+      "to": "now"
+    },
+    "title": "[Todak-Todag] Dashboard",
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "definition": "",
+          "hide": "dontHide",
+          "includeAll": true,
+          "multi": false,
+          "name": "service",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "todak-loki"
+            },
+            "group": "loki",
+            "kind": "DataQuery",
+            "spec": {
+              "label": "service",
+              "refId": "LokiVariableQueryEditor-VariableQuery",
+              "stream": "",
+              "type": 1
+            },
+            "version": "v0"
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": false,
+          "sort": "disabled"
+        }
+      }
+    ]
+  }
+}

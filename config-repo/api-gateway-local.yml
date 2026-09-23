@@ -1,0 +1,46 @@
+spring:
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+internal:
+  key: ${INTERNAL_API_KEY}
+
+internal-jwt:
+  private-key: ${INTERNAL_JWT_PRIVATE_KEY}
+  issuer: todak-api-gateway
+  ttl: 60s
+
+jwt:
+  secret: ${JWT_SECRET}
+
+authentication:
+  access-token:
+    redis-key-prefix: ${ACCESS_KEY_PREFIX}
+    cookie-name: ${ACCESS_COOKIE_NAME}
+    user-id-claim: sub
+    role-claim: role
+  refresh-token:
+    cookie-name: ${REFRESH_COOKIE_NAME}
+
+rate-limit:
+  max-idle: 1h
+  trust-proxy-header: ${TRUST_PROXY_HEADER:false}
+  client-ip-header: ${CLIENT_IP_HEADER:X-Real-IP}
+  buckets:
+    user-service-login:
+      capacity: 20
+      refill-tokens: 10
+      refill-period: 1m
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://${EUREKA_SERVER_HOST:localhost}:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    com.todak_todag.api_gateway: debug

@@ -1,0 +1,146 @@
+package com.todak_todag.schedule_service.schedule.application.service.command;
+
+import com.todak_todag.schedule_service.global.exception.BusinessException;
+import com.todak_todag.schedule_service.global.exception.CommonErrorCode;
+import com.todak_todag.schedule_service.global.exception.ScheduleErrorCode;
+import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCancelCommand;
+import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleCompleteCommand;
+import com.todak_todag.schedule_service.schedule.application.command.ServiceScheduleRescheduleCommand;
+import com.todak_todag.schedule_service.schedule.application.event.CarePlanCompletionEventAppender;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEvent;
+import com.todak_todag.schedule_service.schedule.application.event.ProviderReMatchEventPayloadSerializer;
+import com.todak_todag.schedule_service.schedule.application.port.CarePlanPort;
+import com.todak_todag.schedule_service.schedule.application.port.ProviderReMatchEventPort;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCancelResult;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleCompleteResult;
+import com.todak_todag.schedule_service.schedule.application.result.ServiceScheduleRescheduleResult;
+import com.todak_todag.schedule_service.schedule.application.support.ServiceScheduleValidator;
+import com.todak_todag.schedule_service.schedule.domain.entity.ServiceMatchingAttempt;
+import com.todak_todag.schedule_service.schedule.domain.entity.ServiceSchedule;
+import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceMatchingAttemptCommandRepository;
+import com.todak_todag.schedule_service.schedule.domain.repository.command.ServiceScheduleCommandRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+// 순수한 트랜잭션 경계를 담당
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ServiceScheduleCommandService {
+
+    private final ServiceScheduleCommandRepository serviceScheduleCommandRepository;
+    private final ServiceMatchingAttemptCommandRepository serviceMatchingAttemptCommandRepository;
+    private final ScheduleOutboxCommandService scheduleOutboxCommandService;
+    private final ProviderReMatchEventPayloadSerializer providerReMatchEventPayloadSerializer;
+    private final ServiceScheduleValidator serviceScheduleValidator;
+    private final CarePlanCompletionEventAppender carePlanCompletionEventAppender;
+
+    // 서비스 일정 변경
+    // 트랜잭션 처리 범위: 검증 + status를 RESCHEDULING으로 변경 + ProviderReMatched 이벤트를 아웃박스에 적재
+    @Transactional
+    public ServiceScheduleRescheduleResult reschedule(ServiceScheduleRescheduleCommand rescheduleCommand, CarePlanPort.CarePlanRange carePlanRange) {
+
+        // facade가 이미 존재를 확인했지만, facade의 조회와 이 트랜잭션 사이 시점 차이를 방어하기 위해 다시 조회
+        //
+        // 락 없이 읽으면 이중 클릭 시 두 요청이 모두 SCHEDULED를 읽어 RESCHEDULING이 2건 생기고,
+        // 이후 매칭 결과 이벤트가 findRescheduling()에서 2건을 보고 던지는 예외는 재시도로 해소되지 않아 영구 DLQ가 됨
+        // 따라서 "상태 확인 → 전이 → 저장"을 로우 쓰기 락 안에서 수행한다 — 늦게 온 요청은 대기 후
+        // RESCHEDULING을 읽어 rescheduling()의 기존 400으로 걸러짐 (잠글 로우가 있어 advisory lock은 불필요)
+        ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findByIdForUpdate(rescheduleCommand.serviceScheduleId())
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+        // 일정 변경을 위한 검증 진행
+        serviceScheduleValidator.validateOwnership(rescheduleCommand.requesterId(), carePlanRange.patientId());
+        serviceScheduleValidator.validateDeadline(serviceSchedule.getStartedAt());
+        serviceScheduleValidator.validateRescheduleDate(serviceSchedule.getDate(), rescheduleCommand.date(), carePlanRange.finishDate());
+
+        // SCHEDULED 상태 검증 및 RESCHEDULING 전이는 엔티티가 스스로 보장
+        serviceSchedule.rescheduling();
+
+        // 페이로드에 필요한 regionId/provideServiceId 확보
+        ServiceMatchingAttempt matchingAttempt = findMatchingAttempt(serviceSchedule.getServicePreferenceId());
+
+        ServiceSchedule saved = serviceScheduleCommandRepository.save(serviceSchedule);
+
+        // ProviderReMatchEvent를 같은 트랜잭션 안에서 아웃박스에 적재 (실제 발행은 릴레이가 트랜잭션 밖에서 수행)
+        String payload = providerReMatchEventPayloadSerializer.serialize(
+                ProviderReMatchEvent.forScheduleChange(
+                        saved.getCarePlanId(),
+                        matchingAttempt.getRegionId(),
+                        matchingAttempt.getProvideServiceId(),
+                        saved.getServicePreferenceId(),
+                        rescheduleCommand.date()
+                )
+        );
+
+        scheduleOutboxCommandService.enqueue(ProviderReMatchEventPort.EVENT_TYPE, saved.getId(), payload);
+
+        log.info("[Schedule] 서비스 일정 변경 접수 serviceScheduleId={} requestedDate={}", saved.getId(), rescheduleCommand.date());
+
+        return ServiceScheduleRescheduleResult.from(saved);
+    }
+
+    // ProviderReMatched 페이로드에 실을 regionId/provideServiceId의 출처가 되는 매칭 시도 기록 조회
+    private ServiceMatchingAttempt findMatchingAttempt(UUID servicePreferenceId) {
+        return serviceMatchingAttemptCommandRepository.findLatestMatched(servicePreferenceId)
+                .orElseThrow(() -> new BusinessException(ScheduleErrorCode.SERVICE_MATCHING_ATTEMPT_NOT_FOUND));
+    }
+
+    // 서비스 일정 취소
+    // 트랜잭션 처리 범위: 검증 + status를 CANCELED로 변경
+    //                  + (케어플랜이 완료된 경우) CarePlanCompleted 이벤트를 아웃박스에 적재
+    @Transactional
+    public ServiceScheduleCancelResult cancel(ServiceScheduleCancelCommand cancelCommand, CarePlanPort.CarePlanRange carePlanRange) {
+
+        // facade가 이미 존재를 확인했지만, facade의 조회와 이 트랜잭션 사이 시점 차이를 방어하기 위해 다시 조회
+        ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findById(cancelCommand.serviceScheduleId())
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+        // 일정 취소를 위한 검증 진행
+        serviceScheduleValidator.validateOwnership(cancelCommand.requesterId(), carePlanRange.patientId());
+        serviceScheduleValidator.validateCancelDeadline(serviceSchedule.getStartedAt());
+
+        // 완료/취소된 일정에 대한 409 처리는 엔티티가 스스로 보장
+        serviceSchedule.cancel(cancelCommand.cancelReason());
+        ServiceSchedule saved = serviceScheduleCommandRepository.save(serviceSchedule);
+
+        log.info("[Schedule] 서비스 일정 취소 완료 serviceScheduleId={}", saved.getId());
+
+        // 마지막 일정이 취소되면 더 이상 수행될 일정이 없으므로 그 시점에도 케어플랜은 완료
+        carePlanCompletionEventAppender.appendIfCarePlanCompleted(saved);
+
+        return ServiceScheduleCancelResult.from(saved);
+    }
+
+    // 서비스 수행 완료/부도 처리
+    // 트랜잭션 처리 범위: 검증 + status를 COMPLETED 또는 NO_SHOW로 변경
+    @Transactional
+    public ServiceScheduleCompleteResult complete(ServiceScheduleCompleteCommand completeCommand, UUID assignedProviderId) {
+
+        // facade가 이미 존재를 확인했지만, facade의 조회와 이 트랜잭션 사이 시점 차이를 방어하기 위해 다시 조회
+        ServiceSchedule serviceSchedule = serviceScheduleCommandRepository.findById(completeCommand.serviceScheduleId())
+                .orElseThrow(() -> new BusinessException(CommonErrorCode.AUTH_FORBIDDEN));
+
+        // 수행 완료 처리를 위한 검증 진행
+        serviceScheduleValidator.validateAssignedProvider(completeCommand.requesterId(), assignedProviderId);
+        serviceScheduleValidator.validateCompletionDeadline(serviceSchedule.getFinishedAt());
+
+        // SCHEDULED 상태 검증 및 COMPLETED/NO_SHOW 전이는 엔티티가 스스로 보장
+        switch (completeCommand.status()) {
+            case COMPLETED -> serviceSchedule.complete();
+            case NO_SHOW -> serviceSchedule.markNoShow();
+        }
+
+        ServiceSchedule saved = serviceScheduleCommandRepository.save(serviceSchedule);
+
+        log.info("[Schedule] 서비스 수행 완료 처리 serviceScheduleId={} status={}", saved.getId(), saved.getStatus());
+
+        return ServiceScheduleCompleteResult.from(saved);
+    }
+}

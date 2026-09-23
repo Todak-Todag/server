@@ -1,0 +1,95 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+
+    import:
+      - optional:file:.env[.properties]
+      - optional:file:../.env[.properties]
+
+  cloud:
+    config:
+      import-check:
+        enabled: false
+
+  application:
+    name: schedule-service
+
+  # 접속 정보(url/username/password)는 PostgresTestSupport가 Testcontainers 컨테이너 기준으로 주입
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      # 컨텍스트마다 풀이 하나씩 생겨 기본값(10)이면 11개 x 10 = 110 > max_connections 100으로 고갈
+      maximum-pool-size: 5
+      minimum-idle: 1
+
+  # 운영(config-repo)과 동일한 수신 재시도 설정 — 3회, 소진 시 DLQ로 이동
+  rabbitmq:
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        hbm2ddl:
+          create_namespaces: true
+
+  flyway:
+    enabled: false
+
+eureka:
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+
+internal:
+  key: 01234567890123456789012345678901
+
+internal-jwt:
+  jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+  issuer: todak-api-gateway
+  audience: ${spring.application.name}
+  clock-skew: 30s
+
+schedule:
+  outbox:
+    relay:
+      enabled: false
+
+  # 보정 스윕도 테스트 중 임의로 돌지 않게 끔 — 필요한 테스트는 Facade를 직접 호출
+  care-plan:
+    completion-sweep:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: never
+
+  health:
+    db:
+      enabled: false
+    redis:
+      enabled: false
+    discovery:
+      enabled: false
+
+  tracing:
+    export:
+      enabled: false
+
+
+logging:
+  level:
+    com.todak_todag.schedule_service: debug

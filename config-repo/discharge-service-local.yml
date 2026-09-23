@@ -1,0 +1,51 @@
+server:
+  port: 19001
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+  jpa:
+    open-in-view: false
+    show-sql: true
+
+    hibernate:
+      ddl-auto: validate
+
+    properties:
+      hibernate:
+        default_schema: discharge_schema
+        default_batch_fetch_size: 100
+        format_sql: true
+        hbm2ddl:
+          create_namespaces: true
+
+  flyway:
+    schemas: discharge_schema
+    default-schema: discharge_schema
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
+logging:
+  level:
+    com.todak_todag.discharge_service: debug
+
+internal:
+  key: ${INTERNAL_API_KEY}

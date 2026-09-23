@@ -1,0 +1,66 @@
+server:
+  port: ${SERVER_PORT:19003}
+
+spring:
+  application:
+    name: provider-service
+
+  # config-repo가 내려주는 값이 이 파일보다 우선한다
+  config:
+    import:
+      # 저장소 루트의 .env 를 읽는다 (작업 디렉터리는 provider-service 기준)
+      - "optional:file:../.env[.properties]"
+      - "configserver:${CONFIG_SERVER_URL:http://localhost:8888}"
+
+  jpa:
+    open-in-view: false
+
+  rabbitmq:
+    # 수신 재시도 3회, 소진 시 원래 큐로 되돌리지 않고 DLQ(provider.*.dlq.queue)로 옮긴
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1000
+          multiplier: 2
+
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 2000
+            read-timeout: 3000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+
+logging:
+  level:
+    com.todak_todag.provider_service: info
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+logging:
+  level:
+    com.todak_todag.provider_service: debug
+
+

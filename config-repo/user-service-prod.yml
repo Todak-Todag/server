@@ -1,0 +1,82 @@
+server:
+  port: 19000
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      timeout: 3s
+
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        default_schema: user_schema
+        default_batch_fetch_size: 100
+
+  flyway:
+    schemas: user_schema
+    default-schema: user_schema
+
+internal:
+  key: ${INTERNAL_API_KEY}
+
+internal-jwt:
+  jwk-set-uri: ${GATEWAY_JWKS_URI}
+  issuer: todak-api-gateway
+  audience: ${spring.application.name}
+  clock-skew: 30s
+
+jwt:
+  secret: ${JWT_SECRET}
+  access:
+    expiration: ${ACCESS_EXPIRATION:30m}
+    max-age: ${ACCESS_EXPIRATION:30m}
+  refresh:
+    expiration: ${REFRESH_EXPIRATION:7d}
+    max-age: ${REFRESH_EXPIRATION:7d}
+  http-only: true          # local: false
+  secure: true             # local: false — HTTPS 필수
+
+authentication:
+  user:
+    redis-key-prefix: ${USER_KEY_PREFIX}
+  access-token:
+    redis-key-prefix: ${ACCESS_KEY_PREFIX}
+    cookie-name: ${ACCESS_COOKIE_NAME}
+  refresh-token:
+    cookie-name: ${REFRESH_COOKIE_NAME}
+
+master:
+  username: ${MASTER_USERNAME}
+  password: ${MASTER_PASSWORD}
+  name: ${MASTER_NAME}
+  id: ${MASTER_ID}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    com.todak_todag.user_service: info

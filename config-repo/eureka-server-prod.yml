@@ -1,0 +1,15 @@
+server:
+  port: 8761
+
+eureka:
+  client:
+    # 자기 자신을 서비스로 등록하지 않음
+    register-with-eureka: false
+    # 다른 Eureka Server의 레지스트리를 조회하지 않음
+    fetch-registry: false
+
+  server:
+    # 단일 인스턴스 환경에서는 자기보존 모드가 오탐만 만듦.
+    # 다중화하면 반드시 true로 되돌릴 것.
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 15000

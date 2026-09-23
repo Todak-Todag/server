@@ -1,0 +1,69 @@
+server:
+  port: 19005
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:todaktodag_db}?currentSchema=care_plan_schema
+    username: ${POSTGRES_USERNAME:postgres}
+    password: ${POSTGRES_PASSWORD:password}
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 3000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+    properties:
+      hibernate:
+        format_sql: true
+        hbm2ddl:
+          create_namespaces: true
+
+    show-sql: true
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+
+    publisher-confirm-type: correlated
+
+    template:
+      observation-enabled: true
+    # 수신 재시도 3회, 소진 시 원본 큐로 재큐잉하지 않고 DLQ로 이동
+    listener:
+      simple:
+        observation-enabled: true
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1000
+          multiplier: 2
+
+  flyway:
+    schemas: care_plan_schema
+    default-schema: care_plan_schema
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+
+internal:
+  key: ${INTERNAL_API_KEY}
+
+internal-jwt:
+  jwk-set-uri: ${GATEWAY_JWKS_URI:http://localhost:8080/.well-known/jwks.json}
+  issuer: todak-api-gateway
+  audience: ${spring.application.name}
+  clock-skew: 30s
+
+schedule:
+  outbox:
+    relay:
+      enabled: true
+      fixed-delay-ms: 5000

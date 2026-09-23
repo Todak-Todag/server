@@ -1,0 +1,76 @@
+server:
+  port: 19005
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}?currentSchema=care_plan_schema
+    username: ${POSTGRES_USERNAME}
+    password: ${POSTGRES_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+
+  jpa:
+    open-in-view: false
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        default_batch_fetch_size: 100
+
+  flyway:
+    schemas: care_plan_schema
+    default-schema: care_plan_schema
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+
+    publisher-confirm-type: correlated
+
+    template:
+      observation-enabled: true
+    # 수신 재시도 3회, 소진 시 원본 큐로 재큐잉하지 않고 DLQ로 이동
+    listener:
+      simple:
+        observation-enabled: true
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-retries: 3
+          initial-interval: 1000
+          multiplier: 2
+
+internal:
+  key: ${INTERNAL_API_KEY}
+
+internal-jwt:
+  jwk-set-uri: ${GATEWAY_JWKS_URI}
+  issuer: todak-api-gateway
+  audience: ${spring.application.name}
+  clock-skew: 30s
+
+schedule:
+  outbox:
+    relay:
+      enabled: true
+      fixed-delay-ms: 5000
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+logging:
+  level:
+    com.todak_todag.care_plan_service: info

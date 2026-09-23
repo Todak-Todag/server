@@ -1,0 +1,96 @@
+name: todak-monitoring
+
+services:
+
+  prometheus:
+    image: prom/prometheus:v3.13.3
+    container_name: todak-prometheus
+    restart: unless-stopped
+    mem_limit: 512m
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+      - --storage.tsdb.retention.size=4GB
+      - --web.enable-remote-write-receiver     # Alloy push 수신 — 필수
+    ports:
+      - "${DATA_PRIVATE_IP}:9090:9090"
+    volumes:
+      - ./prometheus/prometheus-deploy.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus-data:/prometheus
+    networks: [ todak-data ]
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.0
+    container_name: todak-alertmanager
+    restart: unless-stopped
+    mem_limit: 128m
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --web.listen-address=:10001
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    secrets:
+      - slack_webhook_url
+    networks: [ todak-data ]
+
+  loki:
+    image: grafana/loki:3.7
+    container_name: todak-loki
+    restart: unless-stopped
+    mem_limit: 384m
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "${DATA_PRIVATE_IP}:3100:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki-data:/loki
+    networks: [ todak-data ]
+
+  grafana:
+    image: grafana/grafana:13.2
+    container_name: todak-grafana
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - "127.0.0.1:3000:3000"                # SSM 포워딩 전용
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./grafana/todak-observability.json:/var/lib/grafana/dashboards/todak-observability.json:ro
+    depends_on: [ prometheus, loki ]
+    networks: [ todak-data ]
+
+  zipkin:
+    image: openzipkin/zipkin:3
+    container_name: todak-zipkin
+    restart: unless-stopped
+    mem_limit: 320m
+    environment:
+      JAVA_OPTS: "-XX:MaxRAMPercentage=70"
+    ports:
+      - "${DATA_PRIVATE_IP}:9411:9411"       # APP EC2가 트레이스를 보냄
+    healthcheck: # ← 추가
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:9411/health" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks: [ todak-data ]
+
+volumes:
+  prometheus-data:
+  loki-data:
+  grafana-data:
+
+networks:
+  todak-data:
+    external: true
+
+secrets:
+  slack_webhook_url:
+    environment: SLACK_WEBHOOK_URL

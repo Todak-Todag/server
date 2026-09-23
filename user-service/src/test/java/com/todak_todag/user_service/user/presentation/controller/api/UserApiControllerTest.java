@@ -1,0 +1,510 @@
+package com.todak_todag.user_service.user.presentation.controller.api;
+
+import static com.todak_todag.user_service.support.AuthenticatedRequestSupport.asUser;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willDoNothing;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.time.Duration;
+import java.util.UUID;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration;
+import org.springframework.boot.autoconfigure.aop.AopAutoConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+
+import com.todak_todag.user_service.global.common.UserRole;
+import com.todak_todag.user_service.global.config.SecurityConfig;
+import com.todak_todag.user_service.global.exception.BusinessException;
+import com.todak_todag.user_service.global.exception.RegionErrorCode;
+import com.todak_todag.user_service.global.exception.UserErrorCode;
+import com.todak_todag.user_service.user.application.command.UserPasswordUpdateCommand;
+import com.todak_todag.user_service.user.application.facade.UserFacade;
+import com.todak_todag.user_service.user.application.service.command.UserUpdateService;
+import com.todak_todag.user_service.user.application.service.query.UserQueryService;
+import com.todak_todag.user_service.user.application.service.result.UserInfoResult;
+import com.todak_todag.user_service.user.presentation.cookie.CookieProvider;
+
+@WebMvcTest(UserApiController.class)
+@ImportAutoConfiguration(AopAutoConfiguration.class)
+@Import(SecurityConfig.class)
+@ActiveProfiles("test")
+class UserApiControllerTest {
+
+	private static final String URI = "/api/v1/users/me";
+
+	private static final UUID USER_ID = UUID.randomUUID();
+
+	@Autowired
+	private MockMvc mockMvc;
+
+	@MockitoBean
+	private UserQueryService userQueryService;
+
+	@MockitoBean
+	private UserFacade userFacade;
+
+	@MockitoBean
+	private UserUpdateService userUpdateService;
+	
+	@MockitoBean
+	private CookieProvider cookieProvider;
+
+	@Nested
+	@DisplayName("내 정보 조회")
+	class Me {
+
+		@Test
+		@DisplayName("정상 헤더로 요청하면 내 정보를 조회한다")
+		void meTest_success() throws Exception {
+			// given
+			UUID regionId = UUID.randomUUID();
+			UserInfoResult result = new UserInfoResult(
+					"김영수",
+					"전라남도",
+					"고흥군",
+					"01012345678",
+					regionId,
+					UserRole.PATIENT,
+					true
+			);
+
+			given(userQueryService.getMe(USER_ID)).willReturn(result);
+
+			// when & then
+			mockMvc.perform(get(URI)
+					.with(asUser(USER_ID, UserRole.PATIENT)))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.success").value(true))
+					.andExpect(jsonPath("$.code").value(200))
+					.andExpect(jsonPath("$.message").value("내 정보 조회 완료"))
+					.andExpect(jsonPath("$.data.name").value("김영수"))
+					.andExpect(jsonPath("$.data.province").value("전라남도"))
+					.andExpect(jsonPath("$.data.district").value("고흥군"))
+					.andExpect(jsonPath("$.data.phone").value("01012345678"))
+					.andExpect(jsonPath("$.data.regionId").value(regionId.toString()))
+					.andExpect(jsonPath("$.data.role").value("퇴원 예정자"));
+		}
+
+		@Test
+		@DisplayName("지역 ID는 있는데 해당 지역을 찾을 수 없으면 404 에러 응답을 반환한다")
+		void meTest_fail_regionNotFound() throws Exception {
+			// given
+			given(userQueryService.getMe(USER_ID))
+					.willThrow(new BusinessException(RegionErrorCode.REGION_NOT_FOUND));
+
+			// when & then
+			mockMvc.perform(get(URI)
+							.with(asUser(USER_ID, UserRole.PATIENT)))
+					.andExpect(status().isNotFound())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value("REGION_NOT_FOUND"));
+		}
+
+		@Test
+		@DisplayName("지역 ID가 없는 사용자는 province/district/regionId가 없는 정보를 응답한다")
+		void meTest_noRegion() throws Exception {
+			// given
+			UserInfoResult result = new UserInfoResult(
+					"관리자",
+					null,
+					null,
+					"01099998888",
+					null,
+					UserRole.MASTER,
+					false
+			);
+
+			given(userQueryService.getMe(USER_ID)).willReturn(result);
+
+			// when & then
+			mockMvc.perform(get(URI)
+							.with(asUser(USER_ID, UserRole.MASTER)))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.data.province").doesNotExist())
+					.andExpect(jsonPath("$.data.district").doesNotExist())
+					.andExpect(jsonPath("$.data.regionId").doesNotExist());
+		}
+
+		@Test
+		@DisplayName("인증 헤더 없이 요청하면 인증에 실패하고 서비스를 호출하지 않는다")
+		void meTest_fail_unauthenticated() throws Exception {
+			// when & then
+			mockMvc.perform(get(URI))
+					.andExpect(status().is4xxClientError());
+
+			then(userQueryService).should(never()).getMe(any(UUID.class));
+		}
+
+		@Test
+		@DisplayName("존재하지 않는 사용자면 404 에러 응답을 반환한다")
+		void meTest_fail_userNotFound() throws Exception {
+			// given
+			given(userQueryService.getMe(USER_ID))
+					.willThrow(new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+			// when & then
+			mockMvc.perform(get(URI)
+							.with(asUser(USER_ID, UserRole.PATIENT)))
+					.andExpect(status().isNotFound())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+		}
+	}
+
+	@Nested
+	@DisplayName("퇴원 예정자 등록")
+	class CreatePatient {
+
+		private static final String PATIENT_URI = "/api/v1/users/patient";
+
+		private static final String VALID_BODY = """
+				{
+				  "username": "patient0001",
+				  "password": "Test1234!@",
+				  "name": "박환자",
+				  "phone": "01011112222",
+				  "regionId": null,
+				  "address": null
+				}
+				""";
+
+		@Test
+		@DisplayName("병원 담당자가 아니면 500이 아닌 403을 반환하고 서비스를 호출하지 않는다")
+		void createPatientTest_fail_forbiddenRole() throws Exception {
+			// when & then
+			mockMvc.perform(post(PATIENT_URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content(VALID_BODY))
+					.andExpect(status().isForbidden())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN"));
+
+			then(userFacade).should(never()).createUserPatient(any());
+		}
+	}
+
+	@Nested
+	@DisplayName("비밀번호 변경")
+	class PasswordUpdate {
+
+		private static final String PASSWORD_URI = "/api/v1/users/me/password";
+
+		@Test
+		@DisplayName("정상 요청이면 200과 함께 사용자 식별자를 반환한다")
+		void passwordUpdateTest_success() throws Exception {
+			// given
+			given(userFacade.passwordUpdate(any())).willReturn(USER_ID);
+
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isOk())
+					.andExpect(jsonPath("$.success").value(true))
+					.andExpect(jsonPath("$.message").value("비밀번호가 변경되었습니다."))
+					.andExpect(jsonPath("$.data.userId").value(USER_ID.toString()));
+		}
+
+		@Test
+		@DisplayName("새 비밀번호가 정책(영문/숫자/특수문자 8자 이상)에 맞지 않으면 400을 반환하고 서비스를 호출하지 않는다")
+		void passwordUpdateTest_fail_invalidPattern() throws Exception {
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "short1!"
+									}
+									"""))
+					.andExpect(status().isBadRequest());
+
+			then(userFacade).should(never()).passwordUpdate(any());
+		}
+
+		@Test
+		@DisplayName("기존 비밀번호가 비어있으면 400을 반환하고 서비스를 호출하지 않는다")
+		void passwordUpdateTest_fail_blankCurrentPassword() throws Exception {
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isBadRequest());
+
+			then(userFacade).should(never()).passwordUpdate(any());
+		}
+
+		@Test
+		@DisplayName("인증 헤더 없이 요청하면 인증에 실패하고 서비스를 호출하지 않는다")
+		void passwordUpdateTest_fail_unauthenticated() throws Exception {
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().is4xxClientError());
+
+			then(userFacade).should(never()).passwordUpdate(any());
+		}
+
+		@Test
+		@DisplayName("기존 비밀번호가 일치하지 않으면 409 에러 응답을 반환한다")
+		void passwordUpdateTest_fail_mismatched() throws Exception {
+			// given
+			given(userFacade.passwordUpdate(any()))
+					.willThrow(new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD));
+
+			// when & then
+			mockMvc.perform(patch(PASSWORD_URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "wrongPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isConflict())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value("USER_INVALID_CURRENT_PASSWORD"));
+		}
+
+		@Test
+		@DisplayName("정상 요청이면 AccessToken/RefreshToken 쿠키를 즉시 만료시킨다")
+		void passwordUpdateTest_success_expiresCookies() throws Exception {
+			// given
+			given(userFacade.passwordUpdate(any())).willReturn(USER_ID);
+
+			// when
+			mockMvc.perform(patch(PASSWORD_URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isOk());
+
+			// then
+			then(cookieProvider).should().addCookie(eq("AccessToken"), eq(Duration.ZERO), eq(""), any());
+			then(cookieProvider).should().addCookie(eq("RefreshToken"), eq(Duration.ZERO), eq(""), any());
+		}
+
+		@Test
+		@DisplayName("쿠키에서 읽은 AccessToken 이 Command 에 담겨 서비스로 전달된다")
+		void passwordUpdateTest_success_passesAccessTokenFromCookie() throws Exception {
+			// given
+			given(cookieProvider.getCookieValue(eq("AccessToken"), any())).willReturn("access-token-value");
+			given(userFacade.passwordUpdate(any())).willReturn(USER_ID);
+
+			// when
+			mockMvc.perform(patch(PASSWORD_URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isOk());
+
+			// then
+			ArgumentCaptor<UserPasswordUpdateCommand> captor =
+					ArgumentCaptor.forClass(UserPasswordUpdateCommand.class);
+			then(userFacade).should().passwordUpdate(captor.capture());
+
+			assertThat(captor.getValue().accessToken()).isEqualTo("access-token-value");
+			assertThat(captor.getValue().requesterId()).isEqualTo(USER_ID);
+		}
+
+		@Test
+		@DisplayName("기존 비밀번호가 일치하지 않으면 쿠키를 만료시키지 않는다")
+		void passwordUpdateTest_fail_doesNotExpireCookies() throws Exception {
+			// given
+			given(userFacade.passwordUpdate(any()))
+					.willThrow(new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD));
+
+			// when
+			mockMvc.perform(patch(PASSWORD_URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "wrongPw123!",
+									  "newPassword": "newPw123!"
+									}
+									"""))
+					.andExpect(status().isConflict());
+
+			// then
+			then(cookieProvider).should(never()).addCookie(any(), any(), any(), any());
+		}
+	}
+
+	@Nested
+	@DisplayName("회원탈퇴")
+	class UserDelete {
+
+		@Test
+		@DisplayName("정상 요청이면 204를 반환하고 AccessToken/RefreshToken 쿠키를 즉시 만료시킨다")
+		void userDeleteTest_success() throws Exception {
+			// given
+			willDoNothing().given(userFacade).userDelete(any());
+
+			// when & then
+			mockMvc.perform(delete(URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!"
+									}
+									"""))
+					.andExpect(status().isNoContent());
+
+			then(userFacade).should().userDelete(any());
+			then(cookieProvider).should().addCookie(eq("AccessToken"), eq(Duration.ZERO), eq(""), any());
+			then(cookieProvider).should().addCookie(eq("RefreshToken"), eq(Duration.ZERO), eq(""), any());
+		}
+
+		@Test
+		@DisplayName("탈퇴는 사용자 식별자 기준으로 세션을 무효화하므로 쿠키에서 AccessToken 을 읽지 않는다")
+		void userDeleteTest_success_doesNotReadAccessTokenCookie() throws Exception {
+			// given
+			willDoNothing().given(userFacade).userDelete(any());
+
+			// when
+			mockMvc.perform(delete(URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!"
+									}
+									"""))
+					.andExpect(status().isNoContent());
+
+			// then
+			then(cookieProvider).should(never()).getCookieValue(any(), any());
+		}
+
+		@Test
+		@DisplayName("현재 비밀번호가 비어있으면 400을 반환하고 서비스를 호출하지 않는다")
+		void userDeleteTest_fail_blankCurrentPassword() throws Exception {
+			// when & then
+			mockMvc.perform(delete(URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": ""
+									}
+									"""))
+					.andExpect(status().isBadRequest());
+
+			then(userFacade).should(never()).userDelete(any());
+		}
+
+		@Test
+		@DisplayName("인증 헤더 없이 요청하면 인증에 실패하고 서비스를 호출하지 않는다")
+		void userDeleteTest_fail_unauthenticated() throws Exception {
+			// when & then
+			mockMvc.perform(delete(URI)
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!"
+									}
+									"""))
+					.andExpect(status().is4xxClientError());
+
+			then(userFacade).should(never()).userDelete(any());
+		}
+
+		@Test
+		@DisplayName("현재 비밀번호가 일치하지 않으면 409 에러 응답을 반환하고 쿠키를 만료시키지 않는다")
+		void userDeleteTest_fail_passwordMismatch() throws Exception {
+			// given
+			willThrow(new BusinessException(UserErrorCode.USER_INVALID_CURRENT_PASSWORD))
+					.given(userFacade).userDelete(any());
+
+			// when & then
+			mockMvc.perform(delete(URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "wrongPw123!"
+									}
+									"""))
+					.andExpect(status().isConflict())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value("USER_INVALID_CURRENT_PASSWORD"));
+
+			then(cookieProvider).should(never()).addCookie(any(), any(), any(), any());
+		}
+
+		@Test
+		@DisplayName("요청자가 존재하지 않으면 404 에러 응답을 반환한다")
+		void userDeleteTest_fail_userNotFound() throws Exception {
+			// given
+			willThrow(new BusinessException(UserErrorCode.USER_NOT_FOUND))
+					.given(userFacade).userDelete(any());
+
+			// when & then
+			mockMvc.perform(delete(URI)
+							.with(asUser(USER_ID, UserRole.PATIENT))
+							.contentType(MediaType.APPLICATION_JSON)
+							.content("""
+									{
+									  "currentPassword": "currentPw123!"
+									}
+									"""))
+					.andExpect(status().isNotFound())
+					.andExpect(jsonPath("$.success").value(false))
+					.andExpect(jsonPath("$.code").value("USER_NOT_FOUND"));
+		}
+	}
+}
