@@ -1,5 +1,7 @@
 package com.todak_todag.user_service.user.presentation.controller.api;
 
+//자동배포 테스트를 위한 주석 추가 : 추후에 지울 계획
+
 import com.todak_todag.user_service.global.response.ApiResponse;
 import com.todak_todag.user_service.global.response.PageResponse;
 import com.todak_todag.user_service.user.presentation.request.RegionCreateRequest;
