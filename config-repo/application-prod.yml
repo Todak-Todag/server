@@ -10,6 +10,8 @@ management:
   endpoint:
     health:
       show-details: never          # local: always
+      probes:
+        enabled: true              # /actuator/health/readiness 노출
 
   metrics:
     tags:
