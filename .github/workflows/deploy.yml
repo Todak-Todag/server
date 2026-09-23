@@ -49,7 +49,7 @@ jobs:
       - id: set
         name: 배포 대상 산출
         run: |
-          CHANGED='${{ toJSON(steps.filter.outputs.changes) }}'
+          CHANGED='${{ steps.filter.outputs.changes }}'
           echo "감지된 변경: $CHANGED"
 
           # Compose 변경 시 해당 계층의 서비스 전체를 대상에 포함
