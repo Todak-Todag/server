@@ -35,6 +35,9 @@ authentication:
   refresh-token:
     cookie-name: ${REFRESH_COOKIE_NAME}
 
+cors:
+  allowed-origins: ${ALLOWED_ORIGINS}
+
 eureka:
   client:
     service-url:

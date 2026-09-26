@@ -17,6 +17,10 @@ rate-limit:
       refill-tokens: 10
       refill-period: 1m
 
+cors:
+  allowed-origins:
+    - http://localhost:5173
+
 authentication:
   access-token:
     cookie-name: ${ACCESS_COOKIE_NAME:AccessToken}

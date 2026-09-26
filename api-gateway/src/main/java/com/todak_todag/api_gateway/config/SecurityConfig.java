@@ -4,6 +4,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -24,7 +25,8 @@ import com.todak_todag.api_gateway.authentication.ClientCookieConverter;
 	AuthenticationProperties.class,
 	RefreshTokenProperties.class,
 	InternalJwtProperties.class,
-	RateLimitProperties.class
+	RateLimitProperties.class,
+	CorsProperties.class
 })
 @Configuration
 @EnableWebFluxSecurity
@@ -48,6 +50,7 @@ public class SecurityConfig {
 		;
 		
 		http
+				.cors(Customizer.withDefaults())
 				.csrf(ServerHttpSecurity.CsrfSpec::disable)
 				.httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
 				.formLogin(ServerHttpSecurity.FormLoginSpec::disable)
