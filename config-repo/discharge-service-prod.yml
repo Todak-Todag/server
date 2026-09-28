@@ -59,4 +59,3 @@ internal-jwt:
   issuer: todak-api-gateway
   audience: ${spring.application.name}
   clock-skew: 30s
-
