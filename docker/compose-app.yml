@@ -322,6 +322,10 @@ services:
       # Internal API Key
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
 
+      # Gateway JWT
+      GATEWAY_JWKS_URI: ${GATEWAY_JWKS_URI}
+
+
     ports:
       - "19001:19001"
 
@@ -376,6 +380,10 @@ services:
 
       # Internal API Key
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+      # Gateway JWT
+      GATEWAY_JWKS_URI: ${GATEWAY_JWKS_URI}
+
 
     ports:
       - "19002:19002"
