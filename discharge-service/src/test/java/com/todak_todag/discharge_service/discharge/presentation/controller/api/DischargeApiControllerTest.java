@@ -10,6 +10,7 @@ import com.todak_todag.discharge_service.discharge.application.service.query.Dis
 import com.todak_todag.discharge_service.discharge.domain.entity.DischargeStatus;
 import com.todak_todag.discharge_service.global.common.UserRole;
 import com.todak_todag.discharge_service.global.config.SecurityConfig;
+import com.todak_todag.discharge_service.global.security.GatewayAuthenticationConverter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -18,8 +19,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import com.todak_todag.discharge_service.discharge.application.result.DischargeCompleteResult;
 
 import java.time.Instant;
@@ -27,6 +30,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -49,6 +53,17 @@ class DischargeApiControllerTest {
     @MockitoBean
     private DischargeQueryService dischargeQueryService;
 
+    /** 컨트롤러 테스트에서는 JWT 서명 대신 실제 Converter가 만든 인증 객체를 주입한다. */
+    private static RequestPostProcessor authenticatedUser(String userId, UserRole role) {
+        Jwt jwt = Jwt.withTokenValue("test-gateway-token")
+                .header("alg", "RS256")
+                .subject(userId)
+                .claim("role", role.name())
+                .build();
+
+        return authentication(new GatewayAuthenticationConverter().convert(jwt));
+    }
+
     @Test
     void 퇴원건_생성에_성공한다() throws Exception {
         UUID dischargeId = UUID.randomUUID();
@@ -70,14 +85,10 @@ class DischargeApiControllerTest {
 
         mockMvc.perform(
                         post("/api/v1/discharges")
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
@@ -103,14 +114,10 @@ class DischargeApiControllerTest {
 
         mockMvc.perform(
                         post("/api/v1/discharges")
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "PATIENT"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.PATIENT
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
@@ -132,14 +139,10 @@ class DischargeApiControllerTest {
 
         mockMvc.perform(
                         post("/api/v1/discharges")
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
@@ -178,14 +181,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}",
                                 dischargeId
                         )
-                                .header(
-                                        "X-User-Id",
-                                        hospitalStaffId.toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        hospitalStaffId.toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
@@ -221,14 +220,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}",
                                 dischargeId
                         )
-                                .header(
-                                        "X-User-Id",
-                                        hospitalStaffId.toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        hospitalStaffId.toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
@@ -257,14 +252,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}",
                                 dischargeId
                         )
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "PATIENT"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.PATIENT
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
@@ -305,14 +296,10 @@ class DischargeApiControllerTest {
 
         mockMvc.perform(
                         get("/api/v1/discharges")
-                                .header(
-                                        "X-User-Id",
-                                        hospitalStaffId.toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        hospitalStaffId.toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                                 .param("page", "0")
                                 .param("size", "10")
                                 .param("sort", "createdAt,DESC")
@@ -370,14 +357,10 @@ class DischargeApiControllerTest {
 
         mockMvc.perform(
                         get("/api/v1/discharges")
-                                .header(
-                                        "X-User-Id",
-                                        hospitalStaffId.toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        hospitalStaffId.toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -391,14 +374,10 @@ class DischargeApiControllerTest {
     void 병원_담당자가_아니면_퇴원건_목록을_조회할_수_없다() throws Exception {
         mockMvc.perform(
                         get("/api/v1/discharges")
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "PATIENT"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.PATIENT
+                                ))
                 )
                 .andExpect(status().isForbidden());
     }
@@ -407,14 +386,10 @@ class DischargeApiControllerTest {
     void 잘못된_퇴원_상태로_목록을_조회하면_400을_반환한다() throws Exception {
         mockMvc.perform(
                         get("/api/v1/discharges")
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                                 .param(
                                         "status",
                                         "INVALID_STATUS"
@@ -463,14 +438,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}",
                                 dischargeId
                         )
-                                .header(
-                                        "X-User-Id",
-                                        patientId.toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "PATIENT"
-                                )
+                                .with(authenticatedUser(
+                                        patientId.toString(),
+                                        UserRole.PATIENT
+                                ))
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -530,14 +501,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}",
                                 dischargeId
                         )
-                                .header(
-                                        "X-User-Id",
-                                        hospitalStaffId.toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        hospitalStaffId.toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                 )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -567,14 +534,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}",
                                 UUID.randomUUID()
                         )
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "SOCIAL_WORKER"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.SOCIAL_WORKER
+                                ))
                 )
                 .andExpect(status().isForbidden());
     }
@@ -605,14 +568,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}/completed",
                                 dischargeId
                         )
-                                .header(
-                                        "X-User-Id",
-                                        hospitalStaffId.toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        hospitalStaffId.toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
@@ -648,14 +607,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}/completed",
                                 dischargeId
                         )
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "PATIENT"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.PATIENT
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
@@ -676,14 +631,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}/completed",
                                 dischargeId
                         )
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
@@ -716,14 +667,10 @@ class DischargeApiControllerTest {
                                 "/api/v1/discharges/{dischargeId}/completed",
                                 dischargeId
                         )
-                                .header(
-                                        "X-User-Id",
-                                        UUID.randomUUID().toString()
-                                )
-                                .header(
-                                        "X-User-Role",
-                                        "HOSPITAL_STAFF"
-                                )
+                                .with(authenticatedUser(
+                                        UUID.randomUUID().toString(),
+                                        UserRole.HOSPITAL_STAFF
+                                ))
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(requestBody)
                 )
