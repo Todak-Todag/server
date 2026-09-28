@@ -415,6 +415,7 @@ erDiagram
 - [프로파일별 서비스 설정](config-repo) · [실행·모니터링 구성](docker)
 
 ## 팀원 소개
-| 김경민                     | 최한솔                     | 서주성                                    | 정수민                                | 김정석                                | 원제희                    |
-|-------------------------|-------------------------|----------------------------------------|------------------------------------|------------------------------------|------------------------|
-| 일정 도메인 운영 <br> 구조 전체 리드 | 케어플랜 구현 <br> 모니터링 정책 정비 | 인증 및 Auth 흐름 설계 <br> API Gateway 진입 점검 | 서비스 관리 및 제공자 매칭 <br> 매칭 판정 알고리즘 설계 | 약관 및 지역 관리 API 구현 <br> 인프라 구축 및 배포 | 퇴원 상태 전이 <br> 사회복지사 매칭 |
+| <img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/4e2e61f8-3537-4e5d-89e4-6f3992d260fa" /> | <img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/4ac33f9c-97b4-49a5-ba56-f87238879a07" /> | <img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/43bddded-9089-425d-b931-b03cc07db754" /> | <img width="512" height="512" alt="image" src="https://github.com/user-attachments/assets/227b30f2-21c1-44a5-a949-fb620541711d" /> | <img width="384" height="512" alt="1000009462" src="https://github.com/user-attachments/assets/90b83471-53de-40bb-a793-a01249b442ec" /> | <img width="682" height="512" alt="IMG_1201" src="https://github.com/user-attachments/assets/e9d3ceb9-6464-4d64-a742-896498156f59" /> |
+| --- | --- | --- | --- | --- | --- |
+| 김경민 | 최한솔 | 김정석 | 정수민 | 서주성 | 원제희 |
+| 일정 도메인 운영 <br> 구조 전체 리드 | 케어플랜 구현 <br> 모니터링 정책 정비 | 약관 및 지역 관리 API 구현 <br> 인프라 구축 및 배포 | 서비스 관리 및 제공자 매칭 <br> 매칭 판정 알고리즘 설계 | 인증 및 Auth 흐름 설계 <br> API Gateway 진입 점검 | 퇴원 상태 전이 <br> 사회복지사 매칭 |
