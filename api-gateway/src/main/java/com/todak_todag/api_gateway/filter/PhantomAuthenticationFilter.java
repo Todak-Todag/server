@@ -1,5 +1,7 @@
 package com.todak_todag.api_gateway.filter;
 
+import java.util.List;
+
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.route.Route;
@@ -19,12 +21,12 @@ import reactor.core.publisher.Mono;
 @Component
 @RequiredArgsConstructor
 public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
-
-  private static final String USER_ID_HEADER = "X-User-Id";
-	
-	private static final String USER_ROLE_HEADER = "X-User-Role";
 	
 	private static final String GATEWAY_TOKEN_HEADER = "X-Gateway-Token";
+	
+	// 레거시 인증 구조에서 쓰던 헤더. 이제 주입하지 않지만, 외부에서 위조해 보낸 값이
+	// downstream 으로 흘러가지 않도록 제거만 유지한다.
+	private static final List<String> LEGACY_CLIENT_HEADERS = List.of("X-User-Id", "X-User-Role");
 	
 	private final InternalTokenIssuer tokenIssuer;
 	
@@ -56,8 +58,6 @@ public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
 		
 		ServerHttpRequest request = sanitizedExchange.getRequest().mutate()
 				.headers(headers -> {
-					headers.set(USER_ID_HEADER, clientContext.userId());
-					headers.set(USER_ROLE_HEADER, clientContext.role());
 					headers.set(GATEWAY_TOKEN_HEADER, gatewayToken);
 				})
 				.build();
@@ -71,9 +71,8 @@ public class PhantomAuthenticationFilter implements GlobalFilter, Ordered {
 		ServerHttpRequest request = exchange.getRequest()
 				.mutate()
 				.headers(headers -> {
-					headers.remove(USER_ID_HEADER);
-					headers.remove(USER_ROLE_HEADER);
 					headers.remove(GATEWAY_TOKEN_HEADER);
+					LEGACY_CLIENT_HEADERS.forEach(headers::remove);
 				})
 				.build();
 		

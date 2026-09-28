@@ -42,7 +42,7 @@ import reactor.netty.http.server.HttpServer;
 
 /**
  * AccessToken Cookie → SHA-256 → 저장소 조회 → JWT 검증 → Spring Security 인증
- * → Gateway 라우팅 → X-User-Id / X-User-Role 전달 까지를 실제 filter chain 으로 확인한다.
+ * → Gateway 라우팅 → X-Gateway-Token 전달 까지를 실제 filter chain 으로 확인한다.
  *
  * downstream 은 reactor-netty 로 띄운 테스트 전용 서버이고, lb://user-service 가 그 서버로
  * 해석되도록 discovery 를 대체한다. 라우트 정의 자체는 application.yml 의 운영 설정을 그대로 쓴다.
@@ -64,6 +64,9 @@ class AuthenticationRoutingIntegrationTest {
 
 	private static final String COOKIE_NAME = "AccessToken";
 
+	private static final String GATEWAY_TOKEN_HEADER = "X-Gateway-Token";
+
+	// 레거시 인증 구조의 헤더. 주입은 제거되었고, 위조 값이 제거되는지만 검증한다.
 	private static final String USER_ID_HEADER = "X-User-Id";
 
 	private static final String USER_ROLE_HEADER = "X-User-Role";
@@ -125,8 +128,8 @@ class AuthenticationRoutingIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("정상 Cookie 요청은 downstream 까지 전달되고 검증된 사용자 헤더가 붙는다")
-	void forwardsAuthenticatedRequestWithVerifiedClientHeaders() {
+	@DisplayName("정상 Cookie 요청은 downstream 까지 전달되고 X-Gateway-Token 이 붙는다")
+	void forwardsAuthenticatedRequestWithGatewayToken() {
 		String token = storedToken();
 
 		webTestClient.get()
@@ -137,13 +140,14 @@ class AuthenticationRoutingIntegrationTest {
 
 		RecordedRequest forwarded = singleDownstreamRequest();
 
-		assertThat(forwarded.header(USER_ID_HEADER)).isEqualTo("1");
-		assertThat(forwarded.header(USER_ROLE_HEADER)).isEqualTo("USER");
+		assertThat(forwarded.header(GATEWAY_TOKEN_HEADER)).isNotBlank();
+		assertThat(forwarded.header(USER_ID_HEADER)).isNull();
+		assertThat(forwarded.header(USER_ROLE_HEADER)).isNull();
 	}
 
 	@Test
-	@DisplayName("로그아웃도 인증이 필요하며, 인증되면 검증된 사용자 헤더가 downstream까지 전달된다")
-	void forwardsAuthenticatedLogoutRequestWithVerifiedClientHeaders() {
+	@DisplayName("로그아웃도 인증이 필요하며, 인증되면 X-Gateway-Token 이 downstream까지 전달된다")
+	void forwardsAuthenticatedLogoutRequestWithGatewayToken() {
 		String token = storedToken();
 
 		webTestClient.post()
@@ -154,8 +158,7 @@ class AuthenticationRoutingIntegrationTest {
 
 		RecordedRequest forwarded = singleDownstreamRequest();
 
-		assertThat(forwarded.header(USER_ID_HEADER)).isEqualTo("1");
-		assertThat(forwarded.header(USER_ROLE_HEADER)).isEqualTo("USER");
+		assertThat(forwarded.header(GATEWAY_TOKEN_HEADER)).isNotBlank();
 	}
 
 	@Test
@@ -169,8 +172,8 @@ class AuthenticationRoutingIntegrationTest {
 	}
 
 	@Test
-	@DisplayName("외부에서 보낸 위조 사용자 헤더는 검증된 값으로 교체되어 전달된다")
-	void replacesForgedClientHeadersBeforeForwarding() {
+	@DisplayName("외부에서 보낸 위조 레거시 사용자 헤더는 제거되어 downstream 으로 전달되지 않는다")
+	void stripsForgedLegacyClientHeadersBeforeForwarding() {
 		String token = storedToken();
 
 		webTestClient.get()
@@ -183,8 +186,9 @@ class AuthenticationRoutingIntegrationTest {
 
 		RecordedRequest forwarded = singleDownstreamRequest();
 
-		assertThat(forwarded.headerValues(USER_ID_HEADER)).containsExactly("1");
-		assertThat(forwarded.headerValues(USER_ROLE_HEADER)).containsExactly("USER");
+		assertThat(forwarded.header(GATEWAY_TOKEN_HEADER)).isNotBlank();
+		assertThat(forwarded.header(USER_ID_HEADER)).isNull();
+		assertThat(forwarded.header(USER_ROLE_HEADER)).isNull();
 	}
 
 	@Test
@@ -363,10 +367,6 @@ class AuthenticationRoutingIntegrationTest {
 			List<String> values = headers.get(name);
 
 			return (values == null || values.isEmpty()) ? null : values.get(0);
-		}
-
-		private List<String> headerValues(String name) {
-			return headers.getOrDefault(name, List.of());
 		}
 
 	}

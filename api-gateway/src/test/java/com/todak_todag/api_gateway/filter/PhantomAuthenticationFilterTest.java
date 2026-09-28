@@ -35,6 +35,7 @@ import reactor.test.StepVerifier;
 @DisplayName("PhantomAuthenticationFilter")
 class PhantomAuthenticationFilterTest {
 
+	// 레거시 인증 구조의 헤더. 주입은 제거되었고, 위조 값이 제거되는지만 검증한다.
 	private static final String USER_ID_HEADER = "X-User-Id";
 
 	private static final String USER_ROLE_HEADER = "X-User-Role";
@@ -51,21 +52,6 @@ class PhantomAuthenticationFilterTest {
 	@BeforeEach
 	void setUp() {
 		given(tokenIssuer.issue(any(), anyString())).willReturn("stub-gateway-token");
-	}
-
-	@Test
-	@DisplayName("인증된 요청에는 검증된 X-User-Id, X-User-Role 이 추가된다")
-	void addsClientHeadersForAuthenticatedRequest() {
-		ServerWebExchange exchange = exchangeWithPrincipal(
-				MockServerHttpRequest.get("/api/v1/users/1").build(),
-				authenticated("1", "USER")
-		);
-
-		StepVerifier.create(phantomAuthenticationFilter.filter(exchange, chain))
-				.verifyComplete();
-
-		assertThat(chain.firstHeader(USER_ID_HEADER)).isEqualTo("1");
-		assertThat(chain.firstHeader(USER_ROLE_HEADER)).isEqualTo("USER");
 	}
 
 	@Test
@@ -135,8 +121,8 @@ class PhantomAuthenticationFilterTest {
 	}
 
 	@Test
-	@DisplayName("외부에서 보낸 위조 사용자 헤더는 검증된 값으로 교체된다")
-	void replacesForgedClientHeadersWithVerifiedValues() {
+	@DisplayName("위조 X-Gateway-Token 은 발급된 값으로 교체되고, 레거시 사용자 헤더는 제거된다")
+	void replacesForgedGatewayTokenAndStripsLegacyClientHeaders() {
 		ServerWebExchange exchange = exchangeWithPrincipal(
 				MockServerHttpRequest.get("/api/v1/users/1")
 						.header(USER_ID_HEADER, "9999")
@@ -149,9 +135,9 @@ class PhantomAuthenticationFilterTest {
 		StepVerifier.create(phantomAuthenticationFilter.filter(exchange, chain))
 				.verifyComplete();
 
-		assertThat(chain.firstHeaderValues(USER_ID_HEADER)).containsExactly("1");
-		assertThat(chain.firstHeaderValues(USER_ROLE_HEADER)).containsExactly("USER");
 		assertThat(chain.firstHeaderValues(GATEWAY_TOKEN_HEADER)).containsExactly("stub-gateway-token");
+		assertThat(chain.firstHeader(USER_ID_HEADER)).isNull();
+		assertThat(chain.firstHeader(USER_ROLE_HEADER)).isNull();
 	}
 
 	@Test
@@ -175,7 +161,7 @@ class PhantomAuthenticationFilterTest {
 	}
 
 	@Test
-	@DisplayName("인증되지 않은 ClientAuthenticationToken 은 사용자 헤더를 만들지 않는다")
+	@DisplayName("인증되지 않은 ClientAuthenticationToken 은 X-Gateway-Token 을 만들지 않는다")
 	void doesNotAddClientHeadersForUnauthenticatedToken() {
 		ServerWebExchange exchange = exchangeWithPrincipal(
 				MockServerHttpRequest.get("/api/v1/users/1")
@@ -188,12 +174,12 @@ class PhantomAuthenticationFilterTest {
 				.verifyComplete();
 
 		assertThat(chain.invocationCount()).isEqualTo(1);
+		assertThat(chain.lastHeader(GATEWAY_TOKEN_HEADER)).isNull();
 		assertThat(chain.lastHeader(USER_ID_HEADER)).isNull();
-		assertThat(chain.lastHeader(USER_ROLE_HEADER)).isNull();
 	}
 
 	@Test
-	@DisplayName("익명 인증은 authenticated 상태여도 principal 이 ClientContext 가 아니므로 사용자 헤더를 만들지 않는다")
+	@DisplayName("익명 인증은 authenticated 상태여도 principal 이 ClientContext 가 아니므로 X-Gateway-Token 을 만들지 않는다")
 	void doesNotAddClientHeadersForAnonymousAuthentication() {
 		Authentication anonymous = new AnonymousAuthenticationToken(
 				"anonymous-key",
@@ -214,8 +200,8 @@ class PhantomAuthenticationFilterTest {
 				.verifyComplete();
 
 		assertThat(chain.invocationCount()).isEqualTo(1);
+		assertThat(chain.lastHeader(GATEWAY_TOKEN_HEADER)).isNull();
 		assertThat(chain.lastHeader(USER_ID_HEADER)).isNull();
-		assertThat(chain.lastHeader(USER_ROLE_HEADER)).isNull();
 	}
 
 	@Test
